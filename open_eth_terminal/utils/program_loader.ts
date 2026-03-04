@@ -4,9 +4,10 @@ const { terminal } = terminalKit;
 import { Command } from "commander";
 import {
     CommandState, CommandResultType, Menu, MenuOption,
-    TerminalUserStateConfig, LogLevel
+    TerminalUserStateConfig, TerminalUserStateConfigContext, LogLevel
 } from "../types.ts";
 import { inspectLogger } from './logging.ts';
+import { Effect, pipe } from 'effect';
 
 /**
  * Wrap a commander program into a resolvable promise from a menu option.
@@ -27,8 +28,17 @@ export function loadProgram(program: Command, menuOption: MenuOption, state: Ter
             .command(menuOption.command)
             .description(menuOption.description)
             .action((...args: any[]) => {
+                
+                const tusccService = Effect.provideService(
+                    TerminalUserStateConfigContext, state
+                );
+                
+                const actionEffect = pipe(
+                    menuOption.action(...args),
+                    tusccService
+                );
 
-                menuOption.action(state)(...args)
+                Effect.runPromise(actionEffect)
                     .then(resolve)
                     .catch(reject);
 

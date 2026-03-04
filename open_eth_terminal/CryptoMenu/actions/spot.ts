@@ -1,13 +1,13 @@
 import chalk from "chalk";
 import { spot } from "../model/index.ts";
 import {
-    TerminalUserStateConfig, EnvironmentType,
-     CommandState, CommandResultType, DataSourceType,
-     APIKeyType, LogLevel
+     CommandResultType, DataSourceType,
+     LogLevel,
+     TerminalUserStateConfigContext
 } from "../../types.ts";
-import { lensPath, view, set } from "ramda";
 import { inspectLogger } from "./../../utils/logging.ts"
 import { getCoinGeckoApiKey, getLoadedToken } from "./../../utils/index.ts";
+import { Effect } from 'effect';
 
 /**
  * Handler for the spot price command.
@@ -16,12 +16,13 @@ import { getCoinGeckoApiKey, getLoadedToken } from "./../../utils/index.ts";
  * The function will error if no CoinGecko API key is provided on
  * the {@link TerminalUserStateConfig}.
  * 
- * @param st The {@link TerminalUserStateConfig} 
  * @param symbolStr The symbol to get the spot price for 
  * @returns {@link CommandState} 
  * @note The function is intended to expand to support multiple data sources.
  */
-export const spotPriceHandler = (st: TerminalUserStateConfig) => async (symbolStr: string): Promise<CommandState> => {
+export const spotPriceHandler = (symbolStr: string) => Effect.gen(function*() {
+    
+    const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     const API_KEY = getCoinGeckoApiKey(st);
     
@@ -53,7 +54,7 @@ export const spotPriceHandler = (st: TerminalUserStateConfig) => async (symbolSt
         _type: DataSourceType.CoinGecko,
       };
   
-      const result = await spot(symbolObj, API_KEY);
+      const result = yield* spot(symbolObj, API_KEY);
  
       applicationLogging(LogLevel.Debug)("Result: ");
       applicationLogging(LogLevel.Debug)(result);
@@ -73,4 +74,4 @@ export const spotPriceHandler = (st: TerminalUserStateConfig) => async (symbolSt
         result: { type: CommandResultType.Success },
         state: st,
     };
-}
+});

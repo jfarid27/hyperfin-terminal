@@ -34,6 +34,7 @@
     "commander": "^14.0.2",
     "d3": "^7.9.0",
     "dotenv": "^17.2.3",
+    "effect": "^3.19.19",
     "figlet": "^1.9.4",
     "jsdom": "^27.0.1",
     "open": "^11.0.0",
@@ -43,6 +44,7 @@
     "ts-pattern": "^5.9.0"
   },
   "devDependencies": {
+    "@effect/language-service": "^0.77.0",
     "@types/figlet": "^1.7.0",
     "@types/jsdom": "^27.0.0",
     "@types/node": "^25.0.3",

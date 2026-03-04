@@ -1,3 +1,4 @@
+import { Effect, Context } from "effect";
 
 /**
  * The environment types.
@@ -117,9 +118,17 @@ export interface TerminalUserStateConfig {
     scriptContext: ScriptContext;
 }
 
+export class TerminalUserStateConfigContext extends Context.Tag("TerminalUserStateConfigContext")<
+    TerminalUserStateConfigContext,
+    TerminalUserStateConfig
+>() {}
+
 export type ActionOptions = any;
 
-export type ActionHandler = (st: TerminalUserStateConfig) => (...args: any[]) => Promise<CommandState>;
+// export type ActionHandler = (st: TerminalUserStateConfig) => (...args: any[]) => Promise<CommandState>;
+
+export type ActionHandler = (...args: any[]) =>
+    Effect.Effect<CommandState, Error, TerminalUserStateConfigContext>;
 
 /**
  * Abstract menu option for terminal state.

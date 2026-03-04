@@ -2,6 +2,7 @@ import axios from "axios";
 import { prop, lensPath, view, defaultTo, pipe, map } from "ramda";
 import { DataSourceType } from "./../../types.ts";
 import { SpotPoint, ChartData, ChartPoint, CryptoSymbolType } from "./../types.ts";
+import { Effect } from 'effect';
 
 
 /**
@@ -25,27 +26,31 @@ const convertCoinGeckoChartResponseToChartData = pipe(
  * @param COINGECKO_API_KEY The CoinGecko API key.
  * @returns The current price for the specified symbol.
  */
-export async function fetchSpotCoingecko(symbol: CryptoSymbolType, COINGECKO_API_KEY: string): Promise<SpotPoint> {
+export function fetchSpotCoingecko(symbol: CryptoSymbolType, COINGECKO_API_KEY: string): Effect.Effect<SpotPoint, Error> {
     if (symbol._type !== DataSourceType.CoinGecko) {
-        throw new Error("Invalid data source type");
+        return Effect.fail(new Error("Invalid data source type"));
     }
     const COINGECKO_PRICE_API = "https://pro-api.coingecko.com/api/v3/simple/price";
-    const response = await axios.get(COINGECKO_PRICE_API, {
-        headers: {
-            "x_cg_pro_api_key": COINGECKO_API_KEY,
-        },
-        params: {
-            vs_currencies: "usd",
-            ids: symbol.id,
-        },
-    });
     
-    const price = pipe(
-        view(lensPath([symbol.id, "usd"])),
-        defaultTo(0)
-    )(response.data);
-
-    return { symbol, price };
+    return Effect.tryPromise(() =>
+        axios.get(COINGECKO_PRICE_API, {
+            headers: {
+                "x_cg_pro_api_key": COINGECKO_API_KEY,
+            },
+            params: {
+                vs_currencies: "usd",
+                ids: symbol.id,
+            },
+        })
+    ).pipe(
+       (response: any) => {
+            const price = pipe(
+                view(lensPath([symbol.id, "usd"])),
+                defaultTo(0)
+            )(response.data);
+            return Effect.succeed({ symbol, price });
+       }
+    );
 }
 
 
