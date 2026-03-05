@@ -1,6 +1,7 @@
 import * as Plot from "@observablehq/plot";
 import { JSDOM } from "npm:jsdom";
 import open from "npm:open";
+import { Effect } from "effect";
 
 /**
  * Options for configuring a time series in a multi-line chart
@@ -70,7 +71,12 @@ export function lineChart(data: any[], x: string, y: string) {
  * @param y The y axis label.
  * @param title The title of the chart.
  */
-export async function showLineChart(data: Record<string, any>[], x: string, y: string, title: string = "Chart") {
+export function showLineChart(
+    data: Record<string, any>[],
+    x: string,
+    y: string,
+    title: string = "Chart"
+): Effect.Effect<void, Error> {
     // specific setup for jsdom to match what Plot expects
     const jsdom = new JSDOM("");
     const document = jsdom.window.document;
@@ -110,7 +116,7 @@ export async function showLineChart(data: Record<string, any>[], x: string, y: s
         }
     }
     
-    await show(plot);
+    return Effect.tryPromise(() => show(plot));
 }
 
 /**
@@ -124,14 +130,14 @@ export async function showLineChart(data: Record<string, any>[], x: string, y: s
  * @param yLabel The y axis label
  * @param title The title of the chart
  */
-export async function showMultiLineChart(
+export function showMultiLineChart(
     series: TimeSeriesData[],
     x: string,
     y: string,
     xLabel: string = "Date",
     yLabel: string = "Value",
     title: string = "Multi-Line Chart"
-) {
+): Effect.Effect<void, Error> {
     // specific setup for jsdom to match what Plot expects
     const jsdom = new JSDOM("");
     const document = jsdom.window.document;
@@ -185,5 +191,5 @@ export async function showMultiLineChart(
         }
     }
     
-    await show(plot);
+    return Effect.tryPromise(() => show(plot));
 }

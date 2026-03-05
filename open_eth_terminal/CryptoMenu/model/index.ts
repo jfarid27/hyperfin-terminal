@@ -1,4 +1,4 @@
-import { CryptoSymbolType, SpotPoint } from "../types.ts";
+import { CryptoSymbolType, ChartData, SpotPoint } from "../types.ts";
 import { DataSourceType } from "../../types.ts";
 import { fetchSpotCoingecko, fetchChartCoingecko } from "./CoinGeckoApi.ts";
 import { fetchChartFreeCryptoAPI } from "./FreeCryptoAPIApi.ts";
@@ -24,14 +24,14 @@ export function spot(symbol: CryptoSymbolType, API_KEY: string): Effect<SpotPoin
  * @param symbol Specified symbol to fetch chart for.
  * @param API_KEY API key to use for the request.
  */
-export function chart(symbol: CryptoSymbolType, API_KEY: string) {
+export function chart(symbol: CryptoSymbolType, API_KEY: string): Effect<ChartData, Error, never> {
     switch (symbol._type) {
         case DataSourceType.FreeCryptoAPI:
             return fetchChartFreeCryptoAPI(symbol, API_KEY);
         case DataSourceType.CoinGecko:
             return fetchChartCoingecko(symbol, API_KEY);
         default:
-            throw new Error(`Unsupported symbol type: ${symbol._type}`);
+            return fail(new Error(`Unsupported symbol type: ${symbol._type}`));
     }
 }
 
