@@ -1,13 +1,13 @@
 import chalk from "chalk";
 import government from "./../model/index.ts";
-import { DataSourceType } from "./../../types.ts";
+import { DataSourceType, TerminalUserStateConfigContext } from "./../../types.ts";
 import {
-    TerminalUserStateConfig,
     CommandState, CommandResultType, LogLevel
 } from "./../../types.ts";
 import { inspectLogger } from "./../../utils/logging.ts";
 import { showLineChart } from "./../../components/charting.ts";
-import { pipe, prop, map, sortBy } from "ramda";
+import { pipe as pipeR, prop, map, sortBy } from "ramda";
+import { Effect } from "effect";
 
 /**
  * Processed FRED observation data point
@@ -32,7 +32,7 @@ interface FredApiResponse {
  * @returns object array with date, value, timestamp
  */
 export const processFredData = (data: FredApiResponse): ProcessedFredObservation[] => {
-    return pipe(
+    return pipeR(
         prop("observations"),
         map((obs: any) => {
             return {
@@ -45,16 +45,18 @@ export const processFredData = (data: FredApiResponse): ProcessedFredObservation
     )(data) as ProcessedFredObservation[];
 };
 
-export const fredHandler = (st: TerminalUserStateConfig) => async (
+export const fredHandler = (
     seriesId: string,
     startDate: string,
     endDate: string
-): Promise<CommandState> => {
+): Effect.Effect<CommandState, Error, TerminalUserStateConfigContext> => Effect.gen(function* () {
+    const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     const FRED_API_KEY = st.apiKeys.fred;
     
     if (!FRED_API_KEY) {
         console.log(chalk.red("No FRED API key found. Use 'keys fred <api_key>' to set it."));
+        yield* Effect.fail(new Error("No Fred API Key"));
         return {
             result: { type: CommandResultType.Error },
             state: st,
@@ -63,6 +65,7 @@ export const fredHandler = (st: TerminalUserStateConfig) => async (
 
     if (!seriesId) {
         console.log(chalk.red("No series ID provided"));
+        yield* Effect.fail(new Error("No Series ID provided"));
         return {
             result: { type: CommandResultType.Error },
             state: st,
@@ -71,6 +74,7 @@ export const fredHandler = (st: TerminalUserStateConfig) => async (
 
     if (!startDate || !endDate) {
         console.log(chalk.red("Both start date and end date are required (format: YYYY-MM-DD)"));
+        yield* Effect.fail(new Error("No Start Date or End Date provided"));
         return {
             result: { type: CommandResultType.Error },
             state: st,
@@ -86,7 +90,7 @@ export const fredHandler = (st: TerminalUserStateConfig) => async (
         // Fetch series metadata to get the title
         let seriesTitle = seriesId; // Default to series ID if metadata fetch fails
         try {
-            const metadata = await government.fred.getMetadata(seriesObj, FRED_API_KEY);
+            const metadata: any = yield* government.fred.getMetadata(seriesObj, FRED_API_KEY);
             seriesTitle = metadata?.seriess?.[0]?.title || seriesId;
             applicationLogging(LogLevel.Debug)(`Series title: ${seriesTitle}`);
         } catch (metadataError) {
@@ -95,7 +99,7 @@ export const fredHandler = (st: TerminalUserStateConfig) => async (
         }
 
         // Fetch series observations data
-        const result = await government.fred.get(seriesObj, startDate, endDate, FRED_API_KEY);
+        const result: any = yield* government.fred.get(seriesObj, startDate, endDate, FRED_API_KEY);
         
         applicationLogging(LogLevel.Debug)(result);
 
@@ -115,7 +119,7 @@ export const fredHandler = (st: TerminalUserStateConfig) => async (
             };
         }
 
-        await showLineChart(validData, "timestamp", "value", seriesTitle);
+        yield* showLineChart(validData, "timestamp", "value", seriesTitle);
 
         return {
             result: { type: CommandResultType.Success },
@@ -129,6 +133,6 @@ export const fredHandler = (st: TerminalUserStateConfig) => async (
             state: st,
         };
     }
-}
+})
 
 
