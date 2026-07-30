@@ -19,6 +19,7 @@ export enum APIKeyType {
     BlockchainCom = "blockchaincom",
     FreeCryptoAPI = "freecryptoapi",
     Fred = "fred",
+    Massive = "massive",
 }
 
 /**
@@ -30,6 +31,7 @@ export enum DataSourceType {
     BlockchainCom = 'blockchaincom',
     FreeCryptoAPI = 'freecryptoapi',
     Fred = 'fred',
+    Massive = 'massive',
 }
 
 /**
@@ -41,6 +43,7 @@ export interface DatasourceKeyMapping {
     [DataSourceType.BlockchainCom]: APIKeyType.BlockchainCom;
     [DataSourceType.FreeCryptoAPI]: APIKeyType.FreeCryptoAPI;
     [DataSourceType.Fred]: APIKeyType.Fred;
+    [DataSourceType.Massive]: APIKeyType.Massive;
 }
 
 /**

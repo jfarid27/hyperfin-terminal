@@ -15,6 +15,7 @@ import {
     COINGECKO_API_KEY, ALPHAVANTAGE_API_KEY,
     BLOCKCHAINCOM_API_KEY, FREECRYPTOAPI_API_KEY,
     FRED_API_KEY,
+    MASSIVE_API_KEY,
 } from "./config.ts";
 
 import { Menu, MenuOption, TerminalUserStateConfig, CommandResultType, LogLevel, EnvironmentType, CommandState, TerminalUserStateConfigContext } from "./types.ts";
@@ -182,6 +183,7 @@ export async function startMain(scriptFilename?: string) {
         blockchaincom: BLOCKCHAINCOM_API_KEY,
         freecryptoapi: FREECRYPTOAPI_API_KEY,
         fred: FRED_API_KEY,
+        massive: MASSIVE_API_KEY,
     },
     loadedContext: {},
     scriptContext: {}
