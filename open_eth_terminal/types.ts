@@ -1,4 +1,5 @@
 import { Effect, Context } from "effect";
+import { ProgramError } from "./errors/index.ts";
 
 /**
  * The environment types.
@@ -30,7 +31,7 @@ export enum DataSourceType {
     FreeCryptoAPI = 'freecryptoapi',
     Fred = 'fred',
 }
-   
+
 /**
  * Mapping of data source types to API key types.
  */
@@ -41,7 +42,7 @@ export interface DatasourceKeyMapping {
     [DataSourceType.FreeCryptoAPI]: APIKeyType.FreeCryptoAPI;
     [DataSourceType.Fred]: APIKeyType.Fred;
 }
-    
+
 /**
  * Configuration for the API keys.
  */
@@ -62,7 +63,7 @@ export enum PredictionMarketsType {
  * Cached data for polymarket markets.
  */
 export interface PolymarketMarketsData {
-   tags?: { [key: string]: string } 
+   tags?: { [key: string]: string }
 }
 
 export interface PredictionMarketsContext {
@@ -89,7 +90,7 @@ export interface ScriptContext {
 /**
  * Log levels allowing for developers to order log messages. It is intended that
  * these do not affect general output messages to the user.
- * 
+ *
  * The log levels are ordered from highest to lowest priority.
  * Levels:
  *  - Debug: 4 (Most verbose. Intended to show information about inputs and outputs as well as verbose data.)
@@ -128,7 +129,7 @@ export type ActionOptions = any;
 // export type ActionHandler = (st: TerminalUserStateConfig) => (...args: any[]) => Promise<CommandState>;
 
 export type ActionHandler = (...args: any[]) =>
-    Effect.Effect<CommandState, Error, TerminalUserStateConfigContext>;
+    Effect.Effect<CommandState, TerminalUserStateConfigContext>;
 
 /**
  * Abstract menu option for terminal state.
@@ -157,7 +158,7 @@ export enum CommandResultType {
     Exit = "exit",
     Timeout = "timeout",
 }
-    
+
 /**
  * Command result data, that allows passing string and the command's result information.
  */
@@ -165,7 +166,7 @@ export interface CommandResult {
     type: CommandResultType;
     message?: string;
 }
-    
+
 /*
  * Returned command state that signals results of a command, and
  * the updated state.

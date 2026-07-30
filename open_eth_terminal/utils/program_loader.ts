@@ -7,7 +7,17 @@ import {
     TerminalUserStateConfig, TerminalUserStateConfigContext, LogLevel
 } from "../types.ts";
 import { inspectLogger } from './logging.ts';
-import { Effect, pipe } from 'effect';
+import { Deferred, Effect, pipe } from 'effect';
+import {
+  HTTPError, ConfigError, TimeoutError,
+  HTTPErrorTag, ProgramError, TimeoutErrorTag,
+  UnknownError
+} from "../errors/index.ts";
+
+const failDeferred = (deferred) => (err) => Effect.gen(function* () {
+  const df = yield* deferred;
+  yield* Deferred.fail(df, err);
+});
 
 /**
  * Wrap a commander program into a resolvable promise from a menu option.
@@ -15,59 +25,54 @@ import { Effect, pipe } from 'effect';
  * The reason this exists is because commander actions return promises of void,
  * but we need to resolve the command state of a completed action and pass it to
  * the next call.
- * 
+ *
  * @param program The commander program to wrap.
  * @param menuOption The menu option to wrap.
  * @param state The terminal user state config.
  * @param ops The options for the program.
  * @returns A promise that resolves to the command state.
  */
-export function loadProgram(program: Command, menuOption: MenuOption, state: TerminalUserStateConfig, ...ops: any) {
-    return new Promise<CommandState>((resolve, reject) => {
-        program
-            .command(menuOption.command)
-            .description(menuOption.description)
-            .action((...args: any[]) => {
-                
-                const tusccService = Effect.provideService(
-                    TerminalUserStateConfigContext, state
-                );
-                
-                const actionEffect = pipe(
-                    menuOption.action(...args),
-                    tusccService
-                );
+export function loadProgram(program: Command, menuOption: MenuOption, state: TerminalUserStateConfig) {
+  const deferred = Deferred.make<CommandState, ProgramError>();
+  program
+    .command(menuOption.command)
+    .description(menuOption.description)
+    .action(async (...args: any[]) => {
 
-                Effect.runPromise(actionEffect)
-                    .then(resolve)
-                    .catch(reject);
+      const tusccService = Effect.provideService(
+        TerminalUserStateConfigContext, state
+      );
 
-                // Set the timeout only if the action callback is set
-                if (ops?.timeout || state?.actionTimeout) {
-                    setTimeout(() => {
-                        console.log(chalk.red("Command timed out"));
-                        reject({
-                            result: { type: CommandResultType.Timeout },
-                            state: state,
-                        });
-                    }, ops?.timeout || state?.actionTimeout);
-                }
-            });
-            
+      // Compose the action effect with the deferred effect.
+      const actionEffect: Effect.Effect<void, unknown, never> = Effect.gen(function* () {
+        const res = yield* menuOption.action(...args);
+        const df = yield* deferred;
+        yield* Deferred.succeed(df, res);
+      }).pipe(
+        tusccService,
+      );
+
+      try {
+        await Effect.runPromise(actionEffect)
+      } catch (_error) {
+        return Deferred.fail(new UnknownError({ "message": "An unknown failure occurred."}))
+      }
+
     });
+  return deferred;
 }
 
 /*
  * Register a terminal application from a menu. Note the function is curried to allow
  * the terminal application runner to pass the menu registry and user state in separate calls.
- * 
+ *
  * @param menu The menu to register.
  * @returns A function that takes a terminal user state config and returns a promise that resolves to the terminal user state config.
  */
 export const registerTerminalApplication = (menu: Menu) => {
-    
+
     async function terminalApplication(st: TerminalUserStateConfig): Promise<TerminalUserStateConfig> {
-        
+
         const applicationLogging = inspectLogger(st);
         const menu_options = menu.options(st);
         // Only show menu if not in script mode
@@ -89,7 +94,7 @@ export const registerTerminalApplication = (menu: Menu) => {
                 fit: true
             });
         }
-        
+
         try {
             let input = "";
             let isScriptExecution = false;
@@ -117,10 +122,10 @@ export const registerTerminalApplication = (menu: Menu) => {
               writeErr: (str) => process.stdout.write(chalk.red(str)),
             });
 
-            const resultPs: Promise<CommandState>[] = menu_options.map((option) => {
+            const resultPs = menu_options.map((option) => {
                 if (isScriptExecution) {
                     const [nextCommand, ...rest] = st.scriptContext.tailCommands || [];
-                    
+
                     const nextScriptState: TerminalUserStateConfig = {
                         ...st,
                         scriptContext: {
@@ -129,57 +134,60 @@ export const registerTerminalApplication = (menu: Menu) => {
                             tailCommands: rest
                         }
                     };
-                    return loadProgram(program, option, nextScriptState)    
+                    return loadProgram(program, option, nextScriptState)
                 }
                 return loadProgram(program, option, st)
             });
 
             const args = input.split(/\s+/);
             await program.parseAsync(args, { from: "user" });
-            const result = await Promise.race(resultPs);
+            const result = await Effect.runPromise(Effect.gen(function* () {
+              const resultD = yield* Effect.raceAll(resultPs)
+              return yield* Deferred.await(resultD);
+            }))
 
             if (result && result.result.type === CommandResultType.Back) {
                 return result.state;
             }
-            
+
             if (result && result.result.type === CommandResultType.Exit) {
                 process.exit(0);
             }
 
-            let nextState = result.state;
-            
+            const nextState = result.state;
+
             // Check if script has completed and should exit
-            if (isScriptExecution && 
-                nextState.scriptContext?.exitAfterCompletion && 
+            if (isScriptExecution &&
+                nextState.scriptContext?.exitAfterCompletion &&
                 !nextState.scriptContext?.currentCommand) {
                 console.log(chalk.green("Script execution completed successfully"));
                 process.exit(0);
             }
-            
+
             return terminalApplication(nextState);
 
         } catch (err: any) {
             if (err.result?.type === CommandResultType.Timeout) {
                 console.log(chalk.red("Command timed out"));
             }
-            
+
             if (err.result?.type === CommandResultType.Error) {
                 console.log(chalk.red("Command failed"));
             }
-            
+
             applicationLogging(LogLevel.Error)(err);
             console.log(chalk.red("Not a valid command"));
-            
+
             // Fix for script loop on error:
             // If error occurred during script execution, abort.
             if (st.scriptContext?.currentCommand) {
                 console.log(chalk.red("Script execution aborted due to error."));
-                
+
                 // If running from command line with --oet-script, exit with error code
                 if (st.scriptContext?.exitAfterCompletion) {
                     process.exit(1);
                 }
-                
+
                 const abortState = {
                     ...st,
                     scriptContext: {} // Clear script context
@@ -189,8 +197,8 @@ export const registerTerminalApplication = (menu: Menu) => {
 
             return terminalApplication(st);
         }
-        
+
     }
-    
+
     return terminalApplication;
 }

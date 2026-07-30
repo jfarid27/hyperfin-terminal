@@ -7,6 +7,7 @@
  * @see {@link ActionHandler}
  */
 
+import { Effect } from "effect";
 import { project, pipe, set, filter, toLower, lensProp, map,
     lensPath, view, defaultTo, zip, tap, find,
     props, prop,
@@ -20,7 +21,7 @@ import {
     CommandState,
     LogLevel
 } from "../../../../types.ts";
-import { TerminalUserStateConfig } from "../../../../types.ts";
+import { TerminalUserStateConfigContext } from "../../../../types.ts";
 import { ActionHandler } from "../../../../types.ts";
 import chalk from "chalk";
 import { inspectLogger } from "../../../../utils/logging.ts"
@@ -55,7 +56,9 @@ export const processUserAccountData = pipe(
  * @param address Polymarket User Address. 
  * @returns CommandState 
  */
-export const predictionUserPositionsHandler: ActionHandler = (st: TerminalUserStateConfig) => async (address?: string): Promise<CommandState> => {
+export const predictionUserPositionsHandler: ActionHandler = (address?: string):
+Effect.Effect<CommandState, Error, TerminalUserStateConfigContext> => Effect.gen(function* () {
+    const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     
     if (!address) {
@@ -66,7 +69,7 @@ export const predictionUserPositionsHandler: ActionHandler = (st: TerminalUserSt
         };
     }
     
-    const response  = await PredictionMarketsData.polyMarketData.user.getPositions(address);
+    const response  = yield* PredictionMarketsData.polyMarketData.user.getPositions(address);
     applicationLogging(LogLevel.Info)("Fetched Data for user address: " + address);
     applicationLogging(LogLevel.Debug)(response);
     
@@ -110,4 +113,4 @@ export const predictionUserPositionsHandler: ActionHandler = (st: TerminalUserSt
         result: { type: CommandResultType.Success },
         state: st,
     };
-}
+});

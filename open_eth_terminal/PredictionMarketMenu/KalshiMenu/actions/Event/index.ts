@@ -1,12 +1,12 @@
 import { pipe, map, props } from "ramda";
+import { Effect } from "effect";
 import terminalKit from "terminal-kit";
 const { terminal } = terminalKit;
 import {
-    CommandResultType, CommandState,
-    LogLevel
+    CommandResultType,
+    LogLevel, TerminalUserStateConfigContext 
 } from "./../../../../types.ts";
-import { TerminalUserStateConfig } from "./../../../../types.ts";
-import { ActionHandler } from "./../../../../types.ts";
+import type { ActionHandler,} from "./../../../../types.ts";
 import chalk from "chalk";
 import { inspectLogger } from "./../../../../utils/logging.ts";
 import PredictionMarketsData from "./../../model/index.ts";
@@ -90,7 +90,8 @@ export const processMarketsData = (markets: any[]) => {
  * @param eventTicker Kalshi Event Ticker (e.g., "KXHIGHNY-26JAN10")
  * @returns CommandState 
  */
-export const kalshiEventViewHandler: ActionHandler = (st: TerminalUserStateConfig) => async (eventTicker?: string): Promise<CommandState> => {
+export const kalshiEventViewHandler: ActionHandler = (eventTicker?: string) => Effect.gen(function*() {
+    const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     
     if (!eventTicker) {
@@ -101,7 +102,7 @@ export const kalshiEventViewHandler: ActionHandler = (st: TerminalUserStateConfi
         };
     }
     
-    const response = await PredictionMarketsData.kalshiData.markets.getByEventTicker(eventTicker);
+    const response = yield* PredictionMarketsData.kalshiData.markets.getByEventTicker(eventTicker);
     applicationLogging(LogLevel.Debug)(response);
     
     if (!response.markets || response.markets.length === 0) {
@@ -182,4 +183,4 @@ export const kalshiEventViewHandler: ActionHandler = (st: TerminalUserStateConfi
         result: { type: CommandResultType.Success },
         state: st,
     };
-}
+});
