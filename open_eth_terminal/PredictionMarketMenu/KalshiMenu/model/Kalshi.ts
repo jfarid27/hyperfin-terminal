@@ -1,4 +1,3 @@
-import axios from "axios";
 import { pause } from "./../../../utils/timing.ts";
 import { Effect, pipe } from "effect";
 
@@ -10,16 +9,17 @@ import { Effect, pipe } from "effect";
  */
 export function fetchMarketsByEventTicker(eventTicker: string, limit?: number): Effect.Effect<any, Error> {
     return pipe(
-        Effect.tryPromise(() => axios.get(
-            `https://api.elections.kalshi.com/trade-api/v2/markets`,
-            {
-                params: {
-                    event_ticker: eventTicker,
-                    ...(limit && { limit }),
-                },
-            }
-        )),
-        Effect.flatMap((response: unknown) => Effect.succeed(response as any)),
+        Effect.tryPromise(async () => {
+            const params = new URLSearchParams({
+                event_ticker: eventTicker,
+                ...(limit ? { limit: String(limit) } : {}),
+            });
+            const response = await fetch(
+                `https://api.elections.kalshi.com/trade-api/v2/markets?${params}`
+            );
+            return response.json();
+        }),
+        Effect.flatMap((data) => Effect.succeed(data)),
         Effect.tap(() => Effect.sleep(3000)),
     )
 }

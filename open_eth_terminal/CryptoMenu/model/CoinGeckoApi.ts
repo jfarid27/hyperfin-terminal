@@ -1,4 +1,3 @@
-import axios from "axios";
 import { lensProp, lensPath, view, defaultTo, pipe as pipeR, map } from "ramda";
 import { DataSourceType } from "./../../types.ts";
 import { SpotPoint, ChartData, ChartPoint, CryptoSymbolType } from "./../types.ts";
@@ -48,17 +47,18 @@ export function fetchSpotCoingecko(symbol: CryptoSymbolType, COINGECKO_API_KEY: 
     const COINGECKO_PRICE_API = "https://pro-api.coingecko.com/api/v3/simple/price";
     
     return pipe(
-        Effect.tryPromise(() =>
-            axios.get(COINGECKO_PRICE_API, {
+        Effect.tryPromise(async () => {
+            const params = new URLSearchParams({
+                vs_currencies: "usd",
+                ids: symbol.id,
+            });
+            const response = await fetch(`${COINGECKO_PRICE_API}?${params}`, {
                 headers: {
                     "x_cg_pro_api_key": COINGECKO_API_KEY,
                 },
-                params: {
-                    vs_currencies: "usd",
-                    ids: symbol.id,
-                },
-            })
-        ),
+            });
+            return response.json();
+        }),
         Effect.map(getPrice(symbol)),
         Effect.map((price) => ({ symbol, price })),
     );
@@ -71,19 +71,22 @@ export function fetchChartCoingecko(symbol: CryptoSymbolType, COINGECKO_API_KEY:
     }
     const COINGECKO_CHART_API = "https://pro-api.coingecko.com/api/v3/coins/{id}/market_chart";
     return pipe(
-        Effect.tryPromise(() => axios.get(COINGECKO_CHART_API, {
-            headers: {
-                "x_cg_pro_api_key": COINGECKO_API_KEY,
-            },
-            params: {
+        Effect.tryPromise(async () => {
+            const params = new URLSearchParams({
                 vs_currencies: "usd",
                 days: "14",
                 interval: "daily",
                 id: symbol.id,
-            },
-        })),
+            });
+            const response = await fetch(`${COINGECKO_CHART_API}?${params}`, {
+                headers: {
+                    "x_cg_pro_api_key": COINGECKO_API_KEY,
+                },
+            });
+            return response.json();
+        }),
         Effect.map((res) => {
-            const prices = convertCoinGeckoChartResponseToChartData(res.data);
+            const prices = convertCoinGeckoChartResponseToChartData(res);
             return { symbol, prices };
         })
     );

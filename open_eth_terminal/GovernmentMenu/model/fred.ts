@@ -1,5 +1,4 @@
 import { FredSeriesType } from "../types.ts";
-import axios from "axios";
 import { Effect, pipe } from 'effect';
 
 /**
@@ -16,15 +15,16 @@ export function fetchFredSeriesMetadata(
     FRED_API_KEY: string
 ): Effect.Effect<unknown, Error> {
     return pipe(
-        Effect.tryPromise(() => axios.get("https://api.stlouisfed.org/fred/series", {
-                params: {
-                    series_id: series.seriesId,
-                    api_key: FRED_API_KEY,
-                    file_type: "json",
-                }
-            }))
-        ,
-        Effect.map((response: any) => response.data)
+        Effect.tryPromise(async () => {
+            const params = new URLSearchParams({
+                series_id: series.seriesId,
+                api_key: FRED_API_KEY,
+                file_type: "json",
+            });
+            const response = await fetch(`https://api.stlouisfed.org/fred/series?${params}`);
+            return response.json();
+        }),
+        Effect.map((data) => data)
     );
 }
 
@@ -45,16 +45,17 @@ export function fetchFredSeries(
     FRED_API_KEY: string
 ): Effect.Effect<unknown, Error> {
     return pipe(
-        Effect.tryPromise(() => axios.get("https://api.stlouisfed.org/fred/series/observations", {
-                params: {
-                    series_id: series.seriesId,
-                    api_key: FRED_API_KEY,
-                    file_type: "json",
-                    observation_start: startDate,
-                    observation_end: endDate,
-                }
-            }))
-        ,
-        Effect.map((response: any) => response.data)
+        Effect.tryPromise(async () => {
+            const params = new URLSearchParams({
+                series_id: series.seriesId,
+                api_key: FRED_API_KEY,
+                file_type: "json",
+                observation_start: startDate,
+                observation_end: endDate,
+            });
+            const response = await fetch(`https://api.stlouisfed.org/fred/series/observations?${params}`);
+            return response.json();
+        }),
+        Effect.map((data) => data)
     );
 }

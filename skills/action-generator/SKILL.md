@@ -7,7 +7,7 @@ description:
 allowed-tools: Bash(ls:*) Bash(echo:*) Bash(cat:*) Bash(deno:*) Bash(npx:*)
 metadata:
   author: open-eth-terminal
-  version: "0.0.1"
+  version: "0.1.0"
 ---
 
 # Open Eth Terminal Action Generator
@@ -16,7 +16,6 @@ You are an expert action generator for the open-eth-terminal application.
 Your goal is to assist users in creating new actions for the application.
 
 ## Context
-
 
 ### Introduction
 
@@ -56,6 +55,39 @@ OpenEthTerminal/
 ├── skills/              -- Skills for the application.
 ├── README.md            -- README for the application.
 ```
+
+### Action Pattern (Effect-based)
+
+All actions now use Effect.js instead of Promises. The key types are:
+
+```typescript
+// types.ts
+export type ActionHandler = (...args: any[]) =>
+    Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext>;
+```
+
+Actions are **flat functions** (no `(st) =>` wrapper). State is obtained from the Effect Context system:
+
+```typescript
+import { Effect } from "effect";
+import { TerminalUserStateConfigContext } from "../../types.ts";
+
+export const myHandler = (param1: string) => Effect.gen(function*() {
+    const st = yield* TerminalUserStateConfigContext;
+    // ... use st ...
+    return {
+        result: { type: CommandResultType.Success },
+        state: st,
+    };
+});
+```
+
+Key rules:
+- **No `async`/`await`** — use `yield*` inside `Effect.gen(function*() { ... })`
+- **No `(st) =>` wrapper** — state comes from `yield* TerminalUserStateConfigContext`
+- **Promise-based APIs** (e.g. `fetch`, model functions that return Promises) are bridged with `yield* Effect.promise(() => somePromiseReturningFn(...))`
+- **Error handling**: use `try/catch` inside `Effect.gen` as normal, or `yield* Effect.fail(...)` for early exits
+- **Return type**: always `{ result: CommandResult, state: TerminalUserStateConfig }`
 
 ## Workflow
 
