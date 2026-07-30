@@ -45,12 +45,17 @@ const polymarketMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => 
     },
     {
         name: "market",
-        command: "market <slug> [type]",
+        command: "market <slug> [type] [startTs] [endTs]",
         description: `Fetch a specific market by slug.
         
         type (optional): spot | chart
             - spot (default): show current market details
             - chart: show historical price chart for the market
+        
+        startTs (optional, Unix seconds): start of time range for chart
+        endTs (optional, Unix seconds): end of time range for chart
+            If endTs is omitted, fetches from startTs to present.
+            If both are omitted, defaults to the last 7 days.
         `,
         action: predictionMarketViewHandler,
     },
