@@ -10,3 +10,4 @@ export const ALPHAVANTAGE_API_KEY = process.env.ALPHAVANTAGE_API_KEY;
 export const BLOCKCHAINCOM_API_KEY = process.env.BLOCKCHAINCOM_API_KEY;
 export const FREECRYPTOAPI_API_KEY = process.env.FREECRYPTOAPI_API_KEY;
 export const FRED_API_KEY = process.env.FRED_API_KEY;
+export const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY;

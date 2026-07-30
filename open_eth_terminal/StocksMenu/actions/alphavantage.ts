@@ -84,9 +84,9 @@ export const chartPriceHandler = (symbolStr: string) => Effect.gen(function*() {
 export const spotPriceHandler = (symbolStr: string) => Effect.gen(function*() {
     const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
-    const ALPHAVANTAGE_API_KEY = st.apiKeys.alphavantage;
-    if (!ALPHAVANTAGE_API_KEY) {
-        console.log(chalk.red("No AlphaVantage API key found"));
+    const MASSIVE_API_KEY = st.apiKeys.massive;
+    if (!MASSIVE_API_KEY) {
+        console.log(chalk.red("No Massive API key found. Add MASSIVE_API_KEY to your .env file."));
         return {
             result: { type: CommandResultType.Error },
             state: st,
@@ -106,27 +106,35 @@ export const spotPriceHandler = (symbolStr: string) => Effect.gen(function*() {
     try {
       const symbolObj = {
         name: loadedTokenSymbol,
-        id: loadedTokenSymbol.toLowerCase(),
-        _type: DataSourceType.AlphaVantage,
+        id: loadedTokenSymbol.toUpperCase(),
+        _type: DataSourceType.Massive,
       };
   
-      const result: Record<string, string> = yield* Effect.promise(() => stocks.spot.get(symbolObj, ALPHAVANTAGE_API_KEY));
-      const spotData = pipe(
-          prop("Global Quote"),
-          props([
-              "01. symbol", 
-              "05. price", 
-              "09. change", 
-              "10. change percent", 
-              "06. volume", 
-              "07. latest trading day"
-          ]),
-          values,
-      )(result) as string[];
+      const result: any = yield* stocks.massive.spot.get(symbolObj, MASSIVE_API_KEY);
+      
+      const ticker = result?.ticker;
+      const day = result?.day;
+      const prevDay = result?.prevDay;
+      
+      if (!ticker) {
+          console.log(chalk.red("No data returned from Massive API"));
+          return {
+              result: { type: CommandResultType.Error },
+              state: st,
+          };
+      }
+      
+      const price = ticker.price || ticker.lastTrade?.p || "N/A";
+      const change = day?.c != null ? day.c.toFixed(2) : "N/A";
+      const changePercent = day?.cp != null ? day.cp.toFixed(2) + "%" : "N/A";
+      const volume = day?.v != null ? day.v.toLocaleString() : "N/A";
+      const prevClose = prevDay?.c != null ? prevDay.c.toFixed(2) : "N/A";
+      const high = day?.h != null ? day.h.toFixed(2) : "N/A";
+      const low = day?.l != null ? day.l.toFixed(2) : "N/A";
       
       terminal.table([
-          ['Symbol', 'Price', 'Change', 'Change %', 'Volume', 'Latest Trading Day'],
-          spotData
+          ['Symbol', 'Price', 'Change', 'Change %', 'Volume', 'Prev Close', 'High', 'Low'],
+          [ticker.ticker, `$${price}`, change, changePercent, volume, prevClose, high, low]
       ], {
           hasBorder: true,
           contentHasMarkup: true,
@@ -141,7 +149,7 @@ export const spotPriceHandler = (symbolStr: string) => Effect.gen(function*() {
     } catch (error) {
         applicationLogging(LogLevel.Error)(error);
 
-        console.log(chalk.red("Network Error"));
+        console.log(chalk.red("Network Error fetching from Massive API"));
         return {
             result: { type: CommandResultType.Error },
             state: st,
