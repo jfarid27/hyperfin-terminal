@@ -1,20 +1,22 @@
 import { registerTerminalApplication } from "../utils/program_loader.ts";
-import { Menu, MenuOption, TerminalUserStateConfig, CommandResultType } from "../types.ts";
+import { Menu, MenuOption, TerminalUserStateConfig, CommandResultType, TerminalUserStateConfigContext, CommandState } from "../types.ts";
 import { menuGlobals } from "../utils/menu_globals.ts";
 import { redditTerminal } from "./RedditMenu/index.ts";
+import { Effect } from "effect";
 
 const newsMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
     {
         name: "reddit",
         command: "reddit",
         description: "Navigate to the reddit menu",
-        action: (st: TerminalUserStateConfig) => async () => {
-            const newState = await redditTerminal(st);
+        action: (): Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function*() {
+            const st = yield* TerminalUserStateConfigContext;
+            const newState = yield* Effect.promise(async () => redditTerminal(st));
             return {
                 result: { type: CommandResultType.Success },
                 state: newState,
             };
-        },
+        }),
     },
     ...menuGlobals(state),
 ]

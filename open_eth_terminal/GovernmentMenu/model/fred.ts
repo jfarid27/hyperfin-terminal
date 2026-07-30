@@ -1,5 +1,5 @@
 import { FredSeriesType } from "../types.ts";
-import axios from "axios";
+import { Effect, pipe } from 'effect';
 
 /**
  * Fetches the series metadata for a specified series ID from the FRED API.
@@ -10,19 +10,22 @@ import axios from "axios";
  * @returns The series metadata.
  * @see https://fred.stlouisfed.org/docs/api/fred/series.html
  */
-export async function fetchFredSeriesMetadata(
+export function fetchFredSeriesMetadata(
     series: FredSeriesType,
     FRED_API_KEY: string
-) {
-    const response = await axios.get("https://api.stlouisfed.org/fred/series", {
-        params: {
-            series_id: series.seriesId,
-            api_key: FRED_API_KEY,
-            file_type: "json",
-        }
-    });
-
-    return response.data;
+): Effect.Effect<unknown, Error> {
+    return pipe(
+        Effect.tryPromise(async () => {
+            const params = new URLSearchParams({
+                series_id: series.seriesId,
+                api_key: FRED_API_KEY,
+                file_type: "json",
+            });
+            const response = await fetch(`https://api.stlouisfed.org/fred/series?${params}`);
+            return response.json();
+        }),
+        Effect.map((data) => data)
+    );
 }
 
 /**
@@ -35,21 +38,24 @@ export async function fetchFredSeriesMetadata(
  * @returns The series data for the specified series.
  * @see https://fred.stlouisfed.org/docs/api/fred/
  */
-export async function fetchFredSeries(
+export function fetchFredSeries(
     series: FredSeriesType, 
     startDate: string, 
     endDate: string, 
     FRED_API_KEY: string
-) {
-    const response = await axios.get("https://api.stlouisfed.org/fred/series/observations", {
-        params: {
-            series_id: series.seriesId,
-            api_key: FRED_API_KEY,
-            file_type: "json",
-            observation_start: startDate,
-            observation_end: endDate,
-        }
-    });
-
-    return response.data;
+): Effect.Effect<unknown, Error> {
+    return pipe(
+        Effect.tryPromise(async () => {
+            const params = new URLSearchParams({
+                series_id: series.seriesId,
+                api_key: FRED_API_KEY,
+                file_type: "json",
+                observation_start: startDate,
+                observation_end: endDate,
+            });
+            const response = await fetch(`https://api.stlouisfed.org/fred/series/observations?${params}`);
+            return response.json();
+        }),
+        Effect.map((data) => data)
+    );
 }

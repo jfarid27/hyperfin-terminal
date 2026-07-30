@@ -5,7 +5,8 @@
  * @see {@link ActionHandler}
  */
 
-import { project, pipe, set, filter, toLower, lensProp, map,
+import { Effect, pipe } from "effect";
+import { project, pipe as pipeR, set, filter, toLower, lensProp, map,
     lensPath, view, defaultTo, zip, prop, tap, find,
     props,
     reduce
@@ -14,7 +15,7 @@ import terminalKit from "terminal-kit";
 const { terminal } = terminalKit;
 import PredictionMarketsData from "./../model/index.ts";
 import {CommandResultType, CommandState, PredictionMarketsType, LogLevel } from "./../../../types.ts";
-import { TerminalUserStateConfig } from "./../../../types.ts";
+import { TerminalUserStateConfigContext } from "./../../../types.ts";
 import { ActionHandler } from "./../../../types.ts";
 import chalk from "chalk";
 import { inspectLogger } from "./../../../utils/logging.ts"
@@ -40,7 +41,7 @@ const xPolymarketMarketsData = project(["slug", "question", "outcomes", "outcome
 /**
  * Formats the markets data for display in a terminal table.
  */
-const formatMarketsDataForTable = pipe(
+const formatMarketsDataForTable = pipeR(
     map((r: any) => {
         
         const outcomes = JSON.parse(r.outcomes);
@@ -70,7 +71,7 @@ const xLabel = lensProp<any>('label');
 /**
  * Returns a function that is truthy if the label of the tag includes the target string.
  */
-const stringLabelIncludes = (target: string) => pipe(
+const stringLabelIncludes = (target: string) => pipeR(
     view(xLabel),
     defaultTo(""),
     toLower,
@@ -80,14 +81,14 @@ const stringLabelIncludes = (target: string) => pipe(
 /**
  * Projects the tag properties from the polymarket API response.
  */
-const processTags = pipe(
+const processTags = pipeR(
     getTagProps
 );
 
 /**
  * Filters the tags by the target string.
  */
-const filterTags = (target: string) => pipe(
+const filterTags = (target: string) => pipeR(
     processTags,
     filter(stringLabelIncludes(target))
 );
@@ -110,7 +111,7 @@ const outcomePricesMapper = (r: string): string[] => {
  * @param markets List of markets to process.
  * @returns Array of [question, outcomes] pairs.
  */
-export const processOutcomeData = pipe(
+export const processOutcomeData = pipeR(
     map((r:any) => {
         return [r.question, zipEventOutcomePrices(r)];
     }),
@@ -136,18 +137,16 @@ const xPolymarketMarketData = props([
 /**
  * Processes the market data for the given market by slug.
  */
-const processMarketDataBySlug = async (slug: string) => {
-    
-    const response = await PredictionMarketsData.polyMarketData.market.getBySlug(slug);
-    const processResponse = pipe(
-        (r: any) => ({
+const processMarketDataBySlug = (slug: string) => pipe(
+    PredictionMarketsData.polyMarketData.market.getBySlug(slug),
+    Effect.flatMap((r) => {
+        return Effect.succeed({
             response: r,
             marketData: xPolymarketMarketData(r) as string[],
             outcomeData: processOutcomeData([r]),
-        }),
-    );
-    return processResponse(response);
-};
+        })
+    }),
+);
 
 /**
  * Fetches markets linked to the given tag (default: all)
@@ -155,7 +154,9 @@ const processMarketDataBySlug = async (slug: string) => {
  * @param tag Polymarket Defined Tag ID. 
  * @returns CommandState 
  */
-export const predictionMarketsViewHandler: ActionHandler = (st: TerminalUserStateConfig) => async (tag?: string): Promise<CommandState> => {
+export const predictionMarketsViewHandler: ActionHandler = (tag?: string):
+Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
+    const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st); 
 
     if (!tag) {
@@ -166,11 +167,11 @@ export const predictionMarketsViewHandler: ActionHandler = (st: TerminalUserStat
         };
     }
     
-    const markets = await PredictionMarketsData.polyMarketData.markets.getByTagId(tag);
+    const markets = yield* PredictionMarketsData.polyMarketData.markets.getByTagId(tag);
     
     applicationLogging(LogLevel.Debug)(markets);
     
-    const marketsData = pipe(
+    const marketsData = pipeR(
         xPolymarketMarketsData,
         formatMarketsDataForTable
     )(markets);
@@ -193,7 +194,7 @@ export const predictionMarketsViewHandler: ActionHandler = (st: TerminalUserStat
         result: { type: CommandResultType.Success },
         state: st,
     };
-}
+});
 
 /**
  * Fetches the top active markets on polymarket by liquidity
@@ -201,52 +202,52 @@ export const predictionMarketsViewHandler: ActionHandler = (st: TerminalUserStat
  * @param n Number of markets to fetch
  * @returns CommandState
  */
-export const polymarketMarketsTopFetchHandler: ActionHandler = (st: TerminalUserStateConfig) =>
-    async (n?: string, term?: string) => {
-        
-        const applicationLogging = inspectLogger(st);
+export const polymarketMarketsTopFetchHandler: ActionHandler = (n?: string, term?: string): 
+Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
+    const st = yield* TerminalUserStateConfigContext;      
+    const applicationLogging = inspectLogger(st);
+
+    if (st.logLevel) {
+        console.log("Fetching top markets");
+    }
     
-        if (st.logLevel) {
-            console.log("Fetching top markets");
-        }
-        
-        const limit = n ? Number(n) : 10;
-        const markets = await PredictionMarketsData.polyMarketData.markets.top(limit);
-        
-        applicationLogging(LogLevel.Debug)(markets);
-        
-        let marketsData = pipe(
-            xPolymarketMarketsData,
-            formatMarketsDataForTable,
-            filter((market: any) => term ? market[1].toLowerCase().includes(term.toLowerCase()) : true),
-            map((market: any) => {
-                return [market[1] + "\nSlug: " + market[0], market[2]];
-            })
-        )(markets);
-        
-        terminal.table([
-            ['Question', 'Information'],
-            ...marketsData,
-        ], {
-            hasBorder: true,
-            contentHasMarkup: true,
-            borderChars: 'lightRounded',
-            borderAttr: { color: 'green' },
-            textAttr: { bgColor: 'default' },
-            firstRowTextAttr: { bgColor: 'green' },
-            width: 120,
-            fit: true
-        });
-        
-        if (st.logLevel) {
-            console.log(`${markets.length} markets fetched`);
-        }
-        
-        return {
-            result: { type: CommandResultType.Success },
-            state: st,
-        };
-}
+    const limit = n ? Number(n) : 10;
+    const markets = yield* PredictionMarketsData.polyMarketData.markets.top(limit);
+    
+    applicationLogging(LogLevel.Debug)(markets);
+    
+    let marketsData = pipeR(
+        xPolymarketMarketsData,
+        formatMarketsDataForTable,
+        filter((market: any) => term ? market[1].toLowerCase().includes(term.toLowerCase()) : true),
+        map((market: any) => {
+            return [market[1] + "\nSlug: " + market[0], market[2]];
+        })
+    )(markets);
+    
+    terminal.table([
+        ['Question', 'Information'],
+        ...marketsData,
+    ], {
+        hasBorder: true,
+        contentHasMarkup: true,
+        borderChars: 'lightRounded',
+        borderAttr: { color: 'green' },
+        textAttr: { bgColor: 'default' },
+        firstRowTextAttr: { bgColor: 'green' },
+        width: 120,
+        fit: true
+    });
+    
+    if (st.logLevel) {
+        console.log(`${markets.length} markets fetched`);
+    }
+    
+    return {
+        result: { type: CommandResultType.Success },
+        state: st,
+    };
+});
 
 /**
  * Fetches the list of available tags on polymarket. Stores the tags in the terminal user state.
@@ -254,14 +255,15 @@ export const polymarketMarketsTopFetchHandler: ActionHandler = (st: TerminalUser
  * @param search Search term
  * @returns CommandState
  */
-export const polymarketMarketsTagsFetchHandler: ActionHandler = (st: TerminalUserStateConfig) => async (search?: string) => {
-    
+export const polymarketMarketsTagsFetchHandler: ActionHandler = (search?: string):
+Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
+    const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     
     if (st.logLevel) {
         console.log("Fetching tags");
     }
-    const tags = await PredictionMarketsData.polyMarketData.tags.get();
+    const tags = yield* PredictionMarketsData.polyMarketData.tags.get();
     
     applicationLogging(LogLevel.Debug)("Tags fetched");
     applicationLogging(LogLevel.Debug)(tags);
@@ -280,7 +282,7 @@ export const polymarketMarketsTagsFetchHandler: ActionHandler = (st: TerminalUse
         result: { type: CommandResultType.Success },
         state: newSt2,
     };
-}
+});
 
 /**
  * Searches for tags on polymarket. If there is a cached list of tags, it will search those. 
@@ -288,7 +290,9 @@ export const polymarketMarketsTagsFetchHandler: ActionHandler = (st: TerminalUse
  * @param search Search term
  * @returns CommandState
  */
-export const polymarketMarketsTagsSearchHandler: ActionHandler = (st: TerminalUserStateConfig) => async (search?: string) => {
+export const polymarketMarketsTagsSearchHandler: ActionHandler = (search?: string):
+Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
+    const st = yield* TerminalUserStateConfigContext;
     
     const applicationLogging = inspectLogger(st); 
     
@@ -340,9 +344,9 @@ export const polymarketMarketsTagsSearchHandler: ActionHandler = (st: TerminalUs
         state: st,
     };
 
-}
+});
 
-const  formatPortfolioToPolymarketPortfolio = pipe(
+const  formatPortfolioToPolymarketPortfolio = pipeR(
     map((position: string[]): PolymarketPosition => {
         return {
             slug: position[0],
@@ -358,51 +362,40 @@ const  formatPortfolioToPolymarketPortfolio = pipe(
     }
 )
 
-export const portfolioAnalysisHandler: ActionHandler = (st: TerminalUserStateConfig) =>
-    async (type?: string, filename?: string) => {
+export const portfolioAnalysisHandler: ActionHandler = (type?: string, filename?: string):
+Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
+    const st = yield* TerminalUserStateConfigContext;
     
-        const applicationLogging = inspectLogger(st); 
-    
-        if (!type || !filename) {
-            console.log("No type or filename provided");
-            return {
-                result: { type: CommandResultType.Success },
-                state: st,
-            };
-        }
-        
-        applicationLogging(LogLevel.Info)(`Loading portfolio at file ./portfolios/${filename}`);
+    const applicationLogging = inspectLogger(st); 
 
-        
-        let portfolio: PolymarketPortfolio | undefined = undefined;
-        try {
-            const loaded_portfolio = await loadCSVPortfolio(filename);
-            
-            portfolio = formatPortfolioToPolymarketPortfolio(loaded_portfolio);
-        } catch (err) {
-            
-            console.log("Error loading portfolio filename. Please check the filename and try again.")
-            applicationLogging(LogLevel.Error)(err);
-            return {
-                result: { type: CommandResultType.Error },
-                state: st,
-            };
-        }
-        
-        applicationLogging(LogLevel.Info)(portfolio);
-        
-        applicationLogging(LogLevel.Info)(`Fetching portfolio analysis for ${type} at file ./portfolios/${filename}`);
-        
-        if (type == PortfolioAnalysisType.Spot) {
-            return portfolioAnalysisSpotHandler(st, portfolio);
-        }
-        
-        
+    if (!type || !filename) {
+        console.log("No type or filename provided");
         return {
-            result: { type: CommandResultType.Error},
+            result: { type: CommandResultType.Success },
             state: st,
         };
-}
+    }
+    
+    applicationLogging(LogLevel.Info)(`Loading portfolio at file ./portfolios/${filename}`);
+    
+    let portfolio: PolymarketPortfolio | undefined = undefined;
+    const loaded_portfolio = yield* loadCSVPortfolio(filename);
+    
+    portfolio = formatPortfolioToPolymarketPortfolio(loaded_portfolio);
+    
+    applicationLogging(LogLevel.Info)(portfolio);
+    
+    applicationLogging(LogLevel.Info)(`Fetching portfolio analysis for ${type} at file ./portfolios/${filename}`);
+    
+    if (type == PortfolioAnalysisType.Spot) {
+        return yield* portfolioAnalysisSpotHandler(portfolio);
+    }
+    
+    return {
+        result: { type: CommandResultType.Error},
+        state: st,
+    };
+});
 
 interface PositionPoint {
     outcome: string;
@@ -439,7 +432,7 @@ type PolymarketSpotPositionResult = PolymarketSpotPosition | PolymarketSpotPosit
  * @returns {Number} price of the outcome if found, otherwise 0
  * @see {@link https://docs.polymarket.com/api-reference/markets/get-market-by-slug#response-outcome-prices-one-of-0}
  */
-const processOutcomePriceFromResponseData = (outcome_name: any) => pipe(
+const processOutcomePriceFromResponseData = (outcome_name: any) => pipeR(
     (data: any) => data[0][1],
     find((outcome: any[]) => outcome[0] === outcome_name),
     defaultTo([0, "0"]), // Always default to 0 if outcome is not found 
@@ -452,55 +445,46 @@ const processOutcomePriceFromResponseData = (outcome_name: any) => pipe(
  * @param portfolio {PolymarketPortfolio} 
  * @returns {Promise<CommandState>}
  */
-const portfolioAnalysisSpotHandler = async (st: TerminalUserStateConfig, portfolio: PolymarketPortfolio) => {
+const portfolioAnalysisSpotHandler = (portfolio: PolymarketPortfolio):
+Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
+    const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st); 
     applicationLogging(LogLevel.Debug)(`Running Portfolio SpotHandler`);
     
-    const portfolioDataPs = await pipe(
-        map(async (position: PolymarketPosition): Promise<PolymarketSpotPositionResult> => {
+    const portfolioData: PolymarketSpotPositionResult[] = yield* Effect.forEach(
+        portfolio.positions,
+        (position: PolymarketPosition) => Effect.gen(function* () {
             applicationLogging(LogLevel.Info)("Processing MarketData for slug: " + position.slug);
-            try {
-                const { outcomeData, response } = await processMarketDataBySlug(position.slug);
-                applicationLogging(LogLevel.Debug)("Processed OutcomeData");
-                applicationLogging(LogLevel.Debug)(outcomeData);
-                const position_outcome = position.outcome;
-                const outcomePrice = processOutcomePriceFromResponseData(position_outcome)(outcomeData);
+            const result = yield* processMarketDataBySlug(position.slug);
+            const { outcomeData, response } = result;
+            applicationLogging(LogLevel.Debug)("Processed OutcomeData");
+            applicationLogging(LogLevel.Debug)(outcomeData);
+            const position_outcome = position.outcome;
+            const outcomePrice = processOutcomePriceFromResponseData(position_outcome)(outcomeData);
 
-                applicationLogging(LogLevel.Info)("Question: ");
-                applicationLogging(LogLevel.Info)(response.question);
-                applicationLogging(LogLevel.Info)("Outcome: ");
-                applicationLogging(LogLevel.Info)(position_outcome);
-                applicationLogging(LogLevel.Info)("OutcomePrice: ");
-                applicationLogging(LogLevel.Info)(outcomePrice);
+            applicationLogging(LogLevel.Info)("Question: ");
+            applicationLogging(LogLevel.Info)(response.question);
+            applicationLogging(LogLevel.Info)("Outcome: ");
+            applicationLogging(LogLevel.Info)(position_outcome);
+            applicationLogging(LogLevel.Info)("OutcomePrice: ");
+            applicationLogging(LogLevel.Info)(outcomePrice);
 
-                
-                const resolvedPosition: PolymarketSpotPosition = {
-                    _type: PolymarketPositionType.Success,
-                    slug: position.slug,
-                    question: response.question,
-                    positionPoint: {
-                        outcome: position.outcome,
-                        amount: position.amount,
-                        price: outcomePrice,
-                        value: position.amount * outcomePrice,
-                    }
-                };
-                return resolvedPosition;
-
-            } catch (err) {
-                applicationLogging(LogLevel.Info)(`Error processing market data for slug ${position.slug}`);
-                applicationLogging(LogLevel.Debug)(err);
-                const error: PolymarketSpotPositionError = {
-                    _type: PolymarketPositionType.Error,
-                    slug: position.slug,
-                    error: "Failed to process market data for slug " + position.slug,
-                };
-                return error;
-            }
+            
+            const resolvedPosition: PolymarketSpotPosition = {
+                _type: PolymarketPositionType.Success,
+                slug: position.slug,
+                question: response.question,
+                positionPoint: {
+                    outcome: position.outcome,
+                    amount: position.amount,
+                    price: outcomePrice,
+                    value: position.amount * outcomePrice,
+                }
+            };
+            return resolvedPosition as PolymarketSpotPositionResult;
         }),
-    )(portfolio.positions);
-    
-    const portfolioData: PolymarketSpotPositionResult[] = await Promise.all(portfolioDataPs);
+        { concurrency: 10 },
+    );
     const processTablePortfolioData = map((r: PolymarketSpotPositionResult) => {
         
         switch (r._type) {
@@ -556,4 +540,4 @@ const portfolioAnalysisSpotHandler = async (st: TerminalUserStateConfig, portfol
         state: st,
     };
     
-}
+});

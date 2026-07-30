@@ -1,11 +1,12 @@
 import { pipe, map, zip, props } from "ramda";
+import { Effect } from "effect";
 import terminalKit from "terminal-kit";
 const { terminal } = terminalKit;
 import {
     CommandResultType, CommandState,
-    LogLevel
+    LogLevel,
+    TerminalUserStateConfigContext
 } from "./../../../../types.ts";
-import { TerminalUserStateConfig } from "./../../../../types.ts";
 import { ActionHandler } from "./../../../../types.ts";
 import chalk from "chalk";
 import { inspectLogger } from "./../../../../utils/logging.ts"
@@ -40,7 +41,8 @@ export const processEventDataBySlug = pipe(
  * @param slug Polymarket Defined Event Slug. 
  * @returns CommandState 
  */
-export const predictionEventViewHandler: ActionHandler = (st: TerminalUserStateConfig) => async (slug?: string): Promise<CommandState> => {
+export const predictionEventViewHandler: ActionHandler = (slug?: string)  => Effect.gen(function* () {
+    const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     
     if (!slug) {
@@ -51,7 +53,7 @@ export const predictionEventViewHandler: ActionHandler = (st: TerminalUserStateC
         };
     }
     
-    const response = await PredictionMarketsData.polyMarketData.event.getBySlug(slug);
+    const response = yield*PredictionMarketsData.polyMarketData.event.getBySlug(slug);
     const { marketData, outcomeData } = processEventDataBySlug(response);
     applicationLogging(LogLevel.Debug)(response);
     
@@ -95,4 +97,4 @@ export const predictionEventViewHandler: ActionHandler = (st: TerminalUserStateC
         result: { type: CommandResultType.Success },
         state: st,
     };
-}
+});

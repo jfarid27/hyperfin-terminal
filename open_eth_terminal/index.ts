@@ -3,7 +3,6 @@ import { lensPath, set, view } from "ramda";
 import cryptoTerminal from "./CryptoMenu/index.ts";
 import predictionMarketsTerminal from "./PredictionMarketMenu/index.ts";
 import stocksTerminal from "./StocksMenu/index.ts";
-import governmentTerminal from "./GovernmentMenu/index.ts";
 import { menuGlobalsTop } from "./utils/menu_globals.ts";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -18,78 +17,72 @@ import {
     FRED_API_KEY,
 } from "./config.ts";
 
-import { Menu, MenuOption, TerminalUserStateConfig, CommandResultType, LogLevel, EnvironmentType } from "./types.ts";
+import { Menu, MenuOption, TerminalUserStateConfig, CommandResultType, LogLevel, EnvironmentType, CommandState, TerminalUserStateConfigContext } from "./types.ts";
 import { registerTerminalApplication } from "./utils/program_loader.ts";
+import { Effect } from "effect";
 
 const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
     {
         name: "crypto",
         command: "crypto",
         description: "Fetch crypto prices from various sources",
-        action: (st: TerminalUserStateConfig) => async () => {
-            const newState = await cryptoTerminal(st);
+        action: (): Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function*() {
+            const st = yield* TerminalUserStateConfigContext;
+            const newState = yield* Effect.promise(async () => cryptoTerminal(st));
             return {
                 result: { type: CommandResultType.Success },
                 state: newState,
             };
-        },
+        }),
     },
     {
         name: "stocks",
         command: "stocks",
         description: "Fetch stock prices from various sources",
-        action: (st: TerminalUserStateConfig) => async () => {
-            const newState = await stocksTerminal(st);
+        action: (): Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function*() {
+            const st = yield* TerminalUserStateConfigContext;
+            const newState = yield* Effect.promise(async () => stocksTerminal(st));
             return {
                 result: { type: CommandResultType.Success },
                 state: newState,
             };
-        },
+        }),
     },
     {
         name: "news",
         command: "news",
         description: "Fetch news from various sources",
-        action: (st: TerminalUserStateConfig) => async () => {
-            const newState = await newsTerminal(st);
+        action: (): Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function*() {
+            const st = yield* TerminalUserStateConfigContext;
+            const newState = yield* Effect.promise(async () => newsTerminal(st));
             return {
                 result: { type: CommandResultType.Success },
                 state: newState,
             };
-        },
+        }),
     },
     {
         name: "prediction markets",
         command: "predictions",
         description: "Fetch prediction markets prices from various sources",
-        action: (st: TerminalUserStateConfig) => async () => {
-            const newState = await predictionMarketsTerminal(st);
+        action: (): Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function*() {
+            const st = yield* TerminalUserStateConfigContext;
+            const newState = yield* Effect.promise(async () => predictionMarketsTerminal(st));
             return {
                 result: { type: CommandResultType.Success },
                 state: newState,
             };
-        },
-    },
-    {
-        name: "government",
-        command: "government",
-        description: "Fetch government economic data from various sources",
-        action: (st: TerminalUserStateConfig) => async () => {
-            const newState = await governmentTerminal(st);
-            return {
-                result: { type: CommandResultType.Success },
-                state: newState,
-            };
-        },
+        }),
     },
     {
         name: "script",
         command: "script [filename]",
         description: "Run a script from the scripts folder with a specified filename",
-        action: (st: TerminalUserStateConfig) => async (filename: string) => {
-             try {
+        action: (filename: string): Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function*() {
+            const st = yield* TerminalUserStateConfigContext;
+            try {
                 const scriptPath = join(process.cwd(), "scripts", filename);
-                const fileContent = await readFile(scriptPath, "utf-8");
+                const fileContent = yield* Effect.promise(() => readFile(scriptPath, "utf-8"));
                 const [currentCommand, ...tailCommands] = fileContent.split("\n").map(l => l.trim()).filter(l => l.length > 0);
 
                 return {
@@ -110,13 +103,14 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
                     state: st,
                 };
             }
-        },
+        }),
     },
     {
         name: "keys",
         command: "keys [type] [value]",
         description: "Set or get the API keys",
-        action: (st: TerminalUserStateConfig) => async (keyType: string, value?: string ) => { 
+        action: (keyType: string, value?: string): Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function*() {
+            const st = yield* TerminalUserStateConfigContext;
             
             if (!keyType) {
                 const availableKeys = Object.keys(st.apiKeys);
@@ -142,7 +136,7 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
                 result: { type: CommandResultType.Success },
                 state: newState,
             };
-        },
+        }),
     },
     ...menuGlobalsTop(state),
 ]);
@@ -157,10 +151,8 @@ const mainMenu: Menu = {
 export const terminalMain = registerTerminalApplication(mainMenu);
 
 export async function startMain(scriptFilename?: string) {
-  // Only show banner on initial load (skip if running a script)
-  if (!scriptFilename) {
-    console.log(chalk.green(figlet.textSync("Open Eth Terminal", { horizontalLayout: 'full' })));
-  }
+  // Only show banner on initial load
+  console.log(chalk.green(figlet.textSync("Open Eth Terminal", { horizontalLayout: 'full' })));
   
   const logLevelMap: { [key: string]: LogLevel } = {
     "debug": LogLevel.Debug,
@@ -181,35 +173,6 @@ export async function startMain(scriptFilename?: string) {
   const environment = (ENVIRONMENT && ENVIRONMENT in environmentMap) ?
     environmentMap[ENVIRONMENT] : EnvironmentType.Production;
   
-  let initialScriptContext = {};
-  
-  // If script filename is provided, load it and set up script context
-  if (scriptFilename) {
-    try {
-      const scriptPath = join(process.cwd(), scriptFilename);
-      const fileContent = await readFile(scriptPath, "utf-8");
-      const commands = fileContent.split("\n").map(l => l.trim()).filter(l => l.length > 0);
-      const [currentCommand, ...tailCommands] = commands;
-      
-      if (currentCommand) {
-        console.log(chalk.green(`Loading script: ${scriptFilename}`));
-        initialScriptContext = {
-          filename: scriptFilename,
-          currentCommand,
-          tailCommands,
-          exitAfterCompletion: true, // Signal to exit after script completes
-        };
-      } else {
-        console.log(chalk.yellow(`Script file ${scriptFilename} is empty`));
-        process.exit(0);
-      }
-    } catch (error) {
-      console.error(chalk.red(`Failed to load script file: ${scriptFilename}`));
-      console.error(chalk.red(`Error: ${error}`));
-      process.exit(1);
-    }
-  }
-  
   const state: TerminalUserStateConfig = {
     environment: environment,
     logLevel: logLevel,
@@ -221,7 +184,7 @@ export async function startMain(scriptFilename?: string) {
         fred: FRED_API_KEY,
     },
     loadedContext: {},
-    scriptContext: initialScriptContext
+    scriptContext: {}
   };
   
   try {

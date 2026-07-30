@@ -1,8 +1,8 @@
-import { Menu, MenuOption, TerminalUserStateConfig, CommandResultType } from "./../types.ts";
+import { Menu, MenuOption, TerminalUserStateConfig, CommandResultType, TerminalUserStateConfigContext, CommandState } from "./../types.ts";
 import { registerTerminalApplication } from "./../utils/program_loader.ts";
 import { menuGlobals } from "./../utils/menu_globals.ts";
 import polymarketTerminal from "./PolymarketMenu/index.ts";
-import kalshiTerminal from "./KalshiMenu/index.ts";
+import { Effect } from "effect";
 
 /**
  *  Prediction Markets Menu Options.
@@ -12,25 +12,14 @@ const predictionMarketsMenuOptions = (state: TerminalUserStateConfig): MenuOptio
         name: "polymarket",
         command: "polymarket",
         description: `Enter the polymarket menu`,
-        action: (st: TerminalUserStateConfig) => async () => {
-            const newState = await polymarketTerminal(st);
+        action: (): Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function*() {
+            const st = yield* TerminalUserStateConfigContext;
+            const newState = yield* Effect.promise(async () => polymarketTerminal(st));
             return {
                 result: { type: CommandResultType.Success },
                 state: newState,
             };
-        },
-    },
-    {
-        name: "kalshi",
-        command: "kalshi",
-        description: `Enter the kalshi menu`,
-        action: (st: TerminalUserStateConfig) => async () => {
-            const newState = await kalshiTerminal(st);
-            return {
-                result: { type: CommandResultType.Success },
-                state: newState,
-            };
-        },
+        }),
     },
     ...menuGlobals(state),
 ]

@@ -8,7 +8,8 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
-import { defaultTo, map, pipe, split, trim } from "ramda";
+import { defaultTo, map, pipe as pipeR, split, trim } from "ramda";
+import { Effect, pipe } from "effect";
 
 /**
  * Splits a file string by lines, then by commas and trims whitespace.
@@ -16,10 +17,10 @@ import { defaultTo, map, pipe, split, trim } from "ramda";
  * @param file_content 
  * @returns List of a list of strings 
  */
-const processCSV = pipe(
+const processCSV = pipeR(
     split("\n"),
     map(
-        pipe(
+        pipeR(
             split(","),
             map(trim),
             defaultTo(""),
@@ -35,8 +36,12 @@ const processCSV = pipe(
  * @param filename 
  * @returns List of a list of strings 
  */
-export const loadCSVPortfolio = async (filename: string) => {
-    const file_path= join(process.cwd(), "portfolios", filename);
-    const file_content = await readFile(file_path, "utf-8");
-    return processCSV(file_content); 
-}
+export const loadCSVPortfolio = (filename: string) => {
+    return pipe(
+        Effect.tryPromise(() => {
+            const file_path= join(process.cwd(), "portfolios", filename);
+            return readFile(file_path, "utf-8");
+        }),
+        Effect.flatMap((file_content) => Effect.succeed(processCSV(file_content))) 
+    )
+};

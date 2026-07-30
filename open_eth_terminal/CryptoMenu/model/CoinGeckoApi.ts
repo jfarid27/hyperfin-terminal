@@ -1,8 +1,11 @@
-import axios from "axios";
-import { prop, lensPath, view, defaultTo, pipe, map } from "ramda";
+import { lensProp, lensPath, view, defaultTo, pipe as pipeR, map } from "ramda";
 import { DataSourceType } from "./../../types.ts";
 import { SpotPoint, ChartData, ChartPoint, CryptoSymbolType } from "./../types.ts";
+import { Effect, pipe } from 'effect';
 
+type CoinGeckoChartResponse = {
+    prices: number[][];
+}
 
 /**
  * Converts a CoinGecko chart response to chart points.
@@ -10,12 +13,24 @@ import { SpotPoint, ChartData, ChartPoint, CryptoSymbolType } from "./../types.t
  * @param response The CoinGecko chart response.
  * @returns The ChartData object.
  */
-const convertCoinGeckoChartResponseToChartData = pipe(
-  prop("prices"),
-  map((p: any[]): ChartPoint => ({
+const convertCoinGeckoChartResponseToChartData = pipeR(
+  view(lensProp<CoinGeckoChartResponse, "prices">("prices")),
+  defaultTo([]),
+  map((p): ChartPoint => ({
     timestamp: p[0],
     price: p[1],
   }))
+);
+
+/**
+ * Gets the price from the CoinGecko API response.
+ * 
+ * @param symbol The symbol to get the price for.
+ * @returns The price for the specified symbol.
+ */
+const getPrice = (symbol: CryptoSymbolType) => pipeR(
+    view(lensPath(["data", symbol.id, "usd"])),
+    defaultTo(0)
 );
 
 /**
@@ -25,50 +40,54 @@ const convertCoinGeckoChartResponseToChartData = pipe(
  * @param COINGECKO_API_KEY The CoinGecko API key.
  * @returns The current price for the specified symbol.
  */
-export async function fetchSpotCoingecko(symbol: CryptoSymbolType, COINGECKO_API_KEY: string): Promise<SpotPoint> {
+export function fetchSpotCoingecko(symbol: CryptoSymbolType, COINGECKO_API_KEY: string): Effect.Effect<SpotPoint, Error> {
     if (symbol._type !== DataSourceType.CoinGecko) {
-        throw new Error("Invalid data source type");
+        return Effect.fail(new Error("Invalid data source type"));
     }
     const COINGECKO_PRICE_API = "https://pro-api.coingecko.com/api/v3/simple/price";
-    const response = await axios.get(COINGECKO_PRICE_API, {
-        headers: {
-            "x_cg_pro_api_key": COINGECKO_API_KEY,
-        },
-        params: {
-            vs_currencies: "usd",
-            ids: symbol.id,
-        },
-    });
     
-    const price = pipe(
-        view(lensPath([symbol.id, "usd"])),
-        defaultTo(0)
-    )(response.data);
-
-    return { symbol, price };
+    return pipe(
+        Effect.tryPromise(async () => {
+            const params = new URLSearchParams({
+                vs_currencies: "usd",
+                ids: symbol.id,
+            });
+            const response = await fetch(`${COINGECKO_PRICE_API}?${params}`, {
+                headers: {
+                    "x_cg_pro_api_key": COINGECKO_API_KEY,
+                },
+            });
+            return response.json();
+        }),
+        Effect.map(getPrice(symbol)),
+        Effect.map((price) => ({ symbol, price })),
+    );
 }
 
 
-export async function fetchChartCoingecko(symbol: CryptoSymbolType, COINGECKO_API_KEY: string): Promise<ChartData> {
+export function fetchChartCoingecko(symbol: CryptoSymbolType, COINGECKO_API_KEY: string): Effect.Effect<ChartData, Error> {
     if (symbol._type !== DataSourceType.CoinGecko) {
-        throw new Error("Invalid data source type");
+        return Effect.fail(new Error("Invalid data source type"));
     }
     const COINGECKO_CHART_API = "https://pro-api.coingecko.com/api/v3/coins/{id}/market_chart";
-    const response = await axios.get(COINGECKO_CHART_API, {
-        headers: {
-            "x_cg_pro_api_key": COINGECKO_API_KEY,
-        },
-        params: {
-            vs_currencies: "usd",
-            days: "14",
-            interval: "daily",
-            id: symbol.id,
-        },
-    });
-    
-    const chartData: ChartData = {
-      symbol,
-      prices: convertCoinGeckoChartResponseToChartData(response.data)
-    }; 
-    return await Promise.resolve(chartData);
+    return pipe(
+        Effect.tryPromise(async () => {
+            const params = new URLSearchParams({
+                vs_currencies: "usd",
+                days: "14",
+                interval: "daily",
+                id: symbol.id,
+            });
+            const response = await fetch(`${COINGECKO_CHART_API}?${params}`, {
+                headers: {
+                    "x_cg_pro_api_key": COINGECKO_API_KEY,
+                },
+            });
+            return response.json();
+        }),
+        Effect.map((res) => {
+            const prices = convertCoinGeckoChartResponseToChartData(res);
+            return { symbol, prices };
+        })
+    );
 }

@@ -1,13 +1,14 @@
 import chalk from "chalk";
 import { chart } from "../model/index.ts";
 import {
-    TerminalUserStateConfig,
+    TerminalUserStateConfigContext,
     CommandState, CommandResultType, DataSourceType,
     LogLevel
 } from "../../types.ts";
 import { inspectLogger } from "./../../utils/logging.ts"
 import { getLoadedToken, getCoinGeckoApiKey } from "./../../utils/index.ts";
 import { showLineChart } from "../../components/charting.ts";
+import { Effect } from 'effect';
 
 /**
  * Handler for the chart price command.
@@ -21,12 +22,13 @@ import { showLineChart } from "../../components/charting.ts";
  * @returns {@link CommandState} 
  * @note The function is intended to expand to support multiple data sources.
  */
-export const chartPriceHandler = (st: TerminalUserStateConfig) => async (symbolStr: string): Promise<CommandState> => {
+export const chartPriceHandler = (symbolStr: string) => Effect.gen(function*() {
+    const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     const API_KEY = getCoinGeckoApiKey(st);
 
     if (!API_KEY) {
-        console.log("No CoinGecko API key provided");
+        yield* Effect.fail(new Error("No CoinGecko API key provided"));
         return {
             result: { type: CommandResultType.Error },
             state: st,
@@ -36,7 +38,7 @@ export const chartPriceHandler = (st: TerminalUserStateConfig) => async (symbolS
     const loadedTokenSymbol: string | undefined = symbolStr || getLoadedToken(st); 
 
     if (!loadedTokenSymbol) {
-        console.log("No symbol provided");
+        yield* Effect.fail(new Error("No symbol provided"));
         return {
             result: { type: CommandResultType.Error },
             state: st,
@@ -46,31 +48,22 @@ export const chartPriceHandler = (st: TerminalUserStateConfig) => async (symbolS
     applicationLogging(LogLevel.Info)(`Fetching chart for ${loadedTokenSymbol}`);
     applicationLogging(LogLevel.Info)(`Using CoinGecko API key.`);
 
-    try {
-      const symbolObj = {
+    const symbolObj = {
         name: loadedTokenSymbol,
         id: loadedTokenSymbol.toLowerCase(),
         _type: DataSourceType.CoinGecko,
-      };
-      const chartData = await chart(symbolObj, API_KEY);
+    };
+    
+    const chartData = yield* chart(symbolObj, API_KEY);
       
-      await showLineChart(chartData.prices, "timestamp", "price", `${loadedTokenSymbol} Price`);
+    yield* showLineChart(chartData.prices, "timestamp", "price", `${loadedTokenSymbol} Price`);
  
-      applicationLogging(LogLevel.Debug)("Result: ");
-      applicationLogging(LogLevel.Debug)(chartData);
-
-    } catch (error) {
-        applicationLogging(LogLevel.Error)(error);
-        console.log(chalk.red("Network Error"));
-        return {
-            result: { type: CommandResultType.Error },
-            state: st,
-        };
-    }
+    applicationLogging(LogLevel.Debug)("Result: ");
+    applicationLogging(LogLevel.Debug)(chartData);
 
     return {
         result: { type: CommandResultType.Success },
         state: st,
     };
     
-}
+});

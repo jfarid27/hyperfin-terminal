@@ -1,5 +1,6 @@
+import { Effect } from "effect";
 import {
-    ActionHandler, CommandResultType, CommandState, TerminalUserStateConfig,
+    ActionHandler, CommandResultType, CommandState, TerminalUserStateConfigContext,
     LogLevel
 } from "./../../../../types.ts";
 import terminalKit from "terminal-kit";
@@ -34,7 +35,9 @@ export const processMarketsFromResponse = pipe(
     })),
 );
 
-export const polymarketMarketsSearchHandler: ActionHandler = (st: TerminalUserStateConfig) => async (query?: string): Promise<CommandState> => {
+export const polymarketMarketsSearchHandler: ActionHandler = (query?: string):
+Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
+    const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     if (!query) {
         return {
@@ -44,7 +47,7 @@ export const polymarketMarketsSearchHandler: ActionHandler = (st: TerminalUserSt
     }
     try {
         console.log(`Fetching markets for query: ${query}`);
-        const response = await PredictionMarketsData.polyMarketData.search.get(query);
+        const response = yield* PredictionMarketsData.polyMarketData.search.get(query);
         
         const eventData = processEventsFromResponse(response);
         
@@ -114,4 +117,4 @@ export const polymarketMarketsSearchHandler: ActionHandler = (st: TerminalUserSt
             state: st,
         };
     }
-}
+});

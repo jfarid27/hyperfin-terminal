@@ -1,5 +1,6 @@
+import { Effect } from "effect";
 import {
-    ActionHandler, CommandResultType, CommandState, TerminalUserStateConfig,
+    ActionHandler, CommandResultType, CommandState, TerminalUserStateConfigContext,
     LogLevel
 } from "./../../../../types.ts";
 import terminalKit from "terminal-kit";
@@ -79,12 +80,14 @@ export const processMarketPriceHistory = pipe(
  * @param slug Polymarket Defined Market Slug. 
  * @returns CommandState 
  */
-export const marketChartHandler: ActionHandler = (st: TerminalUserStateConfig) => async (slug: string): Promise<CommandState> => {
+export const marketChartHandler: ActionHandler = (slug: string):
+Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
+    const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     applicationLogging(LogLevel.Info)(`Fetching chart for ${slug}`);
     
     try {
-        const response = await PredictionMarketsData.polyMarketData.market.getBySlug(slug);
+        const response = yield* PredictionMarketsData.polyMarketData.market.getBySlug(slug);
         applicationLogging(LogLevel.Debug)(response);
         const clobIds = splitClobIds(response);
         applicationLogging(LogLevel.Debug)(clobIds);
@@ -97,8 +100,8 @@ export const marketChartHandler: ActionHandler = (st: TerminalUserStateConfig) =
             };
         }
 
-        const yesPrices = await PredictionMarketsData.polyMarketData.market.prices(clobIds[0]);
-        const noPrices = await PredictionMarketsData.polyMarketData.market.prices(clobIds[1]);
+        const yesPrices = yield* PredictionMarketsData.polyMarketData.market.prices(clobIds[0]);
+        const noPrices = yield* PredictionMarketsData.polyMarketData.market.prices(clobIds[1]);
         applicationLogging(LogLevel.Debug)(yesPrices);
         applicationLogging(LogLevel.Debug)(noPrices);
         
@@ -119,7 +122,7 @@ export const marketChartHandler: ActionHandler = (st: TerminalUserStateConfig) =
             }
         ];
         
-        await showMultiLineChart(
+        yield* showMultiLineChart(
             timeSeries,
             "timestamp",
             "price",
@@ -141,7 +144,7 @@ export const marketChartHandler: ActionHandler = (st: TerminalUserStateConfig) =
         state: st,
     };
     
-}
+});
 
 /**
  * Fetches market for the given market id.
@@ -149,7 +152,9 @@ export const marketChartHandler: ActionHandler = (st: TerminalUserStateConfig) =
  * @param tag Polymarket Defined Market ID. 
  * @returns CommandState 
  */
-export const predictionMarketViewHandler: ActionHandler = (st: TerminalUserStateConfig) => async (slug?: string, type?: string): Promise<CommandState> => {
+export const predictionMarketViewHandler: ActionHandler = (slug?: string, type?: string):
+Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
+    const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     
     if (!slug) {
@@ -161,10 +166,10 @@ export const predictionMarketViewHandler: ActionHandler = (st: TerminalUserState
     }
     
     if (type && type === "chart") {
-        return marketChartHandler(st)(slug);
+        return yield* marketChartHandler(slug);
     }
 
-    const response = await PredictionMarketsData.polyMarketData.market.getBySlug(slug);
+    const response = yield* PredictionMarketsData.polyMarketData.market.getBySlug(slug);
     const { marketData, outcomeData } = processMarketSlugDataResponse(response);
     applicationLogging(LogLevel.Debug)(response);
     
@@ -208,4 +213,4 @@ export const predictionMarketViewHandler: ActionHandler = (st: TerminalUserState
         result: { type: CommandResultType.Success },
         state: st,
     };
-}
+});

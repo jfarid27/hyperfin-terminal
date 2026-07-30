@@ -1,35 +1,42 @@
-import axios from "axios";
-import { pause } from "./../../../utils/timing.ts"
+import { Effect, pipe } from "effect";
 
-export async function fetchMarketPriceHistoryByClobId(clobId: string) {
+export function fetchMarketPriceHistoryByClobId(clobId: string) {
     
-    const OneWeekAgoUnixTimestamp = Date.now() / 1000 - 60 * 60 * 24 * 7;
-    const CurrentUnixTimestamp = Date.now() / 1000;
-    const response = await axios.get(
-        `https://clob.polymarket.com/prices-history`,
-        {
-            params: {
+    return pipe(
+        Effect.tryPromise(async () => {
+            const OneWeekAgoUnixTimestamp = Date.now() / 1000 - 60 * 60 * 24 * 7;
+            const CurrentUnixTimestamp = Date.now() / 1000;
+            
+            const params = new URLSearchParams({
                 market: clobId,
-                startTs: OneWeekAgoUnixTimestamp,
-                endTs: CurrentUnixTimestamp,
-                interval: "6h"
-            },
-        }
+                startTs: String(OneWeekAgoUnixTimestamp),
+                endTs: String(CurrentUnixTimestamp),
+                interval: "6h",
+            });
+            const response = await fetch(
+                `https://clob.polymarket.com/prices-history?${params}`
+            );
+            return response.json();
+        }),
+        Effect.flatMap((data) => Effect.succeed(data))
     );
-    return response.data;
 }
 
 /**
  * Fetches the list of available topic tags from Polymarket.
  * @link https://docs.polymarket.com/api-reference/
  */
-export async function fetchTopicsPolymarket() {
-    const response = await axios.get("https://gamma-api.polymarket.com/tags", {
-        params: {
-            limit: 1000,
-        },
-    });
-    return response.data;
+export function fetchTopicsPolymarket() {
+    return pipe(
+        Effect.tryPromise(async () => {
+            const params = new URLSearchParams({
+                limit: "1000",
+            });
+            const response = await fetch(`https://gamma-api.polymarket.com/tags?${params}`);
+            return response.json();
+        }),
+        Effect.flatMap((data) => Effect.succeed(data))
+    );
 }
 
 /**
@@ -37,11 +44,16 @@ export async function fetchTopicsPolymarket() {
  * @param slug The slug of the event to fetch events for.
  * @link https://docs.polymarket.com/api-reference/
  */
-export async function fetchEventDataBySlug(slug: string) {
-    const response = await axios.get(
-        `https://gamma-api.polymarket.com/events/slug/${slug}`
+export function fetchEventDataBySlug(slug: string) {
+    return pipe( 
+        Effect.tryPromise(async () => {
+            const response = await fetch(
+                `https://gamma-api.polymarket.com/events/slug/${slug}`
+            );
+            return response.json();
+        }),
+        Effect.flatMap((data) => Effect.succeed(data))
     );
-    return response.data;
 }
 
 /**
@@ -49,12 +61,16 @@ export async function fetchEventDataBySlug(slug: string) {
  * @param slug The slug of the market to fetch data for.
  * @link https://docs.polymarket.com/api-reference/
  */
-export async function fetchMarketDataBySlug(slug: string) {
-
-    const url = `https://gamma-api.polymarket.com/markets/slug/${slug}`;
-    const response = await axios.get(url);
-    await pause(1000);
-    return response.data;
+export function fetchMarketDataBySlug(slug: string) {
+    return pipe( 
+        Effect.tryPromise(async () => {
+            const response = await fetch(
+                `https://gamma-api.polymarket.com/markets/slug/${slug}`
+            );
+            return response.json();
+        }),
+        Effect.flatMap((data) => Effect.succeed(data))
+    );
 }
 
 /**
@@ -62,16 +78,19 @@ export async function fetchMarketDataBySlug(slug: string) {
  * @param tagId The ID of the tag to fetch events for.
  * @link https://docs.polymarket.com/api-reference/
  */
-export async function fetchEventDataByTagId(tagId: string) {
-    const response = await axios.get(
-        `https://gamma-api.polymarket.com/events`,
-        {
-            params: {
+export function fetchEventDataByTagId(tagId: string) {
+    return pipe( 
+        Effect.tryPromise(async () => {
+            const params = new URLSearchParams({
                 tag_id: tagId,
-            },
-        }
+            });
+            const response = await fetch(
+                `https://gamma-api.polymarket.com/events?${params}`
+            );
+            return response.json();
+        }),
+        Effect.flatMap((data) => Effect.succeed(data))
     );
-    return response.data;
 }
 
 /**
@@ -79,19 +98,22 @@ export async function fetchEventDataByTagId(tagId: string) {
  * @param tagId The ID of the tag to fetch markets for.
  * @link https://docs.polymarket.com/api-reference/
  */
-export async function fetchMarketDataByTagId(tagId: string) {
-    const response = await axios.get(
-        `https://gamma-api.polymarket.com/markets`,
-        {
-            params: {
+export function fetchMarketDataByTagId(tagId: string) {
+    return pipe( 
+        Effect.tryPromise(async () => {
+            const params = new URLSearchParams({
                 tag_id: tagId,
-                closed: false,
-                order: 'liquidityNum',
-                ascending: false,
-            },
-        }
+                closed: "false",
+                order: "liquidityNum",
+                ascending: "false",
+            });
+            const response = await fetch(
+                `https://gamma-api.polymarket.com/markets?${params}`
+            );
+            return response.json();
+        }),
+        Effect.flatMap((data) => Effect.succeed(data))
     );
-    return response.data;
 }
 
 /**
@@ -99,21 +121,24 @@ export async function fetchMarketDataByTagId(tagId: string) {
  * @param limit The number of events to fetch.
  * @link https://docs.polymarket.com/api-reference/
  */
-export async function fetchTopEventData(limit: number = 10) {
-    const response = await axios.get(
-        'https://gamma-api.polymarket.com/events',
-        {
-            params: {
-                order: 'liquidityNum',
-                ascending: false,
-                closed: false,
-                limit,
-                volume_num_min: 100000
-            },
-        }
+export function fetchTopEventData(limit: number = 10) {
+    return pipe( 
+        Effect.tryPromise(async () => {
+            const params = new URLSearchParams({
+                order: "liquidityNum",
+                ascending: "false",
+                closed: "false",
+                limit: String(limit),
+                volume_num_min: "100000",
+            });
+            const response = await fetch(
+                `https://gamma-api.polymarket.com/events?${params}`
+            );
+            return response.json();
+        }),
+        Effect.flatMap((data) => Effect.succeed(data)),
+        Effect.tap(() => Effect.sleep(3000))
     );
-    await pause(1000);
-    return response.data;
 }
 
 /**
@@ -121,54 +146,74 @@ export async function fetchTopEventData(limit: number = 10) {
  * @param limit The number of markets to fetch.
  * @link https://docs.polymarket.com/api-reference/
  */
-export async function fetchTopMarketData(limit: number = 10) {
-    const response = await axios.get(
-        'https://gamma-api.polymarket.com/markets',
-        {
-            params: {
-                order: 'liquidityNum',
-                ascending: false,
-                closed: false,
-                limit,
-                volume_num_min: 100000
-            },
-        }
+export function fetchTopMarketData(limit: number = 10) {
+    return pipe( 
+        Effect.tryPromise(async () => {
+            const params = new URLSearchParams({
+                order: "liquidityNum",
+                ascending: "false",
+                closed: "false",
+                limit: String(limit),
+                volume_num_min: "100000",
+            });
+            const response = await fetch(
+                `https://gamma-api.polymarket.com/markets?${params}`
+            );
+            return response.json();
+        }),
+        Effect.flatMap((data) => Effect.succeed(data)),
+        Effect.tap(() => Effect.sleep(3000))
     );
-    await pause(1000);
-    return response.data;
 }
 
-export async function fetchUserPositions(address: string) {
-    const response = await axios.get(
-        `https://data-api.polymarket.com/positions/`,
-        {
-            params: {
+/**
+ * Fetches the list of available positions from Polymarket.
+ * @param address The address of the user to fetch positions for.
+ * @link https://docs.polymarket.com/api-reference/
+ */
+export function fetchUserPositions(address: string) {
+    return pipe( 
+        Effect.tryPromise(async () => {
+            const params = new URLSearchParams({
                 user: address,
-            },
-        }
+            });
+            const response = await fetch(
+                `https://data-api.polymarket.com/positions/?${params}`
+            );
+            return response.json();
+        }),
+        Effect.flatMap((data) => Effect.succeed(data)),
+        Effect.tap(() => Effect.sleep(3000))
     );
-    await pause(1000);
-    return response.data;
 }
 
-export async function fetchSearchPolymarket(query: string) {
-    const response = await axios.get(
-        `https://gamma-api.polymarket.com/public-search`,
-        {
-            headers: {
-                'content-type': 'application/json',
-                'transfer-encoding': 'chunked',
-            },
-            params: {
+/**
+ * Fetches the list of available positions from Polymarket.
+ * @param query The query to search for.
+ * @link https://docs.polymarket.com/api-reference/
+ */
+export function fetchSearchPolymarket(query: string) {
+    return pipe( 
+        Effect.tryPromise(async () => {
+            const params = new URLSearchParams({
                 q: query,
-                limit_per_type: 5,
-                ascending: false,
-                event_status: 'open',
-                sort: 'liquidity',
-                optimized: true,
-            },
-        }
+                limit_per_type: "5",
+                ascending: "false",
+                event_status: "open",
+                sort: "liquidity",
+                optimized: "true",
+            });
+            const response = await fetch(
+                `https://gamma-api.polymarket.com/public-search?${params}`,
+                {
+                    headers: {
+                        'content-type': 'application/json',
+                    },
+                }
+            );
+            return response.json();
+        }),
+        Effect.flatMap((data) => Effect.succeed(data)),
+        Effect.tap(() => Effect.sleep(3000))
     );
-    await pause(1000);
-    return response.data;
 }

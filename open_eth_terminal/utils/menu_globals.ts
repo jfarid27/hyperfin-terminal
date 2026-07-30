@@ -1,54 +1,44 @@
-import chalk from "chalk";
-import { ActionOptions, CommandResultType, TerminalUserStateConfig, EnvironmentType, MenuOption } from "../types.ts";
+import { ActionOptions, CommandResultType, TerminalUserStateConfig, EnvironmentType, MenuOption, CommandState, TerminalUserStateConfigContext } from "../types.ts";
+import { Effect } from "effect";
 
 const menu_back: MenuOption = {
     name: "back",
     command: "back",
     description: "Go back to the main menu",
-    action: (st: TerminalUserStateConfig) => async (ops?: ActionOptions) => {
+    action: (ops?: ActionOptions): Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function*() {
+        const st = yield* TerminalUserStateConfigContext;
         return {
             result: { type: CommandResultType.Back },
             state: st,
         };
-    },
-};
-
-const menu_back_top: MenuOption = {
-    name: "back",
-    command: "back",
-    description: "Go back to the previous menu",
-    action: (st: TerminalUserStateConfig) => async (ops?: ActionOptions) => {
-        console.log(chalk.yellow("You are already at the main menu."));
-        return {
-            result: { type: CommandResultType.Success },
-            state: st,
-        };
-    },
+    }),
 };
 
 const menu_top: MenuOption = {
     name: "exit",
     command: "exit",
     description: "Exit the application",
-    action: (st: TerminalUserStateConfig) => async (ops?: ActionOptions) => { 
+    action: (ops?: ActionOptions): Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function*() {
+        const st = yield* TerminalUserStateConfigContext;
         return {
             result: { type: CommandResultType.Exit },
             state: st,
         };
-    },
+    }),
 };
 
 const menu_showconfig: MenuOption = {
     name: "showconfig",
     command: "showconfig",
     description: "Show the current configuration",
-    action: (st: TerminalUserStateConfig) => async (ops?: ActionOptions) => { 
+    action: (ops?: ActionOptions): Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function*() {
+        const st = yield* TerminalUserStateConfigContext;
         console.log(st);
         return {
             result: { type: CommandResultType.Success },
             state: st,
         };
-    },
+    }),
 };
 
 /**
@@ -74,7 +64,7 @@ export const menuGlobals = (st: TerminalUserStateConfig): MenuOption[] => {
  */
 export const menuGlobalsTop = (st: TerminalUserStateConfig): MenuOption[] => {
     if (st.environment === EnvironmentType.Development) {
-        return [menu_top, menu_back_top, menu_showconfig];
+        return [menu_top, menu_showconfig];
     }
-    return [menu_top, menu_back_top];
+    return [menu_top, menu_back];
 }

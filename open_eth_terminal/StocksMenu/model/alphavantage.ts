@@ -1,5 +1,4 @@
 import { StockSymbolType } from "../types.ts";
-import axios from "axios";
 
 /**
  * Fetches the chart data for a specified symbol from the AlphaVantage API.
@@ -18,17 +17,15 @@ export async function fetchChartAlphaVantage(symbol: StockSymbolType, ALPHAVANTA
         }, 3000);
     });
 
-    const r = await fullfillTimeout;
-    const response = await axios.get("https://www.alphavantage.co/query", {
-        params: {
-            function: "TIME_SERIES_DAILY",
-            outputsize: "compact",
-            symbol: symbol.id,
-            apikey: ALPHAVANTAGE_API_KEY,
-        }
+    await fullfillTimeout;
+    const params = new URLSearchParams({
+        function: "TIME_SERIES_DAILY",
+        outputsize: "compact",
+        symbol: symbol.id,
+        apikey: ALPHAVANTAGE_API_KEY,
     });
-
-    return response.data;
+    const response = await fetch(`https://www.alphavantage.co/query?${params}`);
+    return response.json();
 }
 
 /**
@@ -41,13 +38,11 @@ export async function fetchChartAlphaVantage(symbol: StockSymbolType, ALPHAVANTA
  */
 export async function fetchSpotPriceAlphaVantage(symbol: StockSymbolType, ALPHAVANTAGE_API_KEY: string) {
     
-    const response = await axios.get("https://www.alphavantage.co/query", {
-        params: {
-            function: "GLOBAL_QUOTE",
-            symbol: symbol.id,
-            apikey: ALPHAVANTAGE_API_KEY,
-        },
+    const params = new URLSearchParams({
+        function: "GLOBAL_QUOTE",
+        symbol: symbol.id,
+        apikey: ALPHAVANTAGE_API_KEY,
     });
-
-    return response.data;
+    const response = await fetch(`https://www.alphavantage.co/query?${params}`);
+    return response.json();
 }
