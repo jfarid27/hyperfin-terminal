@@ -1,17 +1,22 @@
 import { Effect, pipe } from "effect";
 
-export function fetchMarketPriceHistoryByClobId(clobId: string) {
-    
+export function fetchMarketPriceHistoryByClobId(
+    clobId: string,
+    startTs?: number,
+    endTs?: number,
+    interval?: string,
+) {
     return pipe(
         Effect.tryPromise(async () => {
-            const OneWeekAgoUnixTimestamp = Date.now() / 1000 - 60 * 60 * 24 * 7;
-            const CurrentUnixTimestamp = Date.now() / 1000;
+            const start = startTs ?? (Date.now() / 1000 - 60 * 60 * 24 * 7);
+            const end = endTs ?? (Date.now() / 1000);
+            const inter = interval ?? "6h";
             
             const params = new URLSearchParams({
                 market: clobId,
-                startTs: String(OneWeekAgoUnixTimestamp),
-                endTs: String(CurrentUnixTimestamp),
-                interval: "6h",
+                startTs: String(start),
+                endTs: String(end),
+                interval: inter,
             });
             const response = await fetch(
                 `https://clob.polymarket.com/prices-history?${params}`

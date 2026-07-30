@@ -80,11 +80,30 @@ export const processMarketPriceHistory = pipe(
  * @param slug Polymarket Defined Market Slug. 
  * @returns CommandState 
  */
-export const marketChartHandler: ActionHandler = (slug: string):
+export const marketChartHandler: ActionHandler = (slug: string, startTs?: string, endTs?: string):
 Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     applicationLogging(LogLevel.Info)(`Fetching chart for ${slug}`);
+    
+    // Parse optional timestamps (Unix seconds)
+    const start = startTs ? Number(startTs) : undefined;
+    const end = endTs ? Number(endTs) : undefined;
+    
+    if (startTs && (Number.isNaN(Number(startTs)) || Number(startTs) !== Math.floor(Number(startTs)))) {
+        console.log(chalk.red("Invalid start timestamp. Use Unix seconds (e.g. 1700000000)"));
+        return {
+            result: { type: CommandResultType.Error },
+            state: st,
+        };
+    }
+    if (endTs && (Number.isNaN(Number(endTs)) || Number(endTs) !== Math.floor(Number(endTs)))) {
+        console.log(chalk.red("Invalid end timestamp. Use Unix seconds (e.g. 1700086400)"));
+        return {
+            result: { type: CommandResultType.Error },
+            state: st,
+        };
+    }
     
     try {
         const response = yield* PredictionMarketsData.polyMarketData.market.getBySlug(slug);
@@ -100,8 +119,8 @@ Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.g
             };
         }
 
-        const yesPrices = yield* PredictionMarketsData.polyMarketData.market.prices(clobIds[0]);
-        const noPrices = yield* PredictionMarketsData.polyMarketData.market.prices(clobIds[1]);
+        const yesPrices = yield* PredictionMarketsData.polyMarketData.market.prices(clobIds[0], start, end);
+        const noPrices = yield* PredictionMarketsData.polyMarketData.market.prices(clobIds[1], start, end);
         applicationLogging(LogLevel.Debug)(yesPrices);
         applicationLogging(LogLevel.Debug)(noPrices);
         
@@ -152,7 +171,7 @@ Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.g
  * @param tag Polymarket Defined Market ID. 
  * @returns CommandState 
  */
-export const predictionMarketViewHandler: ActionHandler = (slug?: string, type?: string):
+export const predictionMarketViewHandler: ActionHandler = (slug?: string, type?: string, startTs?: string, endTs?: string):
 Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
@@ -166,7 +185,7 @@ Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.g
     }
     
     if (type && type === "chart") {
-        return yield* marketChartHandler(slug);
+        return yield* marketChartHandler(slug, startTs, endTs);
     }
 
     const response = yield* PredictionMarketsData.polyMarketData.market.getBySlug(slug);
