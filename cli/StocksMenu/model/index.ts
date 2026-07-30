@@ -4,14 +4,14 @@ import { fetchSpotPriceMassive } from "./massive.ts";
 
 const stocks = {
     chart: {
-        get: fetchChartAlphaVantage
+        get: (symbol: StockSymbolType, apiKey: string) => fetchChartAlphaVantage(symbol, apiKey),
     },
     spot: {
-        get: fetchSpotPriceAlphaVantage
+        get: (symbol: StockSymbolType, apiKey: string) => fetchSpotPriceAlphaVantage(symbol, apiKey),
     },
     massive: {
         spot: {
-            get: fetchSpotPriceMassive
+            get: (symbol: StockSymbolType, apiKey: string) => fetchSpotPriceMassive(symbol, apiKey),
         }
     }
 }

@@ -1,15 +1,17 @@
 import chalk from "chalk";
 import { spot } from "../model/index.ts";
 import {
-     CommandResultType, DataSourceType,
-     LogLevel,
-     TerminalUserStateConfigContext
+    CommandResultType, DataSourceType,
+    LogLevel,
+    TerminalUserStateConfigContext
 } from "../../types.ts";
 import { inspectLogger } from "./../../utils/logging.ts"
-import { getCoinGeckoApiKey, getLoadedToken } from "./../../utils/index.ts";
+import { getLoadedToken } from "./../../utils/index.ts";
 import { Effect } from 'effect';
 import { ConfigErrorTag, HTTPErrorTag, TimeoutErrorTag, UnknownError, UnknownErrorTag, type ProgramError } from "../../errors/index.ts";
 import { ActionHandler } from "../../types.ts";
+import { ConfigService } from "cli/services/ConfigService.ts";
+import { Option } from "effect";
 
 /**
  * Handler for the spot price command.
@@ -25,8 +27,9 @@ import { ActionHandler } from "../../types.ts";
 export const spotPriceHandler: ActionHandler = (symbolStr: string) => Effect.gen(function*() {
     
     const st = yield* TerminalUserStateConfigContext;
+    const config = yield* ConfigService;
     const applicationLogging = inspectLogger(st);
-    const API_KEY = getCoinGeckoApiKey(st);
+    const API_KEY = Option.getOrUndefined(config.COINGECKO_API_KEY);
     
     if (!API_KEY) {
         yield* Effect.fail(new Error("No CoinGecko API key provided"));

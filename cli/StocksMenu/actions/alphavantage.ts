@@ -2,9 +2,8 @@ import chalk from "chalk";
 import stocks from "./../model/index.ts";
 import { ActionHandler, DataSourceType, TerminalUserStateConfigContext } from "./../../types.ts";
 import {
-    CommandResultType, LogLevel
+    CommandResultType
 } from "./../../types.ts";
-import { inspectLogger } from "./../../utils/logging.ts";
 import { showLineChart } from "./../../components/charting.ts";
 import {
   lensPath, pipe, view, values,
@@ -13,6 +12,8 @@ import {
 import terminalKit from "terminal-kit";
 const { terminal } = terminalKit;
 import { Effect } from "effect";
+import { ConfigService } from "cli/services/ConfigService.ts";
+import { Option } from "effect";
 
 // Lens for the loaded token on the user state config.
 const tokenLens = lensPath(["loadedContext", "token", "symbol"]);
@@ -44,7 +45,8 @@ const processDailyData = pipe(
 
 export const chartPriceHandler: ActionHandler = (symbolStr: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
-  const ALPHAVANTAGE_API_KEY = st.apiKeys.alphavantage;
+  const config = yield* ConfigService;
+  const ALPHAVANTAGE_API_KEY = Option.getOrUndefined(config.ALPHAVANTAGE_API_KEY);
   if (!ALPHAVANTAGE_API_KEY) {
     console.log(chalk.red("No AlphaVantage API key found"));
     return {
@@ -69,7 +71,7 @@ export const chartPriceHandler: ActionHandler = (symbolStr: string) => Effect.ge
     _type: DataSourceType.AlphaVantage,
   };
 
-  const result = yield* stocks.chart.get(symbolObj);
+  const result = yield* stocks.chart.get(symbolObj, ALPHAVANTAGE_API_KEY);
 
   yield* Effect.logDebug(result);
 
@@ -84,6 +86,8 @@ export const chartPriceHandler: ActionHandler = (symbolStr: string) => Effect.ge
 
 export const spotPriceHandler: ActionHandler = (symbolStr: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
+  const config = yield* ConfigService;
+  const MASSIVE_API_KEY = Option.getOrUndefined(config.MASSIVE_API_KEY);
 
   const loadedTokenSymbol: string | undefined = symbolStr || getLoadedToken(st);
 
@@ -101,7 +105,7 @@ export const spotPriceHandler: ActionHandler = (symbolStr: string) => Effect.gen
     _type: DataSourceType.Massive,
   };
 
-  const result = yield* stocks.massive.spot.get(symbolObj);
+  const result = yield* stocks.massive.spot.get(symbolObj, MASSIVE_API_KEY || "");
   const ticker = result?.ticker;
   const day = result?.day;
   const prevDay = result?.prevDay;

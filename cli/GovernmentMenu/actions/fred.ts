@@ -2,7 +2,7 @@ import chalk from "chalk";
 import government from "./../model/index.ts";
 import { DataSourceType, TerminalUserStateConfigContext } from "./../../types.ts";
 import {
-    CommandState, CommandResultType, LogLevel
+    CommandResultType, LogLevel
 } from "./../../types.ts";
 import { inspectLogger } from "./../../utils/logging.ts";
 import { showLineChart } from "./../../components/charting.ts";
@@ -10,6 +10,8 @@ import { pipe as pipeR, prop, map, sortBy } from "ramda";
 import { Effect } from "effect";
 import { ConfigErrorTag, HTTPErrorTag, TimeoutErrorTag, UnknownError, UnknownErrorTag, type ProgramError } from "../../errors/index.ts";
 import { ActionHandler } from "./../../types.ts";
+import { ConfigService } from "cli/services/ConfigService.ts";
+import { Option } from "effect";
 
 /**
  * Processed FRED observation data point
@@ -54,7 +56,8 @@ export const fredHandler: ActionHandler = (
 ) => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
-    const FRED_API_KEY = st.apiKeys.fred;
+    const config = yield* ConfigService;
+    const FRED_API_KEY = Option.getOrUndefined(config.FRED_API_KEY);
     
     if (!FRED_API_KEY) {
         console.log(chalk.red("No FRED API key found. Use 'keys fred <api_key>' to set it."));
