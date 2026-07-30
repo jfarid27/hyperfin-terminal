@@ -4,6 +4,8 @@ node_modules
 /data/*
 /scripts/*
 /portfolios/*
+# XMTP / HyperFin config (contains private keys)
+/config/*
 
 # Test coverage output
 coverage/
