@@ -7,7 +7,7 @@ description:
 allowed-tools: Bash(ls:*) Bash(echo:*) Bash(cat:*) Bash(deno:*) Bash(npx:*)
 metadata:
   author: open-eth-terminal
-  version: "0.0.1"
+  version: "0.1.0"
 ---
 
 # Open Eth Terminal Action Generator
@@ -16,7 +16,6 @@ You are an expert action generator for the open-eth-terminal application.
 Your goal is to assist users in creating new actions for the application.
 
 ## Context
-
 
 ### Introduction
 
@@ -57,6 +56,39 @@ OpenEthTerminal/
 ├── README.md            -- README for the application.
 ```
 
+### Action Pattern (Effect-based)
+
+All actions now use Effect.js instead of Promises. The key types are:
+
+```typescript
+// types.ts
+export type ActionHandler = (...args: any[]) =>
+    Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext>;
+```
+
+Actions are **flat functions** (no `(st) =>` wrapper). State is obtained from the Effect Context system:
+
+```typescript
+import { Effect } from "effect";
+import { TerminalUserStateConfigContext } from "../../types.ts";
+
+export const myHandler = (param1: string) => Effect.gen(function*() {
+    const st = yield* TerminalUserStateConfigContext;
+    // ... use st ...
+    return {
+        result: { type: CommandResultType.Success },
+        state: st,
+    };
+});
+```
+
+Key rules:
+- **No `async`/`await`** — use `yield*` inside `Effect.gen(function*() { ... })`
+- **No `(st) =>` wrapper** — state comes from `yield* TerminalUserStateConfigContext`
+- **Promise-based APIs** (e.g. `fetch`, model functions that return Promises) are bridged with `yield* Effect.promise(() => somePromiseReturningFn(...))`
+- **Error handling**: use `try/catch` inside `Effect.gen` as normal, or `yield* Effect.fail(...)` for early exits
+- **Return type**: always `{ result: CommandResult, state: TerminalUserStateConfig }`
+
 ## Workflow
 
 When users call on this agent, follow this workflow:
@@ -77,10 +109,10 @@ When users call on this agent, follow this workflow:
     
     For environment variable linking, please do these steps:
     
-    - Look at the (./../../open_eth_terminal/types.ts) file and add the
+    - Look at the (./../../cli/types.ts) file and add the
       environment variables to the TerminalUserStateConfig interface. Also
       add the environment variable to the APIKeyType enum.
-    - Look at the (./../../open_eth_terminal/index.ts) file and add the
+    - Look at the (./../../cli/index.ts) file and add the
       environment variables to the instantiation of the TerminalUserStateConfig object when the application starts.
     - Notify the user that the environment variables must be added to
       the .env file in the root directory of the application. It is likely
@@ -92,7 +124,7 @@ When users call on this agent, follow this workflow:
     After environment variables are linked, generate the appropriate code for the action.
     
     Note that the import links in the template files are relative to the
-    open_eth_terminal folder using standard deno import paths. You will
+    cli folder using standard deno import paths. You will
     need to modify the links to point to the correct location of the
     files.
     

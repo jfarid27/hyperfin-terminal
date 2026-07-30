@@ -9,5 +9,5 @@ To start, please let me know what action you would like to create, in what menu,
 any suggested output you would like to generate for the user when the action is executed.
 
 Please also include any relevant environment variables that are required for the action to function, and I will
-generate the appropriate linking for the TerminalUserStateConfig in the [types.ts](./../../open_eth_terminal/types.ts) and
-the [index.ts](./../../open_eth_terminal/index.ts) files.
+generate the appropriate linking for the TerminalUserStateConfig in the [types.ts](./../../cli/types.ts) and
+the [index.ts](./../../cli/index.ts) files.

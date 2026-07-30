@@ -103,58 +103,60 @@ export const spotPriceHandler = (symbolStr: string) => Effect.gen(function*() {
         };
     }
 
-    try {
-      const symbolObj = {
+    const symbolObj = {
         name: loadedTokenSymbol,
         id: loadedTokenSymbol.toUpperCase(),
         _type: DataSourceType.Massive,
-      };
-  
-      const result: any = yield* stocks.massive.spot.get(symbolObj, MASSIVE_API_KEY);
-      
-      const ticker = result?.ticker;
-      const day = result?.day;
-      const prevDay = result?.prevDay;
-      
-      if (!ticker) {
-          console.log(chalk.red("No data returned from Massive API"));
-          return {
-              result: { type: CommandResultType.Error },
-              state: st,
-          };
-      }
-      
-      const price = ticker.price || ticker.lastTrade?.p || "N/A";
-      const change = day?.c != null ? day.c.toFixed(2) : "N/A";
-      const changePercent = day?.cp != null ? day.cp.toFixed(2) + "%" : "N/A";
-      const volume = day?.v != null ? day.v.toLocaleString() : "N/A";
-      const prevClose = prevDay?.c != null ? prevDay.c.toFixed(2) : "N/A";
-      const high = day?.h != null ? day.h.toFixed(2) : "N/A";
-      const low = day?.l != null ? day.l.toFixed(2) : "N/A";
-      
-      terminal.table([
-          ['Symbol', 'Price', 'Change', 'Change %', 'Volume', 'Prev Close', 'High', 'Low'],
-          [ticker.ticker, `$${price}`, change, changePercent, volume, prevClose, high, low]
-      ], {
-          hasBorder: true,
-          contentHasMarkup: true,
-          borderChars: 'lightRounded',
-          borderAttr: { color: 'green' },
-          textAttr: { bgColor: 'default' },
-          firstRowTextAttr: { bgColor: 'green' },
-          width: 120,
-          fit: true
-      });
-      
-    } catch (error) {
-        applicationLogging(LogLevel.Error)(error);
+    };
 
-        console.log(chalk.red("Network Error fetching from Massive API"));
+    const result = yield* stocks.massive.spot.get(symbolObj, MASSIVE_API_KEY).pipe(
+        Effect.catchAll((error) => {
+            applicationLogging(LogLevel.Error)(error);
+            console.log(chalk.red(`Error fetching from Massive API: ${error.message}`));
+            return Effect.succeed(null);
+        }),
+    );
+
+    if (!result) {
         return {
             result: { type: CommandResultType.Error },
             state: st,
         };
     }
+  
+    const ticker = result?.ticker;
+    const day = result?.day;
+    const prevDay = result?.prevDay;
+    
+    if (!ticker) {
+        console.log(chalk.red("No data returned from Massive API"));
+        return {
+            result: { type: CommandResultType.Error },
+            state: st,
+        };
+    }
+    
+    const price = ticker.price || ticker.lastTrade?.p || "N/A";
+    const change = day?.c != null ? day.c.toFixed(2) : "N/A";
+    const changePercent = day?.cp != null ? day.cp.toFixed(2) + "%" : "N/A";
+    const volume = day?.v != null ? day.v.toLocaleString() : "N/A";
+    const prevClose = prevDay?.c != null ? prevDay.c.toFixed(2) : "N/A";
+    const high = day?.h != null ? day.h.toFixed(2) : "N/A";
+    const low = day?.l != null ? day.l.toFixed(2) : "N/A";
+    
+    terminal.table([
+        ['Symbol', 'Price', 'Change', 'Change %', 'Volume', 'Prev Close', 'High', 'Low'],
+        [ticker.ticker, `$${price}`, change, changePercent, volume, prevClose, high, low]
+    ], {
+        hasBorder: true,
+        contentHasMarkup: true,
+        borderChars: 'lightRounded',
+        borderAttr: { color: 'green' },
+        textAttr: { bgColor: 'default' },
+        firstRowTextAttr: { bgColor: 'green' },
+        width: 120,
+        fit: true
+    });
     
     return {
         result: { type: CommandResultType.Success },

@@ -3,6 +3,12 @@
     "target": "es2022",
     "module": "nodenext",
     "moduleResolution": "nodenext",
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "cli/*": ["./cli/*"],
+      "terminal/*": ["./terminal/*"]
+    },
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,

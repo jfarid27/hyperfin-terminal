@@ -3,21 +3,12 @@ import terminalKit from "terminal-kit";
 const { terminal } = terminalKit;
 import { Command } from "commander";
 import {
-    CommandState, CommandResultType, Menu, MenuOption,
-    TerminalUserStateConfig, TerminalUserStateConfigContext, LogLevel
+  CommandState, CommandResultType, Menu, MenuOption,
+  TerminalUserStateConfig,
+  TerminalUserStateConfigContext, LogLevel
 } from "../types.ts";
 import { inspectLogger } from './logging.ts';
-import { Deferred, Effect, pipe } from 'effect';
-import {
-  HTTPError, ConfigError, TimeoutError,
-  HTTPErrorTag, ProgramError, TimeoutErrorTag,
-  UnknownError
-} from "../errors/index.ts";
-
-const failDeferred = (deferred: Effect.Effect<Deferred.Deferred<CommandState, ProgramError>>) => (err: ProgramError) => Effect.gen(function* () {
-  const df = yield* deferred;
-  yield* Deferred.fail(df, err);
-});
+import { Effect } from "effect";
 
 /**
  * Wrap a commander program into a resolvable promise from a menu option.
@@ -32,33 +23,46 @@ const failDeferred = (deferred: Effect.Effect<Deferred.Deferred<CommandState, Pr
  * @param ops The options for the program.
  * @returns A promise that resolves to the command state.
  */
-export function loadProgram(program: Command, menuOption: MenuOption, state: TerminalUserStateConfig) {
-  const deferred = Effect.runSync(Deferred.make<CommandState, ProgramError>());
-  program
-    .command(menuOption.command)
-    .description(menuOption.description)
-    .action(async (...args: any[]) => {
+export function loadProgram(program: Command, menuOption: MenuOption, state: TerminalUserStateConfig, ...ops: any) {
+    return new Promise<CommandState>((resolve, reject) => {
+        program
+            .command(menuOption.command)
+            .description(menuOption.description)
+            .action(async (...args: any[]) => {
 
-      const tusccService = Effect.provideService(
-        TerminalUserStateConfigContext, state
-      );
+              const tusccService = Effect.provideService(
+                TerminalUserStateConfigContext, state
+              );
 
-      // Compose the action effect with the deferred effect.
-      const actionEffect: Effect.Effect<void, unknown, never> = Effect.gen(function* () {
-        const res = yield* menuOption.action(...args);
-        yield* Deferred.succeed(deferred, res);
-      }).pipe(
-        tusccService,
-      );
+              // Compose the action effect with the deferred effect.
+              const actionEffect = Effect.gen(function* () {
+                const res = yield* menuOption.action(...args);
+                resolve(res);
+              }).pipe(
+                tusccService,
+              );
 
-      try {
-        await Effect.runPromise(actionEffect)
-      } catch (_error) {
-        Deferred.fail(new UnknownError({ "message": "An unknown failure occurred."}))
-      }
+              try {
+                await Effect.runPromise(actionEffect);
+              } catch (error) {
+                console.log("A critical error has occurred when running the action.");
+                console.error("Error:");
+                console.error(error)
+              }
+
+              // Set the timeout only if the action callback is set
+              if (ops?.timeout || state?.actionTimeout) {
+                  setTimeout(() => {
+                      console.log(chalk.red("Command timed out"));
+                      reject({
+                          result: { type: CommandResultType.Timeout },
+                          state: state,
+                      });
+                  }, ops?.timeout || state?.actionTimeout);
+              }
+            });
 
     });
-  return deferred;
 }
 
 /*
@@ -121,7 +125,7 @@ export const registerTerminalApplication = (menu: Menu) => {
               writeErr: (str) => process.stdout.write(chalk.red(str)),
             });
 
-            const resultPs = menu_options.map((option) => {
+            const resultPs: Promise<CommandState>[] = menu_options.map((option) => {
                 if (isScriptExecution) {
                     const [nextCommand, ...rest] = st.scriptContext.tailCommands || [];
 
@@ -140,10 +144,7 @@ export const registerTerminalApplication = (menu: Menu) => {
 
             const args = input.split(/\s+/);
             await program.parseAsync(args, { from: "user" });
-            const result = await Effect.runPromise(Effect.gen(function* () {
-              const resultD = yield* Effect.raceAll(resultPs.map(d => Deferred.await(d)))
-              return resultD;
-            }))
+            const result = await Promise.race(resultPs);
 
             if (result && result.result.type === CommandResultType.Back) {
                 return result.state;
@@ -153,7 +154,7 @@ export const registerTerminalApplication = (menu: Menu) => {
                 process.exit(0);
             }
 
-            const nextState = result.state;
+            let nextState = result.state;
 
             // Check if script has completed and should exit
             if (isScriptExecution &&

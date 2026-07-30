@@ -15,9 +15,9 @@ import { MainPanel, captureConsole, type PanelOption } from "./MainPanel.ts";
 import {
   CommandState, CommandResultType, Menu, MenuOption,
   TerminalUserStateConfig, TerminalUserStateConfigContext,
-} from "../types.ts";
+} from "cli/types.ts";
 import { Deferred } from "effect";
-import { UnknownError } from "../errors/index.ts";
+import { UnknownError } from "cli/errors/index.ts";
 import { ChatPanel } from "./xmtp/ChatPanel.ts";
 import chalk from "chalk";
 

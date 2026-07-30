@@ -1,6 +1,6 @@
-import { registerTerminalApplication } from "./../../../../../open_eth_terminal/utils/program_loader.ts";
-import { Menu, MenuOption, TerminalUserStateConfig } from "./../../../../../open_eth_terminal/types.ts";
-import { menuGlobals } from "./../../../../../open_eth_terminal/utils/menu_globals.ts";
+import { registerTerminalApplication } from "../../../../../cli/utils/program_loader.ts";
+import { Menu, MenuOption, TerminalUserStateConfig } from "../../../../../cli/types.ts";
+import { menuGlobals } from "../../../../../cli/utils/menu_globals.ts";
 import { mockHandler } from "./actions/mock.ts";
 
 const mockMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [

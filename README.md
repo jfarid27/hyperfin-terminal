@@ -1,8 +1,8 @@
-# Open Eth Terminal
+# Hyperfin
 
 ![](https://github.com/jfarid27/open-eth-terminal/actions/workflows/ci-test.yml/badge.svg)
 
-A CLI Interface to Ethereum Financial Markets.
+A CLI Interface to Financial Markets.
 
 ## Installation
 
@@ -39,6 +39,7 @@ Set up your environment variables:
         ```env
         COINGECKO_API_KEY=your_api_key_here
         FRED_API_KEY=your_fred_api_key_here
+        MASSIVE_API_KEY=your_massive_api_key_here
         ENVIRONMENT=development # or production
         DEBUG=false
         ```

@@ -11,11 +11,11 @@
 
 import chalk from "chalk";
 import { lensPath, set, view } from "ramda";
-import cryptoTerminal from "../CryptoMenu/index.ts";
-import predictionMarketsTerminal from "../PredictionMarketMenu/index.ts";
-import stocksTerminal from "../StocksMenu/index.ts";
-import newsTerminal from "../NewsMenu/index.ts";
-import { menuGlobalsTop } from "../utils/menu_globals.ts";
+import cryptoTerminal from "cli/CryptoMenu/index.ts";
+import predictionMarketsTerminal from "cli/PredictionMarketMenu/index.ts";
+import stocksTerminal from "cli/StocksMenu/index.ts";
+import newsTerminal from "cli/NewsMenu/index.ts";
+import { menuGlobalsTop } from "cli/utils/menu_globals.ts";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -25,13 +25,13 @@ import {
   BLOCKCHAINCOM_API_KEY, FREECRYPTOAPI_API_KEY,
   FRED_API_KEY,
   MASSIVE_API_KEY,
-} from "../config.ts";
+} from "cli/config.ts";
 
 import {
   Menu, MenuOption, TerminalUserStateConfig,
   CommandResultType, LogLevel, EnvironmentType,
   CommandState, TerminalUserStateConfigContext,
-} from "../types.ts";
+} from "cli/types.ts";
 import { Effect } from "effect";
 import { HyperFinTerminal } from "./HyperFinTerminal.ts";
 
