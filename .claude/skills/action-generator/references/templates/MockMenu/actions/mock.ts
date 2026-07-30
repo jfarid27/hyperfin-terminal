@@ -2,8 +2,8 @@ import chalk from "chalk";
 import {
     CommandState, CommandResultType, LogLevel,
     TerminalUserStateConfigContext
-} from "../../../../../../cli/types.ts";
-import { inspectLogger } from "../../../../../../cli/utils/logging.ts";
+} from "cli/types.ts";
+import { inspectLogger } from "cli/utils/logging.ts";
 import model from "./../model/index.ts";
 import { Effect } from "effect";
 

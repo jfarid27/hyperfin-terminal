@@ -6,12 +6,12 @@ import { Effect } from "effect";
 
 /**
  * Return top posts from the given search term
- * @param {TerminalUserStateConfig} st Terminal user state 
- * @param {string} query Query term to fetch posts from 
- * @param {number} limit Number of posts to fetch 
- * @returns {CommandState} 
+ * @param {TerminalUserStateConfig} st Terminal user state
+ * @param {string} query Query term to fetch posts from
+ * @param {number} limit Number of posts to fetch
+ * @returns {CommandState}
  */
-export const redditSearchTopHandler = 
+export const redditSearchTopHandler =
     (query: string, limit: number): Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function*() {
         const st = yield* TerminalUserStateConfigContext;
         const applicationLogging = inspectLogger(st);
@@ -24,27 +24,27 @@ export const redditSearchTopHandler =
                 state: st,
             };
         }
-        
+
         const redditData = yield* news.reddit.search(query, limit || 20);
-        
+
         for (const item of redditData) {
             console.log(chalk.green(item.title))
             console.log(chalk.blue(item.date) + " | " + chalk.green(item.author))
             console.log(chalk.red(item.link) + "\n")
         }
-        
+
         return {
             result: { type: CommandResultType.Success },
             state: st,
         };
-})
+    })
 
 /**
  * Return top posts from the given subreddit
- * @param {TerminalUserStateConfig} st Terminal user state 
- * @param {string} subreddit Subreddit to fetch posts from 
- * @param {number} limit Number of posts to fetch 
- * @returns {CommandState} 
+ * @param {TerminalUserStateConfig} st Terminal user state
+ * @param {string} subreddit Subreddit to fetch posts from
+ * @param {number} limit Number of posts to fetch
+ * @returns {CommandState}
  */
 export const redditTopHandler = (subreddit: string, limit: number):
     Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function*() {
@@ -54,17 +54,17 @@ export const redditTopHandler = (subreddit: string, limit: number):
         if (!_subreddit) {
             _subreddit = "ethereum"
         }
-        
+
         const redditData = yield* news.reddit.get(_subreddit, limit || 20);
-        
+
         console.log(chalk.blue.bold(`Best posts from r/${_subreddit} \n`))
-        
+
         for (const item of redditData) {
             console.log(chalk.green(item.title))
             console.log(chalk.blue(item.date) + " | " + chalk.green(item.author))
             console.log(chalk.red(item.link) + "\n")
         }
-        
+
         return {
             result: { type: CommandResultType.Success },
             state: st,

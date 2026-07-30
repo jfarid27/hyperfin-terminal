@@ -39,6 +39,14 @@ export function loadProgram(program: Command, menuOption: MenuOption, state: Ter
                 const res = yield* menuOption.action(...args);
                 resolve(res);
               }).pipe(
+                Effect.catchAll((_error) => Effect.gen(function*() {
+                  console.log(chalk.red("An error occurred during fetching."))
+                  yield* Effect.logError(_error);
+                  reject({
+                      result: { type: CommandResultType.Error },
+                      state: state,
+                  });
+                })),
                 tusccService,
               );
 
@@ -109,7 +117,7 @@ export const registerTerminalApplication = (menu: Menu) => {
             } else {
                 terminal(menu.name + " > ");
                 const answer = await new Promise<string>((resolve) => {
-                    terminal.inputField((error, input) => {
+                    terminal.inputField((_error, input) => {
                         resolve(input || '');
                     });
                 });
