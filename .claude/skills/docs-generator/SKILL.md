@@ -36,7 +36,7 @@ When users call on this agent, execute the pre-defined tasks below in order.
 
 The first task is to generate a command map of every terminal command and associated submenu.
 
-1.  **Analyze**: Analyze the `open_eth_terminal` folder and generate a map of every terminal command and associated 
+1.  **Analyze**: Analyze the `cli` folder and generate a map of every terminal command and associated 
     submenu. Make this in a visual tree, listing the command title, the actual command and it's parameters, and a
     description of what it does or it's menu description.
     

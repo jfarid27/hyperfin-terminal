@@ -109,10 +109,10 @@ When users call on this agent, follow this workflow:
     
     For environment variable linking, please do these steps:
     
-    - Look at the (./../../open_eth_terminal/types.ts) file and add the
+    - Look at the (./../../cli/types.ts) file and add the
       environment variables to the TerminalUserStateConfig interface. Also
       add the environment variable to the APIKeyType enum.
-    - Look at the (./../../open_eth_terminal/index.ts) file and add the
+    - Look at the (./../../cli/index.ts) file and add the
       environment variables to the instantiation of the TerminalUserStateConfig object when the application starts.
     - Notify the user that the environment variables must be added to
       the .env file in the root directory of the application. It is likely
@@ -124,7 +124,7 @@ When users call on this agent, follow this workflow:
     After environment variables are linked, generate the appropriate code for the action.
     
     Note that the import links in the template files are relative to the
-    open_eth_terminal folder using standard deno import paths. You will
+    cli folder using standard deno import paths. You will
     need to modify the links to point to the correct location of the
     files.
     

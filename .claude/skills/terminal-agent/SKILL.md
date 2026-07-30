@@ -65,7 +65,7 @@ When users call on this agent, follow this workflow:
 
 1.  **Analyze**: Show a general greeting found in the [./references/greeting.md](./references/greeting.md) file.
     Capture a user's question or request, and try to understand their specific
-    goal. Terminal command files are stored in the open_eth_terminal folder, where each file
+    goal. Terminal command files are stored in the cli folder, where each file
     has relevant information about commands available after launching the application. Generate
     a list of appropriate commands that can be used to achieve the user's goal. If the user
     does not specify how the program should exit, add the `exit` command to the end of the list
