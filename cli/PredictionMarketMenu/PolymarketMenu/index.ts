@@ -4,7 +4,6 @@ import { menuGlobals } from "./../../utils/menu_globals.ts";
 import {
     polymarketMarketsTopFetchHandler,
     polymarketMarketsTagsFetchHandler,
-    polymarketMarketsTagsSearchHandler,
     predictionMarketsViewHandler,
     portfolioAnalysisHandler,
  } from './actions/polymarket.ts';
@@ -35,10 +34,10 @@ const polymarketMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => 
         name: "portfolio analysis",
         command: "portfolio [type] [filename].csv",
         description: `Give spot or chart analysis of a portfolio of polymarket positions.
-        
+
         type: spot | chart
         filename: filename of CSV portfolio file inside the top level './portfolios' directory
-        
+
         See the readme in the './portfolios' directory for more information.
         `,
         action: portfolioAnalysisHandler,
@@ -47,11 +46,11 @@ const polymarketMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => 
         name: "market",
         command: "market <slug> [type] [startTs] [endTs]",
         description: `Fetch a specific market by slug.
-        
+
         type (optional): spot | chart
             - spot (default): show current market details
             - chart: show historical price chart for the market
-        
+
         startTs (optional, Unix seconds): start of time range for chart
         endTs (optional, Unix seconds): end of time range for chart
             If endTs is omitted, fetches from startTs to present.

@@ -2,6 +2,7 @@ import * as Plot from "@observablehq/plot";
 import { JSDOM } from "npm:jsdom";
 import open from "npm:open";
 import { Effect } from "effect";
+import { LocalProcessingError } from "cli/errors/index.ts";
 
 /**
  * Options for configuring a time series in a multi-line chart
@@ -47,7 +48,7 @@ export async function show(content: Element | string) {
 
   try {
       const tempFile = await Deno.makeTempFile({ dir: "./tmp", suffix: ".svg" });
-      
+
       await Deno.writeTextFile(tempFile, svgString);
       console.log(`Saved chart to: ${tempFile}`);
       await open(tempFile, { wait: false });
@@ -76,11 +77,11 @@ export function showLineChart(
     x: string,
     y: string,
     title: string = "Chart"
-): Effect.Effect<void, Error> {
+): Effect.Effect<void, LocalProcessingError> {
     // specific setup for jsdom to match what Plot expects
     const jsdom = new JSDOM("");
     const document = jsdom.window.document;
-    
+
     // We render the plot using the passing document
     const plot = Plot.plot({
         document: document,
@@ -97,32 +98,35 @@ export function showLineChart(
         ]
     });
 
-    // Ensure the SVG element itself has the background style, 
+    // Ensure the SVG element itself has the background style,
     // so it persists when 'show' extracts it from the figure wrapper.
     const svg = plot.tagName.toLowerCase() === "svg" ? plot : plot.querySelector("svg");
     if (svg) {
         svg.setAttribute("style", "background-color: black; color: white;");
-        
+
         // Explicitly format the background with a rect, as some viewers ignore the style attribute
         const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
         bg.setAttribute("width", "100%");
         bg.setAttribute("height", "100%");
         bg.setAttribute("fill", "black");
-        
+
         if (svg.firstChild) {
             svg.insertBefore(bg, svg.firstChild);
         } else {
             svg.appendChild(bg);
         }
     }
-    
-    return Effect.tryPromise(() => show(plot));
+
+    return Effect.tryPromise({
+      try: () => show(plot),
+      catch: () => new LocalProcessingError({ message: "Failed to show plot." })
+    });
 }
 
 /**
  * Display multiple time series on a single chart.
  * Timestamps are expected to be in Unix time (seconds) and will be converted to YYYY-MM-DD format.
- * 
+ *
  * @param series Array of time series data with labels and optional styling options
  * @param x The x axis field name (expected to contain Unix timestamps)
  * @param y The y axis field name
@@ -137,11 +141,11 @@ export function showMultiLineChart(
     xLabel: string = "Date",
     yLabel: string = "Value",
     title: string = "Multi-Line Chart"
-): Effect.Effect<void, Error> {
+): Effect.Effect<void, LocalProcessingError> {
     // specific setup for jsdom to match what Plot expects
     const jsdom = new JSDOM("");
     const document = jsdom.window.document;
-    
+
     // Create a line mark for each series
     const lineMarks = series.map((s) => {
         return Plot.line(s.data, {
@@ -152,7 +156,7 @@ export function showMultiLineChart(
             tip: true,
         });
     });
-    
+
     // We render the plot using the passing document
     const plot = Plot.plot({
         document: document,
@@ -172,24 +176,27 @@ export function showMultiLineChart(
         marks: lineMarks
     });
 
-    // Ensure the SVG element itself has the background style, 
+    // Ensure the SVG element itself has the background style,
     // so it persists when 'show' extracts it from the figure wrapper.
     const svg = plot && plot.tagName && plot.tagName.toLowerCase() === "svg" ? plot : plot.querySelector("svg");
     if (svg) {
         svg.setAttribute("style", "background-color: black; color: white;");
-        
+
         // Explicitly format the background with a rect, as some viewers ignore the style attribute
         const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
         bg.setAttribute("width", "100%");
         bg.setAttribute("height", "100%");
         bg.setAttribute("fill", "black");
-        
+
         if (svg.firstChild) {
             svg.insertBefore(bg, svg.firstChild);
         } else {
             svg.appendChild(bg);
         }
     }
-    
-    return Effect.tryPromise(() => show(plot));
+
+  return Effect.tryPromise({
+    try: () => show(plot),
+    catch: () => new LocalProcessingError({ message: "Failed to show plot." })
+  });
 }

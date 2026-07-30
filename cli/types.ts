@@ -132,7 +132,7 @@ export type ActionOptions = any;
 // export type ActionHandler = (st: TerminalUserStateConfig) => (...args: any[]) => Promise<CommandState>;
 
 export type ActionHandler = (...args: any[]) =>
-    Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext>;
+    Effect.Effect<CommandState, ProgramError, TerminalUserStateConfigContext>;
 
 /**
  * Abstract menu option for terminal state.

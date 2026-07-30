@@ -8,6 +8,8 @@ import {
 import { inspectLogger } from "./../../utils/logging.ts"
 import { getCoinGeckoApiKey, getLoadedToken } from "./../../utils/index.ts";
 import { Effect } from 'effect';
+import { ConfigErrorTag, HTTPErrorTag, TimeoutErrorTag, UnknownError, UnknownErrorTag, type ProgramError } from "../../errors/index.ts";
+import { ActionHandler } from "../../types.ts";
 
 /**
  * Handler for the spot price command.
@@ -20,7 +22,7 @@ import { Effect } from 'effect';
  * @returns {@link CommandState} 
  * @note The function is intended to expand to support multiple data sources.
  */
-export const spotPriceHandler = (symbolStr: string) => Effect.gen(function*() {
+export const spotPriceHandler: ActionHandler = (symbolStr: string) => Effect.gen(function*() {
     
     const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
@@ -65,4 +67,29 @@ export const spotPriceHandler = (symbolStr: string) => Effect.gen(function*() {
         result: { type: CommandResultType.Success },
         state: st,
     };
-});
+}).pipe(
+  Effect.catchAll((error) => {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "_tag" in error
+    ) {
+      const tag = (error as { _tag: string })._tag;
+      if (
+        tag === HTTPErrorTag ||
+        tag === ConfigErrorTag ||
+        tag === TimeoutErrorTag ||
+        tag === UnknownErrorTag
+      ) {
+        return Effect.fail(error as unknown as ProgramError);
+      }
+    }
+    return Effect.gen(function* () {
+      yield* Effect.logError(error);
+      const err = error as unknown;
+      return yield* Effect.fail(new UnknownError({
+        message: err instanceof Error ? err.message : "Action handler failed",
+      }));
+    });
+  }),
+);

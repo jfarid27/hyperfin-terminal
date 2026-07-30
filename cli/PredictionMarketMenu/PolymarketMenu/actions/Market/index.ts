@@ -1,13 +1,12 @@
 import { Effect } from "effect";
+import { InvalidStateError } from "cli/errors/index.ts";
 import {
-    ActionHandler, CommandResultType, CommandState, TerminalUserStateConfigContext,
-    LogLevel
-} from "./../../../../types.ts";
+    ActionHandler, CommandResultType, TerminalUserStateConfigContext
+} from "cli/types.ts";
 import terminalKit from "terminal-kit";
 import PredictionMarketsData from "./../../model/index.ts";
 const { terminal } = terminalKit;
-import { inspectLogger } from "./../../../../utils/logging.ts";
-import { showLineChart, showMultiLineChart, TimeSeriesData } from "./../../../../components/charting.ts";
+import { showMultiLineChart, TimeSeriesData } from "cli/components/charting.ts";
 import chalk from "chalk";
 import { zip, pipe, props, map, prop } from "ramda";
 
@@ -41,7 +40,7 @@ export const zipEventOutcomePrices = (r: any) => {
 
 /**
  * Processes the outcome data for the given list of markets.
- * 
+ *
  * @param markets List of markets to process.
  * @returns Array of [question, outcomes] pairs.
  */
@@ -75,107 +74,90 @@ export const processMarketPriceHistory = pipe(
 
 /*
  * Prints a market chart for the given market slug.
- * 
- * @param st Terminal User State 
- * @param slug Polymarket Defined Market Slug. 
- * @returns CommandState 
+ *
+ * @param st Terminal User State
+ * @param slug Polymarket Defined Market Slug.
+ * @returns CommandState
  */
-export const marketChartHandler: ActionHandler = (slug: string, startTs?: string, endTs?: string):
-Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
-    const st = yield* TerminalUserStateConfigContext;
-    const applicationLogging = inspectLogger(st);
-    applicationLogging(LogLevel.Info)(`Fetching chart for ${slug}`);
-    
-    // Parse optional timestamps (Unix seconds)
-    const start = startTs ? Number(startTs) : undefined;
-    const end = endTs ? Number(endTs) : undefined;
-    
-    if (startTs && (Number.isNaN(Number(startTs)) || Number(startTs) !== Math.floor(Number(startTs)))) {
-        console.log(chalk.red("Invalid start timestamp. Use Unix seconds (e.g. 1700000000)"));
-        return {
-            result: { type: CommandResultType.Error },
-            state: st,
-        };
-    }
-    if (endTs && (Number.isNaN(Number(endTs)) || Number(endTs) !== Math.floor(Number(endTs)))) {
-        console.log(chalk.red("Invalid end timestamp. Use Unix seconds (e.g. 1700086400)"));
-        return {
-            result: { type: CommandResultType.Error },
-            state: st,
-        };
-    }
-    
-    try {
-        const response = yield* PredictionMarketsData.polyMarketData.market.getBySlug(slug);
-        applicationLogging(LogLevel.Debug)(response);
-        const clobIds = splitClobIds(response);
-        applicationLogging(LogLevel.Debug)(clobIds);
-        
-        if (clobIds.length !== 2) {
-            console.log(chalk.red("Invalid clob ids"));
-            return {
-                result: { type: CommandResultType.Error },
-                state: st,
-            };
-        }
+export const marketChartHandler: ActionHandler = (slug: string, startTs?: string, endTs?: string) => Effect.gen(function* () {
+  const st = yield* TerminalUserStateConfigContext;
+  yield* Effect.logInfo(`Fetching chart for ${slug}`);
 
-        const yesPrices = yield* PredictionMarketsData.polyMarketData.market.prices(clobIds[0], start, end);
-        const noPrices = yield* PredictionMarketsData.polyMarketData.market.prices(clobIds[1], start, end);
-        applicationLogging(LogLevel.Debug)(yesPrices);
-        applicationLogging(LogLevel.Debug)(noPrices);
-        
-        const yesPricesProcessed = processMarketPriceHistory(yesPrices);
-        const noPricesProcessed = processMarketPriceHistory(noPrices);
-        
-        // Create time series data for the multi-line chart
-        const timeSeries: TimeSeriesData[] = [
-            {
-                label: "Yes",
-                data: yesPricesProcessed,
-                options: { color: "red" }
-            },
-            {
-                label: "No",
-                data: noPricesProcessed,
-                options: { color: "blue" }
-            }
-        ];
-        
-        yield* showMultiLineChart(
-            timeSeries,
-            "timestamp",
-            "price",
-            "Date",
-            "Price",
-            response.question
-        );
-    } catch (error) {
-        applicationLogging(LogLevel.Error)(error);
-        console.log(chalk.red("Network Error"));
-        return {
-            result: { type: CommandResultType.Error },
-            state: st,
-        };
-    }
-    
+  // Parse optional timestamps (Unix seconds)
+  const start = startTs ? Number(startTs) : undefined;
+  const end = endTs ? Number(endTs) : undefined;
+
+  if (startTs && (Number.isNaN(Number(startTs)) || Number(startTs) !== Math.floor(Number(startTs)))) {
+    console.log(chalk.red("Invalid start timestamp. Use Unix seconds (e.g. 1700000000)"));
     return {
-        result: { type: CommandResultType.Success },
-        state: st,
+      result: { type: CommandResultType.Error },
+      state: st,
     };
-    
+  }
+  if (endTs && (Number.isNaN(Number(endTs)) || Number(endTs) !== Math.floor(Number(endTs)))) {
+    console.log(chalk.red("Invalid end timestamp. Use Unix seconds (e.g. 1700086400)"));
+    return {
+      result: { type: CommandResultType.Error },
+      state: st,
+    };
+  }
+
+  const response = yield* PredictionMarketsData.polyMarketData.market.getBySlug(slug);
+  yield* Effect.logDebug(response);
+  const clobIds = splitClobIds(response);
+  yield* Effect.logDebug(clobIds);
+
+  if (clobIds.length !== 2) {
+    console.log(chalk.red("Invalid clob ids"));
+    return yield* Effect.fail(new InvalidStateError({ message: "Invalid clob ids"}))
+  }
+
+  const yesPrices = yield* PredictionMarketsData.polyMarketData.market.prices(clobIds[0], start, end);
+  const noPrices = yield* PredictionMarketsData.polyMarketData.market.prices(clobIds[1], start, end);
+  yield* Effect.logDebug(yesPrices);
+  yield* Effect.logDebug(noPrices);
+  const yesPricesProcessed = processMarketPriceHistory(yesPrices);
+  const noPricesProcessed = processMarketPriceHistory(noPrices);
+
+  // Create time series data for the multi-line chart
+  const timeSeries: TimeSeriesData[] = [
+    {
+      label: "Yes",
+      data: yesPricesProcessed,
+      options: { color: "red" }
+    },
+    {
+      label: "No",
+      data: noPricesProcessed,
+      options: { color: "blue" }
+    }
+  ];
+
+  yield* showMultiLineChart(
+    timeSeries,
+    "timestamp",
+    "price",
+    "Date",
+    "Price",
+    response.question
+  );
+
+  return {
+    result: { type: CommandResultType.Success },
+    state: st,
+  };
+
 });
 
 /**
  * Fetches market for the given market id.
- * @param st Terminal User State 
- * @param tag Polymarket Defined Market ID. 
- * @returns CommandState 
+ * @param st Terminal User State
+ * @param tag Polymarket Defined Market ID.
+ * @returns CommandState
  */
-export const predictionMarketViewHandler: ActionHandler = (slug?: string, type?: string, startTs?: string, endTs?: string):
-Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
+export const predictionMarketViewHandler: ActionHandler = (slug?: string, type?: string, startTs?: string, endTs?: string) => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
-    const applicationLogging = inspectLogger(st);
-    
+
     if (!slug) {
         console.log("No slug provided");
         return {
@@ -183,20 +165,21 @@ Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.g
             state: st,
         };
     }
-    
+
     if (type && type === "chart") {
         return yield* marketChartHandler(slug, startTs, endTs);
     }
 
     const response = yield* PredictionMarketsData.polyMarketData.market.getBySlug(slug);
     const { marketData, outcomeData } = processMarketSlugDataResponse(response);
-    applicationLogging(LogLevel.Debug)(response);
-    
+    yield* Effect.logDebug(marketData);
+    yield* Effect.logDebug(outcomeData);
+
     console.log(chalk.blue.bold("Market Data"))
     console.log(chalk.blue("Question: " + response.question))
     console.log(chalk.blue("Slug: " + response.slug))
     console.log(chalk.yellow("Description: " + response.description))
-    
+
     terminal.table([
         ['Active', 'Liquidity', 'Volume'],
         marketData,
@@ -232,4 +215,4 @@ Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.g
         result: { type: CommandResultType.Success },
         state: st,
     };
-});
+})

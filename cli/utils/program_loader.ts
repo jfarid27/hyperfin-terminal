@@ -5,10 +5,14 @@ import { Command } from "commander";
 import {
   CommandState, CommandResultType, Menu, MenuOption,
   TerminalUserStateConfig,
-  TerminalUserStateConfigContext, LogLevel
+  TerminalUserStateConfigContext
 } from "../types.ts";
-import { inspectLogger } from './logging.ts';
 import { Effect } from "effect";
+import {
+  HTTPErrorTag, TimeoutErrorTag, ConfigErrorTag, UnknownErrorTag,
+  InvalidStateErrorTag,
+  mapErrorsToCommandResults
+} from "cli/errors/index.ts";
 
 /**
  * Wrap a commander program into a resolvable promise from a menu option.
@@ -23,7 +27,7 @@ import { Effect } from "effect";
  * @param ops The options for the program.
  * @returns A promise that resolves to the command state.
  */
-export function loadProgram(program: Command, menuOption: MenuOption, state: TerminalUserStateConfig, ...ops: any) {
+export function loadProgram(program: Command, menuOption: MenuOption, state: TerminalUserStateConfig) {
     return new Promise<CommandState>((resolve, reject) => {
         program
             .command(menuOption.command)
@@ -39,35 +43,11 @@ export function loadProgram(program: Command, menuOption: MenuOption, state: Ter
                 const res = yield* menuOption.action(...args);
                 resolve(res);
               }).pipe(
-                Effect.catchAll((_error) => Effect.gen(function*() {
-                  console.log(chalk.red("An error occurred during fetching."))
-                  yield* Effect.logError(_error);
-                  reject({
-                      result: { type: CommandResultType.Error },
-                      state: state,
-                  });
-                })),
+                mapErrorsToCommandResults(resolve, state),
                 tusccService,
               );
 
-              try {
-                await Effect.runPromise(actionEffect);
-              } catch (error) {
-                console.log("A critical error has occurred when running the action.");
-                console.error("Error:");
-                console.error(error)
-              }
-
-              // Set the timeout only if the action callback is set
-              if (ops?.timeout || state?.actionTimeout) {
-                  setTimeout(() => {
-                      console.log(chalk.red("Command timed out"));
-                      reject({
-                          result: { type: CommandResultType.Timeout },
-                          state: state,
-                      });
-                  }, ops?.timeout || state?.actionTimeout);
-              }
+              await Effect.runPromise(actionEffect);
             });
 
     });
@@ -84,7 +64,6 @@ export const registerTerminalApplication = (menu: Menu) => {
 
     async function terminalApplication(st: TerminalUserStateConfig): Promise<TerminalUserStateConfig> {
 
-        const applicationLogging = inspectLogger(st);
         const menu_options = menu.options(st);
         // Only show menu if not in script mode
         if (!st.scriptContext?.currentCommand) {
@@ -162,7 +141,16 @@ export const registerTerminalApplication = (menu: Menu) => {
                 process.exit(0);
             }
 
-            let nextState = result.state;
+            if (result.result?.type === CommandResultType.Timeout) {
+                console.log(chalk.red("Command timed out"));
+            }
+
+            if (result.result?.type === CommandResultType.Error) {
+                console.log(chalk.red("Command failed"));
+            }
+
+
+            const nextState = result.state;
 
             // Check if script has completed and should exit
             if (isScriptExecution &&
@@ -174,17 +162,9 @@ export const registerTerminalApplication = (menu: Menu) => {
 
             return terminalApplication(nextState);
 
-        } catch (err: any) {
-            if (err.result?.type === CommandResultType.Timeout) {
-                console.log(chalk.red("Command timed out"));
-            }
-
-            if (err.result?.type === CommandResultType.Error) {
-                console.log(chalk.red("Command failed"));
-            }
-
-            applicationLogging(LogLevel.Error)(err);
-            console.log(chalk.red("Not a valid command"));
+        } catch (err: unknown) {
+            console.log(chalk.red("An unhandled critical error occurred during running."));
+            console.log(chalk.red(err))
 
             // Fix for script loop on error:
             // If error occurred during script execution, abort.

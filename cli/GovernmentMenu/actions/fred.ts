@@ -8,6 +8,8 @@ import { inspectLogger } from "./../../utils/logging.ts";
 import { showLineChart } from "./../../components/charting.ts";
 import { pipe as pipeR, prop, map, sortBy } from "ramda";
 import { Effect } from "effect";
+import { ConfigErrorTag, HTTPErrorTag, TimeoutErrorTag, UnknownError, UnknownErrorTag, type ProgramError } from "../../errors/index.ts";
+import { ActionHandler } from "./../../types.ts";
 
 /**
  * Processed FRED observation data point
@@ -45,11 +47,11 @@ export const processFredData = (data: FredApiResponse): ProcessedFredObservation
     )(data) as ProcessedFredObservation[];
 };
 
-export const fredHandler = (
+export const fredHandler: ActionHandler = (
     seriesId: string,
     startDate: string,
     endDate: string
-): Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
+) => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     const FRED_API_KEY = st.apiKeys.fred;
@@ -133,6 +135,31 @@ export const fredHandler = (
             state: st,
         };
     }
-})
+}).pipe(
+  Effect.catchAll((error) => {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "_tag" in error
+    ) {
+      const tag = (error as { _tag: string })._tag;
+      if (
+        tag === HTTPErrorTag ||
+        tag === ConfigErrorTag ||
+        tag === TimeoutErrorTag ||
+        tag === UnknownErrorTag
+      ) {
+        return Effect.fail(error as unknown as ProgramError);
+      }
+    }
+    return Effect.gen(function* () {
+      yield* Effect.logError(error);
+      const err = error as unknown;
+      return yield* Effect.fail(new UnknownError({
+        message: err instanceof Error ? err.message : "Action handler failed",
+      }));
+    });
+  }),
+);
 
 

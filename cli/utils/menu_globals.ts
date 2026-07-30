@@ -1,44 +1,120 @@
-import { ActionOptions, CommandResultType, TerminalUserStateConfig, EnvironmentType, MenuOption, CommandState, TerminalUserStateConfigContext } from "../types.ts";
+import { ActionOptions, CommandResultType, TerminalUserStateConfig, EnvironmentType, MenuOption, TerminalUserStateConfigContext } from "../types.ts";
 import { Effect } from "effect";
+import { ConfigErrorTag, HTTPErrorTag, TimeoutErrorTag, UnknownError, UnknownErrorTag, type ProgramError } from "../errors/index.ts";
 
 const menu_back: MenuOption = {
     name: "back",
     command: "back",
     description: "Go back to the main menu",
-    action: (ops?: ActionOptions): Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function*() {
+    action: (_ops?: ActionOptions) => Effect.gen(function*() {
         const st = yield* TerminalUserStateConfigContext;
         return {
             result: { type: CommandResultType.Back },
             state: st,
         };
-    }),
+    }).pipe(
+  Effect.catchAll((error) => {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "_tag" in error
+    ) {
+      const tag = (error as { _tag: string })._tag;
+      if (
+        tag === HTTPErrorTag ||
+        tag === ConfigErrorTag ||
+        tag === TimeoutErrorTag ||
+        tag === UnknownErrorTag
+      ) {
+        return Effect.fail(error as unknown as ProgramError);
+      }
+    }
+    return Effect.gen(function* () {
+      yield* Effect.logError(error);
+      const err = error as unknown;
+      return yield* Effect.fail(new UnknownError({
+        message: err instanceof Error ? err.message : "Action handler failed",
+      }));
+    });
+  }),
+        ),
 };
 
 const menu_top: MenuOption = {
     name: "exit",
     command: "exit",
     description: "Exit the application",
-    action: (ops?: ActionOptions): Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function*() {
+    action: (_ops?: ActionOptions) => Effect.gen(function*() {
         const st = yield* TerminalUserStateConfigContext;
         return {
             result: { type: CommandResultType.Exit },
             state: st,
         };
-    }),
+    }).pipe(
+  Effect.catchAll((error) => {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "_tag" in error
+    ) {
+      const tag = (error as { _tag: string })._tag;
+      if (
+        tag === HTTPErrorTag ||
+        tag === ConfigErrorTag ||
+        tag === TimeoutErrorTag ||
+        tag === UnknownErrorTag
+      ) {
+        return Effect.fail(error as unknown as ProgramError);
+      }
+    }
+    return Effect.gen(function* () {
+      yield* Effect.logError(error);
+      const err = error as unknown;
+      return yield* Effect.fail(new UnknownError({
+        message: err instanceof Error ? err.message : "Action handler failed",
+      }));
+    });
+  }),
+        ),
 };
 
 const menu_showconfig: MenuOption = {
     name: "showconfig",
     command: "showconfig",
     description: "Show the current configuration",
-    action: (ops?: ActionOptions): Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function*() {
+    action: (_ops?: ActionOptions) => Effect.gen(function*() {
         const st = yield* TerminalUserStateConfigContext;
         console.log(st);
         return {
             result: { type: CommandResultType.Success },
             state: st,
         };
-    }),
+    }).pipe(
+  Effect.catchAll((error) => {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "_tag" in error
+    ) {
+      const tag = (error as { _tag: string })._tag;
+      if (
+        tag === HTTPErrorTag ||
+        tag === ConfigErrorTag ||
+        tag === TimeoutErrorTag ||
+        tag === UnknownErrorTag
+      ) {
+        return Effect.fail(error as unknown as ProgramError);
+      }
+    }
+    return Effect.gen(function* () {
+      yield* Effect.logError(error);
+      const err = error as unknown;
+      return yield* Effect.fail(new UnknownError({
+        message: err instanceof Error ? err.message : "Action handler failed",
+      }));
+    });
+  }),
+        ),
 };
 
 /**

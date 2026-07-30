@@ -1,5 +1,5 @@
-import { pause } from "./../../../utils/timing.ts";
 import { Effect, pipe } from "effect";
+import { HTTPError } from "cli/errors/index.ts";
 
 /**
  * Fetches market data for a given event ticker from Kalshi.
@@ -7,7 +7,7 @@ import { Effect, pipe } from "effect";
  * @param limit The maximum number of markets to fetch (optional).
  * @link https://docs.kalshi.com/getting_started/quick_start_market_data
  */
-export function fetchMarketsByEventTicker(eventTicker: string, limit?: number): Effect.Effect<any, Error> {
+export function fetchMarketsByEventTicker(eventTicker: string, limit?: number): Effect.Effect<any, HTTPError> {
     return pipe(
         Effect.tryPromise(async () => {
             const params = new URLSearchParams({
@@ -21,5 +21,9 @@ export function fetchMarketsByEventTicker(eventTicker: string, limit?: number): 
         }),
         Effect.flatMap((data) => Effect.succeed(data)),
         Effect.tap(() => Effect.sleep(3000)),
+        Effect.catchAll((err) => Effect.gen(function* () {
+          yield * Effect.logError(err);
+          return yield* new HTTPError({ message: "Failed to fetch Reddit RSS feed." })
+        }))
     )
 }

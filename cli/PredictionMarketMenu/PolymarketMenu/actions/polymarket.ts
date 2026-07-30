@@ -6,6 +6,7 @@
  */
 
 import { Effect, pipe } from "effect";
+import { ConfigErrorTag, HTTPErrorTag, TimeoutErrorTag, UnknownError, UnknownErrorTag, type ProgramError } from "./../../../errors/index.ts";
 import { project, pipe as pipeR, set, filter, toLower, lensProp, map,
     lensPath, view, defaultTo, zip, prop, tap, find,
     props,
@@ -18,7 +19,7 @@ import {CommandResultType, CommandState, PredictionMarketsType, LogLevel } from 
 import { TerminalUserStateConfigContext } from "./../../../types.ts";
 import { ActionHandler } from "./../../../types.ts";
 import chalk from "chalk";
-import { inspectLogger } from "./../../../utils/logging.ts"
+import { inspectLogger } from "./../../../utils/logging.ts";
 import { loadCSVPortfolio } from "./../../../utils/loaders.ts";
 import { PolymarketPortfolio, PolymarketPosition, PortfolioAnalysisType } from "./types.ts";
 
@@ -154,8 +155,7 @@ const processMarketDataBySlug = (slug: string) => pipe(
  * @param tag Polymarket Defined Tag ID. 
  * @returns CommandState 
  */
-export const predictionMarketsViewHandler: ActionHandler = (tag?: string):
-Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
+export const predictionMarketsViewHandler: ActionHandler = (tag?: string) => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st); 
 
@@ -194,7 +194,32 @@ Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.g
         result: { type: CommandResultType.Success },
         state: st,
     };
-});
+}).pipe(
+  Effect.catchAll((error) => {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "_tag" in error
+    ) {
+      const tag = (error as { _tag: string })._tag;
+      if (
+        tag === HTTPErrorTag ||
+        tag === ConfigErrorTag ||
+        tag === TimeoutErrorTag ||
+        tag === UnknownErrorTag
+      ) {
+        return Effect.fail(error as unknown as ProgramError);
+      }
+    }
+    return Effect.gen(function* () {
+      yield* Effect.logError(error);
+      const err = error as unknown;
+      return yield* Effect.fail(new UnknownError({
+        message: err instanceof Error ? err.message : "Action handler failed",
+      }));
+    });
+  }),
+);
 
 /**
  * Fetches the top active markets on polymarket by liquidity
@@ -202,8 +227,7 @@ Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.g
  * @param n Number of markets to fetch
  * @returns CommandState
  */
-export const polymarketMarketsTopFetchHandler: ActionHandler = (n?: string, term?: string): 
-Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
+export const polymarketMarketsTopFetchHandler: ActionHandler = (n?: string, term?: string) => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;      
     const applicationLogging = inspectLogger(st);
 
@@ -247,7 +271,32 @@ Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.g
         result: { type: CommandResultType.Success },
         state: st,
     };
-});
+}).pipe(
+  Effect.catchAll((error) => {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "_tag" in error
+    ) {
+      const tag = (error as { _tag: string })._tag;
+      if (
+        tag === HTTPErrorTag ||
+        tag === ConfigErrorTag ||
+        tag === TimeoutErrorTag ||
+        tag === UnknownErrorTag
+      ) {
+        return Effect.fail(error as unknown as ProgramError);
+      }
+    }
+    return Effect.gen(function* () {
+      yield* Effect.logError(error);
+      const err = error as unknown;
+      return yield* Effect.fail(new UnknownError({
+        message: err instanceof Error ? err.message : "Action handler failed",
+      }));
+    });
+  }),
+);
 
 /**
  * Fetches the list of available tags on polymarket. Stores the tags in the terminal user state.
@@ -255,8 +304,7 @@ Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.g
  * @param search Search term
  * @returns CommandState
  */
-export const polymarketMarketsTagsFetchHandler: ActionHandler = (search?: string):
-Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
+export const polymarketMarketsTagsFetchHandler: ActionHandler = (search?: string) => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     
@@ -282,7 +330,32 @@ Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.g
         result: { type: CommandResultType.Success },
         state: newSt2,
     };
-});
+}).pipe(
+  Effect.catchAll((error) => {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "_tag" in error
+    ) {
+      const tag = (error as { _tag: string })._tag;
+      if (
+        tag === HTTPErrorTag ||
+        tag === ConfigErrorTag ||
+        tag === TimeoutErrorTag ||
+        tag === UnknownErrorTag
+      ) {
+        return Effect.fail(error as unknown as ProgramError);
+      }
+    }
+    return Effect.gen(function* () {
+      yield* Effect.logError(error);
+      const err = error as unknown;
+      return yield* Effect.fail(new UnknownError({
+        message: err instanceof Error ? err.message : "Action handler failed",
+      }));
+    });
+  }),
+);
 
 /**
  * Searches for tags on polymarket. If there is a cached list of tags, it will search those. 
@@ -290,8 +363,7 @@ Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.g
  * @param search Search term
  * @returns CommandState
  */
-export const polymarketMarketsTagsSearchHandler: ActionHandler = (search?: string):
-Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
+export const polymarketMarketsTagsSearchHandler: ActionHandler = (search?: string) => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     
     const applicationLogging = inspectLogger(st); 
@@ -344,7 +416,32 @@ Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.g
         state: st,
     };
 
-});
+}).pipe(
+  Effect.catchAll((error) => {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "_tag" in error
+    ) {
+      const tag = (error as { _tag: string })._tag;
+      if (
+        tag === HTTPErrorTag ||
+        tag === ConfigErrorTag ||
+        tag === TimeoutErrorTag ||
+        tag === UnknownErrorTag
+      ) {
+        return Effect.fail(error as unknown as ProgramError);
+      }
+    }
+    return Effect.gen(function* () {
+      yield* Effect.logError(error);
+      const err = error as unknown;
+      return yield* Effect.fail(new UnknownError({
+        message: err instanceof Error ? err.message : "Action handler failed",
+      }));
+    });
+  }),
+);
 
 const  formatPortfolioToPolymarketPortfolio = pipeR(
     map((position: string[]): PolymarketPosition => {
@@ -362,8 +459,7 @@ const  formatPortfolioToPolymarketPortfolio = pipeR(
     }
 )
 
-export const portfolioAnalysisHandler: ActionHandler = (type?: string, filename?: string):
-Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
+export const portfolioAnalysisHandler: ActionHandler = (type?: string, filename?: string) => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     
     const applicationLogging = inspectLogger(st); 
@@ -395,7 +491,32 @@ Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.g
         result: { type: CommandResultType.Error},
         state: st,
     };
-});
+}).pipe(
+  Effect.catchAll((error) => {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "_tag" in error
+    ) {
+      const tag = (error as { _tag: string })._tag;
+      if (
+        tag === HTTPErrorTag ||
+        tag === ConfigErrorTag ||
+        tag === TimeoutErrorTag ||
+        tag === UnknownErrorTag
+      ) {
+        return Effect.fail(error as unknown as ProgramError);
+      }
+    }
+    return Effect.gen(function* () {
+      yield* Effect.logError(error);
+      const err = error as unknown;
+      return yield* Effect.fail(new UnknownError({
+        message: err instanceof Error ? err.message : "Action handler failed",
+      }));
+    });
+  }),
+);
 
 interface PositionPoint {
     outcome: string;
@@ -445,8 +566,7 @@ const processOutcomePriceFromResponseData = (outcome_name: any) => pipeR(
  * @param portfolio {PolymarketPortfolio} 
  * @returns {Promise<CommandState>}
  */
-const portfolioAnalysisSpotHandler = (portfolio: PolymarketPortfolio):
-Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
+const portfolioAnalysisSpotHandler = (portfolio: PolymarketPortfolio) => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st); 
     applicationLogging(LogLevel.Debug)(`Running Portfolio SpotHandler`);
@@ -540,4 +660,29 @@ Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.g
         state: st,
     };
     
-});
+}).pipe(
+  Effect.catchAll((error) => {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "_tag" in error
+    ) {
+      const tag = (error as { _tag: string })._tag;
+      if (
+        tag === HTTPErrorTag ||
+        tag === ConfigErrorTag ||
+        tag === TimeoutErrorTag ||
+        tag === UnknownErrorTag
+      ) {
+        return Effect.fail(error as unknown as ProgramError);
+      }
+    }
+    return Effect.gen(function* () {
+      yield* Effect.logError(error);
+      const err = error as unknown;
+      return yield* Effect.fail(new UnknownError({
+        message: err instanceof Error ? err.message : "Action handler failed",
+      }));
+    });
+  }),
+);

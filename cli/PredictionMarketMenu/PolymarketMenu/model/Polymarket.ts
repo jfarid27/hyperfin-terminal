@@ -1,4 +1,5 @@
 import { Effect, pipe } from "effect";
+import { HTTPError } from "cli/errors/index.ts";
 
 export function fetchMarketPriceHistoryByClobId(
     clobId: string,
@@ -11,7 +12,7 @@ export function fetchMarketPriceHistoryByClobId(
             const start = startTs ?? (Date.now() / 1000 - 60 * 60 * 24 * 7);
             const end = endTs ?? (Date.now() / 1000);
             const inter = interval ?? "6h";
-            
+
             const params = new URLSearchParams({
                 market: clobId,
                 startTs: String(start),
@@ -23,7 +24,11 @@ export function fetchMarketPriceHistoryByClobId(
             );
             return response.json();
         }),
-        Effect.flatMap((data) => Effect.succeed(data))
+        Effect.flatMap((data) => Effect.succeed(data)),
+        Effect.catchAll((err) => Effect.gen(function* () {
+          yield * Effect.logError(err);
+          return yield* new HTTPError({ message: "Failed to fetch Polymarket prices." })
+        }))
     );
 }
 
@@ -40,7 +45,11 @@ export function fetchTopicsPolymarket() {
             const response = await fetch(`https://gamma-api.polymarket.com/tags?${params}`);
             return response.json();
         }),
-        Effect.flatMap((data) => Effect.succeed(data))
+        Effect.flatMap((data) => Effect.succeed(data)),
+        Effect.catchAll((err) => Effect.gen(function* () {
+          yield * Effect.logError(err);
+          return yield* new HTTPError({ message: "Failed to fetch polymarket tags." })
+        }))
     );
 }
 
@@ -50,14 +59,18 @@ export function fetchTopicsPolymarket() {
  * @link https://docs.polymarket.com/api-reference/
  */
 export function fetchEventDataBySlug(slug: string) {
-    return pipe( 
+    return pipe(
         Effect.tryPromise(async () => {
             const response = await fetch(
                 `https://gamma-api.polymarket.com/events/slug/${slug}`
             );
             return response.json();
         }),
-        Effect.flatMap((data) => Effect.succeed(data))
+        Effect.flatMap((data) => Effect.succeed(data)),
+        Effect.catchAll((err) => Effect.gen(function* () {
+          yield * Effect.logError(err);
+          return yield* new HTTPError({ message: "Failed to fetch polymarket slug." })
+        }))
     );
 }
 
@@ -67,14 +80,18 @@ export function fetchEventDataBySlug(slug: string) {
  * @link https://docs.polymarket.com/api-reference/
  */
 export function fetchMarketDataBySlug(slug: string) {
-    return pipe( 
+    return pipe(
         Effect.tryPromise(async () => {
             const response = await fetch(
                 `https://gamma-api.polymarket.com/markets/slug/${slug}`
             );
             return response.json();
         }),
-        Effect.flatMap((data) => Effect.succeed(data))
+        Effect.flatMap((data) => Effect.succeed(data)),
+        Effect.catchAll((err) => Effect.gen(function* () {
+          yield * Effect.logError(err);
+          return yield* new HTTPError({ message: "Failed to fetch polymarket slug." })
+        }))
     );
 }
 
@@ -84,7 +101,7 @@ export function fetchMarketDataBySlug(slug: string) {
  * @link https://docs.polymarket.com/api-reference/
  */
 export function fetchEventDataByTagId(tagId: string) {
-    return pipe( 
+    return pipe(
         Effect.tryPromise(async () => {
             const params = new URLSearchParams({
                 tag_id: tagId,
@@ -94,8 +111,12 @@ export function fetchEventDataByTagId(tagId: string) {
             );
             return response.json();
         }),
-        Effect.flatMap((data) => Effect.succeed(data))
-    );
+        Effect.flatMap((data) => Effect.succeed(data)),
+        Effect.catchAll((err) => Effect.gen(function* () {
+          yield * Effect.logError(err);
+          return yield* new HTTPError({ message: "Failed to fetch polymarket data." })
+        }))
+    )
 }
 
 /**
@@ -104,7 +125,7 @@ export function fetchEventDataByTagId(tagId: string) {
  * @link https://docs.polymarket.com/api-reference/
  */
 export function fetchMarketDataByTagId(tagId: string) {
-    return pipe( 
+    return pipe(
         Effect.tryPromise(async () => {
             const params = new URLSearchParams({
                 tag_id: tagId,
@@ -117,7 +138,11 @@ export function fetchMarketDataByTagId(tagId: string) {
             );
             return response.json();
         }),
-        Effect.flatMap((data) => Effect.succeed(data))
+        Effect.flatMap((data) => Effect.succeed(data)),
+        Effect.catchAll((err) => Effect.gen(function* () {
+          yield * Effect.logError(err);
+          return yield* new HTTPError({ message: "Failed to fetch polymarket data." })
+        }))
     );
 }
 
@@ -127,7 +152,7 @@ export function fetchMarketDataByTagId(tagId: string) {
  * @link https://docs.polymarket.com/api-reference/
  */
 export function fetchTopEventData(limit: number = 10) {
-    return pipe( 
+    return pipe(
         Effect.tryPromise(async () => {
             const params = new URLSearchParams({
                 order: "liquidityNum",
@@ -142,7 +167,11 @@ export function fetchTopEventData(limit: number = 10) {
             return response.json();
         }),
         Effect.flatMap((data) => Effect.succeed(data)),
-        Effect.tap(() => Effect.sleep(3000))
+        Effect.tap(() => Effect.sleep(3000)),
+        Effect.catchAll((err) => Effect.gen(function* () {
+          yield * Effect.logError(err);
+          return yield* new HTTPError({ message: "Failed to fetch polymarket events." })
+        }))
     );
 }
 
@@ -152,7 +181,7 @@ export function fetchTopEventData(limit: number = 10) {
  * @link https://docs.polymarket.com/api-reference/
  */
 export function fetchTopMarketData(limit: number = 10) {
-    return pipe( 
+    return pipe(
         Effect.tryPromise(async () => {
             const params = new URLSearchParams({
                 order: "liquidityNum",
@@ -167,7 +196,11 @@ export function fetchTopMarketData(limit: number = 10) {
             return response.json();
         }),
         Effect.flatMap((data) => Effect.succeed(data)),
-        Effect.tap(() => Effect.sleep(3000))
+        Effect.tap(() => Effect.sleep(3000)),
+        Effect.catchAll((err) => Effect.gen(function* () {
+          yield * Effect.logError(err);
+          return yield* new HTTPError({ message: "Failed to fetch polymarket markets." })
+        }))
     );
 }
 
@@ -177,7 +210,7 @@ export function fetchTopMarketData(limit: number = 10) {
  * @link https://docs.polymarket.com/api-reference/
  */
 export function fetchUserPositions(address: string) {
-    return pipe( 
+    return pipe(
         Effect.tryPromise(async () => {
             const params = new URLSearchParams({
                 user: address,
@@ -188,7 +221,11 @@ export function fetchUserPositions(address: string) {
             return response.json();
         }),
         Effect.flatMap((data) => Effect.succeed(data)),
-        Effect.tap(() => Effect.sleep(3000))
+        Effect.tap(() => Effect.sleep(3000)),
+        Effect.catchAll((err) => Effect.gen(function* () {
+          yield * Effect.logError(err);
+          return yield* new HTTPError({ message: "Failed to fetch polymarket positions." })
+        }))
     );
 }
 
@@ -198,7 +235,7 @@ export function fetchUserPositions(address: string) {
  * @link https://docs.polymarket.com/api-reference/
  */
 export function fetchSearchPolymarket(query: string) {
-    return pipe( 
+    return pipe(
         Effect.tryPromise(async () => {
             const params = new URLSearchParams({
                 q: query,
@@ -219,6 +256,10 @@ export function fetchSearchPolymarket(query: string) {
             return response.json();
         }),
         Effect.flatMap((data) => Effect.succeed(data)),
-        Effect.tap(() => Effect.sleep(3000))
+        Effect.tap(() => Effect.sleep(3000)),
+        Effect.catchAll((err) => Effect.gen(function* () {
+          yield * Effect.logError(err);
+          return yield* new HTTPError({ message: "Failed to fetch polymarket search objects." })
+        }))
     );
 }
