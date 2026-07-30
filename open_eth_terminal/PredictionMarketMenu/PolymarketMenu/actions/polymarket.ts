@@ -155,7 +155,7 @@ const processMarketDataBySlug = (slug: string) => pipe(
  * @returns CommandState 
  */
 export const predictionMarketsViewHandler: ActionHandler = (tag?: string):
-Effect.Effect<CommandState, Error, TerminalUserStateConfigContext> => Effect.gen(function* () {
+Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st); 
 
@@ -203,7 +203,7 @@ Effect.Effect<CommandState, Error, TerminalUserStateConfigContext> => Effect.gen
  * @returns CommandState
  */
 export const polymarketMarketsTopFetchHandler: ActionHandler = (n?: string, term?: string): 
-Effect.Effect<CommandState, Error, TerminalUserStateConfigContext> => Effect.gen(function* () {
+Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;      
     const applicationLogging = inspectLogger(st);
 
@@ -256,7 +256,7 @@ Effect.Effect<CommandState, Error, TerminalUserStateConfigContext> => Effect.gen
  * @returns CommandState
  */
 export const polymarketMarketsTagsFetchHandler: ActionHandler = (search?: string):
-Effect.Effect<CommandState, Error, TerminalUserStateConfigContext> => Effect.gen(function* () {
+Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     
@@ -291,7 +291,7 @@ Effect.Effect<CommandState, Error, TerminalUserStateConfigContext> => Effect.gen
  * @returns CommandState
  */
 export const polymarketMarketsTagsSearchHandler: ActionHandler = (search?: string):
-Effect.Effect<CommandState, Error, TerminalUserStateConfigContext> => Effect.gen(function* () {
+Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     
     const applicationLogging = inspectLogger(st); 
@@ -363,7 +363,7 @@ const  formatPortfolioToPolymarketPortfolio = pipeR(
 )
 
 export const portfolioAnalysisHandler: ActionHandler = (type?: string, filename?: string):
-Effect.Effect<CommandState, Error, TerminalUserStateConfigContext> => Effect.gen(function* () {
+Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     
     const applicationLogging = inspectLogger(st); 
@@ -446,48 +446,45 @@ const processOutcomePriceFromResponseData = (outcome_name: any) => pipeR(
  * @returns {Promise<CommandState>}
  */
 const portfolioAnalysisSpotHandler = (portfolio: PolymarketPortfolio):
-Effect.Effect<CommandState, Error, TerminalUserStateConfigContext> => Effect.gen(function* () {
+Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st); 
     applicationLogging(LogLevel.Debug)(`Running Portfolio SpotHandler`);
     
-    const portfolioDataPs = pipe(
-        Effect.succeed(portfolio.positions),
-        Effect.asyncMap((positions: PolymarketPosition[]) => {
-            return map(async (position: PolymarketPosition): Promise<PolymarketSpotPositionResult> => {
-                applicationLogging(LogLevel.Info)("Processing MarketData for slug: " + position.slug);
-                const { outcomeData, response } = await processMarketDataBySlug(position.slug);
-                applicationLogging(LogLevel.Debug)("Processed OutcomeData");
-                applicationLogging(LogLevel.Debug)(outcomeData);
-                const position_outcome = position.outcome;
-                const outcomePrice = processOutcomePriceFromResponseData(position_outcome)(outcomeData);
+    const portfolioData: PolymarketSpotPositionResult[] = yield* Effect.forEach(
+        portfolio.positions,
+        (position: PolymarketPosition) => Effect.gen(function* () {
+            applicationLogging(LogLevel.Info)("Processing MarketData for slug: " + position.slug);
+            const result = yield* processMarketDataBySlug(position.slug);
+            const { outcomeData, response } = result;
+            applicationLogging(LogLevel.Debug)("Processed OutcomeData");
+            applicationLogging(LogLevel.Debug)(outcomeData);
+            const position_outcome = position.outcome;
+            const outcomePrice = processOutcomePriceFromResponseData(position_outcome)(outcomeData);
 
-                applicationLogging(LogLevel.Info)("Question: ");
-                applicationLogging(LogLevel.Info)(response.question);
-                applicationLogging(LogLevel.Info)("Outcome: ");
-                applicationLogging(LogLevel.Info)(position_outcome);
-                applicationLogging(LogLevel.Info)("OutcomePrice: ");
-                applicationLogging(LogLevel.Info)(outcomePrice);
+            applicationLogging(LogLevel.Info)("Question: ");
+            applicationLogging(LogLevel.Info)(response.question);
+            applicationLogging(LogLevel.Info)("Outcome: ");
+            applicationLogging(LogLevel.Info)(position_outcome);
+            applicationLogging(LogLevel.Info)("OutcomePrice: ");
+            applicationLogging(LogLevel.Info)(outcomePrice);
 
-                
-                const resolvedPosition: PolymarketSpotPosition = {
-                    _type: PolymarketPositionType.Success,
-                    slug: position.slug,
-                    question: response.question,
-                    positionPoint: {
-                        outcome: position.outcome,
-                        amount: position.amount,
-                        price: outcomePrice,
-                        value: position.amount * outcomePrice,
-                    }
-                };
-                return resolvedPosition;
-
-            })(positions);
+            
+            const resolvedPosition: PolymarketSpotPosition = {
+                _type: PolymarketPositionType.Success,
+                slug: position.slug,
+                question: response.question,
+                positionPoint: {
+                    outcome: position.outcome,
+                    amount: position.amount,
+                    price: outcomePrice,
+                    value: position.amount * outcomePrice,
+                }
+            };
+            return resolvedPosition as PolymarketSpotPositionResult;
         }),
+        { concurrency: 10 },
     );
-    
-    const portfolioData: PolymarketSpotPositionResult[] = await Promise.all(portfolioDataPs);
     const processTablePortfolioData = map((r: PolymarketSpotPositionResult) => {
         
         switch (r._type) {

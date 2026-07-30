@@ -49,7 +49,7 @@ export const fredHandler = (
     seriesId: string,
     startDate: string,
     endDate: string
-): Effect.Effect<CommandState, Error, TerminalUserStateConfigContext> => Effect.gen(function* () {
+): Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     const FRED_API_KEY = st.apiKeys.fred;

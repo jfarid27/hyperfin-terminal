@@ -1,9 +1,8 @@
 import chalk from "chalk";
 import stocks from "./../model/index.ts";
-import { DataSourceType } from "./../../types.ts";
+import { DataSourceType, TerminalUserStateConfigContext } from "./../../types.ts";
 import {
-    TerminalUserStateConfig, EnvironmentType,
-     CommandState, CommandResultType, LogLevel
+    CommandState, CommandResultType, LogLevel
 } from "./../../types.ts";
 import { inspectLogger } from "./../../utils/logging.ts";
 import { showLineChart } from "./../../components/charting.ts";
@@ -12,6 +11,7 @@ import { lensPath, lensProp, pipe, view, values, tap,
     project} from "ramda";
 import terminalKit from "terminal-kit";
 const { terminal } = terminalKit;
+import { Effect } from "effect";
 
 // Lens for the loaded token on the user state config.
 const tokenLens = lensPath(["loadedContext", "token", "symbol"]);
@@ -40,7 +40,8 @@ const processDailyData = pipe(
       sortBy(prop("timestamp"))
 );
 
-export const chartPriceHandler = (st: TerminalUserStateConfig) => async (symbolStr: string): Promise<CommandState> => {
+export const chartPriceHandler = (symbolStr: string) => Effect.gen(function*() {
+    const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     const ALPHAVANTAGE_API_KEY = st.apiKeys.alphavantage;
     if (!ALPHAVANTAGE_API_KEY) {
@@ -67,21 +68,21 @@ export const chartPriceHandler = (st: TerminalUserStateConfig) => async (symbolS
         _type: DataSourceType.AlphaVantage,
     };
 
-    const result = await stocks.chart.get(symbolObj, ALPHAVANTAGE_API_KEY);
+    const result = yield* Effect.promise(() => stocks.chart.get(symbolObj, ALPHAVANTAGE_API_KEY));
     
     applicationLogging(LogLevel.Debug)(result);
 
     const sorted = processDailyData(result) as Record<string, string | number>[];
-    await showLineChart(sorted, "timestamp", "close", "Price Chart"); 
+    yield* showLineChart(sorted, "timestamp", "close", "Price Chart"); 
 
     return {
         result: { type: CommandResultType.Success },
         state: st,
     };
-}
+});
 
-export const spotPriceHandler = (st: TerminalUserStateConfig) => async (symbolStr: string): Promise<CommandState> => {
-
+export const spotPriceHandler = (symbolStr: string) => Effect.gen(function*() {
+    const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     const ALPHAVANTAGE_API_KEY = st.apiKeys.alphavantage;
     if (!ALPHAVANTAGE_API_KEY) {
@@ -109,7 +110,7 @@ export const spotPriceHandler = (st: TerminalUserStateConfig) => async (symbolSt
         _type: DataSourceType.AlphaVantage,
       };
   
-      const result: Record<string, string> = await stocks.spot.get(symbolObj, ALPHAVANTAGE_API_KEY);
+      const result: Record<string, string> = yield* Effect.promise(() => stocks.spot.get(symbolObj, ALPHAVANTAGE_API_KEY));
       const spotData = pipe(
           prop("Global Quote"),
           props([
@@ -152,4 +153,4 @@ export const spotPriceHandler = (st: TerminalUserStateConfig) => async (symbolSt
         state: st,
     };
     
-}
+});

@@ -12,7 +12,7 @@ import { Effect } from "effect";
  * @returns {CommandState} 
  */
 export const redditSearchTopHandler = 
-    (query: string, limit: number): Effect.Effect<CommandState, Error, TerminalUserStateConfigContext> => Effect.gen(function*() {
+    (query: string, limit: number): Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function*() {
         const st = yield* TerminalUserStateConfigContext;
         const applicationLogging = inspectLogger(st);
 
@@ -47,7 +47,7 @@ export const redditSearchTopHandler =
  * @returns {CommandState} 
  */
 export const redditTopHandler = (subreddit: string, limit: number):
-    Effect.Effect<CommandState, Error, TerminalUserStateConfigContext> => Effect.gen(function*() {
+    Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function*() {
         const st = yield* TerminalUserStateConfigContext;
 
         let _subreddit = subreddit;

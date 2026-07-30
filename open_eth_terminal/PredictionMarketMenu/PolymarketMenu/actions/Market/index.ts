@@ -81,7 +81,7 @@ export const processMarketPriceHistory = pipe(
  * @returns CommandState 
  */
 export const marketChartHandler: ActionHandler = (slug: string):
-Effect.Effect<CommandState, Error, TerminalUserStateConfigContext> => Effect.gen(function* () {
+Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     applicationLogging(LogLevel.Info)(`Fetching chart for ${slug}`);
@@ -153,7 +153,7 @@ Effect.Effect<CommandState, Error, TerminalUserStateConfigContext> => Effect.gen
  * @returns CommandState 
  */
 export const predictionMarketViewHandler: ActionHandler = (slug?: string, type?: string):
-Effect.Effect<CommandState, Error, TerminalUserStateConfigContext> => Effect.gen(function* () {
+Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     

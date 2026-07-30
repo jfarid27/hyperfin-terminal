@@ -36,7 +36,7 @@ export const processMarketsFromResponse = pipe(
 );
 
 export const polymarketMarketsSearchHandler: ActionHandler = (query?: string):
-Effect.Effect<CommandState, Error, TerminalUserStateConfigContext> => Effect.gen(function* () {
+Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext> => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
     if (!query) {

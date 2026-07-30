@@ -14,7 +14,7 @@ import {
   UnknownError
 } from "../errors/index.ts";
 
-const failDeferred = (deferred) => (err) => Effect.gen(function* () {
+const failDeferred = (deferred: Effect.Effect<Deferred.Deferred<CommandState, ProgramError>>) => (err: ProgramError) => Effect.gen(function* () {
   const df = yield* deferred;
   yield* Deferred.fail(df, err);
 });
@@ -33,7 +33,7 @@ const failDeferred = (deferred) => (err) => Effect.gen(function* () {
  * @returns A promise that resolves to the command state.
  */
 export function loadProgram(program: Command, menuOption: MenuOption, state: TerminalUserStateConfig) {
-  const deferred = Deferred.make<CommandState, ProgramError>();
+  const deferred = Effect.runSync(Deferred.make<CommandState, ProgramError>());
   program
     .command(menuOption.command)
     .description(menuOption.description)
@@ -46,8 +46,7 @@ export function loadProgram(program: Command, menuOption: MenuOption, state: Ter
       // Compose the action effect with the deferred effect.
       const actionEffect: Effect.Effect<void, unknown, never> = Effect.gen(function* () {
         const res = yield* menuOption.action(...args);
-        const df = yield* deferred;
-        yield* Deferred.succeed(df, res);
+        yield* Deferred.succeed(deferred, res);
       }).pipe(
         tusccService,
       );
@@ -55,7 +54,7 @@ export function loadProgram(program: Command, menuOption: MenuOption, state: Ter
       try {
         await Effect.runPromise(actionEffect)
       } catch (_error) {
-        return Deferred.fail(new UnknownError({ "message": "An unknown failure occurred."}))
+        Deferred.fail(new UnknownError({ "message": "An unknown failure occurred."}))
       }
 
     });
@@ -142,8 +141,8 @@ export const registerTerminalApplication = (menu: Menu) => {
             const args = input.split(/\s+/);
             await program.parseAsync(args, { from: "user" });
             const result = await Effect.runPromise(Effect.gen(function* () {
-              const resultD = yield* Effect.raceAll(resultPs)
-              return yield* Deferred.await(resultD);
+              const resultD = yield* Effect.raceAll(resultPs.map(d => Deferred.await(d)))
+              return resultD;
             }))
 
             if (result && result.result.type === CommandResultType.Back) {
