@@ -1,8 +1,8 @@
 import { registerTerminalApplication } from "../utils/program_loader.ts";
 import { Menu, MenuOption, TerminalUserStateConfig } from "../types.ts";
 import { menuGlobals } from "../utils/menu_globals.ts";
-import { chartPriceHandler, spotPriceHandler } from "./actions/alphavantage.ts";
-import { historyPriceHandler } from "./actions/cboe.ts";
+import { chartPriceHandler } from "./actions/alphavantage.ts";
+import { spotPriceHandler, historyPriceHandler } from "./actions/cboe.ts";
 
 const stocksMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
     {
