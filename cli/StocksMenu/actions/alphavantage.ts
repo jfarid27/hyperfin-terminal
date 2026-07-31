@@ -30,7 +30,7 @@ const processDailyData = pipe(
       sortBy(prop("timestamp"))
 );
 
-export const chartPriceHandler: ActionHandler = (symbolStr: string) => Effect.gen(function* () {
+export const chartPriceHandler = (symbolStr: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
   const config = yield* ConfigService;
   const ALPHAVANTAGE_API_KEY = Option.getOrUndefined(config.ALPHAVANTAGE_API_KEY);

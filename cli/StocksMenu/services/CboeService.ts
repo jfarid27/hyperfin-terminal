@@ -1,6 +1,7 @@
 import { Effect, Context, Layer } from "effect";
-import { FetchService, FetchServiceLive } from "cli/services/FetchService.ts";
+import { FetchService } from "cli/services/FetchService.ts";
 import { HTTPError, LocalProcessingError } from "cli/errors/index.ts";
+import { ApplicationLayerLive } from "cli/services/index.ts";
 
 /**
  * CBOE delayed quote response for a single ticker.
@@ -159,4 +160,4 @@ export const CboeServiceLive = Layer.effect(
 
     return { getSpotPrice, getHistoricalPrices, getOptionsChain };
   }),
-);
+).pipe(Layer.provide(ApplicationLayerLive));

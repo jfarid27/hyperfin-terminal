@@ -5,9 +5,10 @@ import { ConfigService } from "cli/services/ConfigService.ts";
 import { Option } from "effect";
 import { MassiveModel } from "../model/massive.ts";
 import terminalKit from "terminal-kit";
+import { StocksServiceLive } from "../services/index.ts";
 const { terminal } = terminalKit;
 
-export const massiveSpotPriceHandler: ActionHandler = (symbol: string) => Effect.gen(function* () {
+export const massiveSpotPriceHandler = (symbol: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
   const config = yield* ConfigService;
   const key = Option.getOrUndefined(config.MASSIVE_API_KEY) || "";
@@ -37,4 +38,6 @@ export const massiveSpotPriceHandler: ActionHandler = (symbol: string) => Effect
     firstRowTextAttr: { bgColor: "green" }, width: 120, fit: true,
   });
   return { result: { type: CommandResultType.Success }, state: st };
-});
+}).pipe(
+  Effect.provide(StocksServiceLive)
+);

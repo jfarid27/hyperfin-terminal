@@ -1,6 +1,6 @@
 import { StockSymbolType } from "../types.ts";
 import { Effect, Context, Layer } from "effect";
-import { CboeService } from "cli/services/CboeService.ts";
+import { CboeService } from "cli/StocksMenu/services/CboeService.ts";
 import { HTTPError, LocalProcessingError } from "cli/errors/index.ts";
 
 export interface CboeModelPort {

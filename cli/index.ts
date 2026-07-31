@@ -5,9 +5,8 @@ import predictionMarketsTerminal from "./PredictionMarketMenu/index.ts";
 import stocksTerminal from "./StocksMenu/index.ts";
 import optionsTerminal from "./OptionsMenu/index.ts";
 import { menuGlobalsTop } from "./utils/menu_globals.ts";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import newsTerminal from "./NewsMenu/index.ts";
+import { executeScript } from "./utils/scripts.ts";
 
 import figlet from "figlet";
 
@@ -16,7 +15,6 @@ import {
 } from "./types.ts";
 import { registerTerminalApplication } from "./utils/program_loader.ts";
 import { Effect } from "effect";
-import { ConfigErrorTag, HTTPErrorTag, TimeoutErrorTag, UnknownError, UnknownErrorTag, type ProgramError } from "./errors/index.ts";
 
 const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
     {
@@ -88,32 +86,7 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
         name: "script",
         command: "script [filename]",
         description: "Run a script from the scripts folder with a specified filename",
-        action: (filename: string) => Effect.gen(function*() {
-            const st = yield* TerminalUserStateConfigContext;
-            try {
-                const scriptPath = join(process.cwd(), "scripts", filename);
-                const fileContent = yield* Effect.promise(() => readFile(scriptPath, "utf-8"));
-                const [currentCommand, ...tailCommands] = fileContent.split("\n").map(l => l.trim()).filter(l => l.length > 0);
-
-                return {
-                    result: { type: CommandResultType.Success },
-                    state: {
-                        ...st,
-                        scriptContext: {
-                            filename,
-                            currentCommand,
-                            tailCommands,
-                        }
-                    },
-                };
-            } catch (error) {
-                console.log(chalk.red(`Failed to load script: ${error}`));
-                return {
-                    result: { type: CommandResultType.Error },
-                    state: st,
-                };
-            }
-        })
+        action: executeScript
     },
     {
         name: "keys",

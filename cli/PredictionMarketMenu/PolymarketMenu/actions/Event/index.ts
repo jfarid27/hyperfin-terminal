@@ -42,7 +42,7 @@ export const processEventDataBySlug = pipe(
  * @param slug Polymarket Defined Event Slug.
  * @returns CommandState
  */
-export const predictionEventViewHandler: ActionHandler = (slug?: string) => Effect.gen(function* () {
+export const predictionEventViewHandler = (slug?: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
 
   if (!slug) {

@@ -79,7 +79,7 @@ export const processMarketPriceHistory = pipe(
  * @param slug Polymarket Defined Market Slug.
  * @returns CommandState
  */
-export const marketChartHandler: ActionHandler = (slug: string, startTs?: string, endTs?: string) => Effect.gen(function* () {
+export const marketChartHandler = (slug: string, startTs?: string, endTs?: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
   yield* Effect.logInfo(`Fetching chart for ${slug}`);
 
@@ -155,7 +155,7 @@ export const marketChartHandler: ActionHandler = (slug: string, startTs?: string
  * @param tag Polymarket Defined Market ID.
  * @returns CommandState
  */
-export const predictionMarketViewHandler: ActionHandler = (slug?: string, type?: string, startTs?: string, endTs?: string) => Effect.gen(function* () {
+export const predictionMarketViewHandler = (slug?: string, type?: string, startTs?: string, endTs?: string) => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
 
     if (!slug) {

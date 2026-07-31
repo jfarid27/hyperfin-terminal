@@ -33,7 +33,7 @@ export const processMarketsFromResponse = pipe(
     })),
 );
 
-export const polymarketMarketsSearchHandler: ActionHandler = (query?: string) => Effect.gen(function* () {
+export const polymarketMarketsSearchHandler = (query?: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
   if (!query) {
     return {

@@ -7,6 +7,7 @@ import terminalKit from "terminal-kit";
 const { terminal } = terminalKit;
 import { Effect } from "effect";
 import { CboeModel } from "../model/cboe.ts";
+import { StocksServiceLive } from "../services/index.ts";
 
 const tokenLens = lensPath(["loadedContext", "token", "symbol"]);
 const getLoadedToken = view(tokenLens);
@@ -37,7 +38,7 @@ const displayCboeQuote = (quote: any) => {
   });
 };
 
-export const cboeSpotPriceHandler: ActionHandler = (symbolStr: string) => Effect.gen(function* () {
+export const cboeSpotPriceHandler = (symbolStr: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
   const symbol = symbolStr || getLoadedToken(st);
   if (!symbol) {
@@ -48,9 +49,11 @@ export const cboeSpotPriceHandler: ActionHandler = (symbolStr: string) => Effect
   const result = yield* cboe.spot.get({ name: symbol, id: symbol.toUpperCase(), _type: "cboe" as any });
   displayCboeQuote(result);
   return { result: { type: CommandResultType.Success }, state: st };
-});
+}).pipe(
+  Effect.provide(StocksServiceLive)
+);
 
-export const cboeHistoryHandler: ActionHandler = (symbolStr: string) => Effect.gen(function* () {
+export const cboeHistoryHandler = (symbolStr: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
   const symbol = symbolStr || getLoadedToken(st);
   if (!symbol) {
@@ -61,9 +64,11 @@ export const cboeHistoryHandler: ActionHandler = (symbolStr: string) => Effect.g
   const result = yield* cboe.history.get({ name: symbol, id: symbol.toUpperCase(), _type: "cboe" as any });
   yield* showLineChart(result as Record<string, any>[], "date", "close", `${symbol} Historical Prices`);
   return { result: { type: CommandResultType.Success }, state: st };
-});
+}).pipe(
+  Effect.provide(StocksServiceLive)
+);
 
-export const cboeOptionsChainHandler: ActionHandler = (symbolStr: string) => Effect.gen(function* () {
+export const cboeOptionsChainHandler = (symbolStr: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
   const symbol = symbolStr || getLoadedToken(st);
   if (!symbol) {
@@ -93,4 +98,6 @@ export const cboeOptionsChainHandler: ActionHandler = (symbolStr: string) => Eff
     firstRowTextAttr: { bgColor: "cyan" }, width: 180, fit: true,
   });
   return { result: { type: CommandResultType.Success }, state: st };
-});
+}).pipe(
+  Effect.provide(StocksServiceLive)
+);

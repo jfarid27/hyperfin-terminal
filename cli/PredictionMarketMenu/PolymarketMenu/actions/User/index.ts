@@ -48,7 +48,7 @@ export const processUserAccountData = pipe(
  * @param st Terminal User State
  * @param address Polymarket User Address.
  */
-export const predictionUserPositionsHandler: ActionHandler = (address?: string) => Effect.gen(function* () {
+export const predictionUserPositionsHandler = (address?: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
 
   if (!address) {

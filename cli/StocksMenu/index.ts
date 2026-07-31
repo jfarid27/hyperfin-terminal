@@ -1,16 +1,17 @@
 import { registerTerminalApplication } from "../utils/program_loader.ts";
-import { Menu, MenuOption, TerminalUserStateConfig, DataSourceType, TerminalUserStateConfigContext, CommandResultType, ActionHandler } from "../types.ts";
+import { Menu, MenuOption, TerminalUserStateConfig, DataSourceType, TerminalUserStateConfigContext, CommandResultType, ActionHandler } from "cli/types.ts";
 import { menuGlobals } from "../utils/menu_globals.ts";
 import { chartPriceHandler } from "./actions/alphavantage.ts";
 import { cboeSpotPriceHandler, cboeHistoryHandler } from "./actions/cboe.ts";
 import { massiveSpotPriceHandler } from "./actions/massive.ts";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import { lensPath, view } from "ramda";
+import { StocksServiceLive } from "./services/index.ts";
 
 const tokenLens = lensPath(["loadedContext", "token", "symbol"]);
 const getLoadedToken = view(tokenLens);
 
-const spotPriceHandler: ActionHandler = (symbolStr: string) => Effect.gen(function* () {
+const spotPriceHandler = (symbolStr: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
   const symbol = symbolStr || getLoadedToken(st);
   if (!symbol) {
@@ -23,7 +24,9 @@ const spotPriceHandler: ActionHandler = (symbolStr: string) => Effect.gen(functi
   }
 
   return yield* cboeSpotPriceHandler(symbol);
-});
+}).pipe(
+  Effect.provide(StocksServiceLive)
+);
 
 const stocksMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
   {

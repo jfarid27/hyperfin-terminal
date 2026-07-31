@@ -43,8 +43,7 @@ export function loadProgram(program: Command, menuOption: MenuOption, state: Ter
                 resolve(res);
               }).pipe(
                 mapErrorsToCommandResults(resolve, state),
-                tusccService,
-                Effect.provide(ApplicationLayerLive)
+                tusccService
               );
 
               await Effect.runPromise(actionEffect);
