@@ -4,13 +4,15 @@ import { fetchSpotCoingecko, fetchChartCoingecko } from "./CoinGeckoApi.ts";
 import { fetchChartFreeCryptoAPI } from "./FreeCryptoAPIApi.ts";
 import { Effect } from 'effect/Effect';
 import { fail } from 'effect/Effect';
+import { FetchService } from "cli/services/FetchService.ts";
+import { HTTPError } from "cli/errors/index.ts";
 
 /**
  * Fetches the current price for a specified symbol.
  * @param symbol Specified symbol to fetch current price for.
  * @param API_KEY API key to use for the request.
  */
-export function spot(symbol: CryptoSymbolType, API_KEY: string): Effect<SpotPoint, Error, never> {
+export function spot(symbol: CryptoSymbolType, API_KEY: string): Effect<SpotPoint, HTTPError | Error, FetchService> {
     switch (symbol._type) {
         case DataSourceType.CoinGecko:
             return fetchSpotCoingecko(symbol, API_KEY);
@@ -24,7 +26,7 @@ export function spot(symbol: CryptoSymbolType, API_KEY: string): Effect<SpotPoin
  * @param symbol Specified symbol to fetch chart for.
  * @param API_KEY API key to use for the request.
  */
-export function chart(symbol: CryptoSymbolType, API_KEY: string): Effect<ChartData, Error, never> {
+export function chart(symbol: CryptoSymbolType, API_KEY: string): Effect<ChartData, HTTPError | Error, FetchService> {
     switch (symbol._type) {
         case DataSourceType.FreeCryptoAPI:
             return fetchChartFreeCryptoAPI(symbol, API_KEY);

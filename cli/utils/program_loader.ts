@@ -9,10 +9,9 @@ import {
 } from "../types.ts";
 import { Effect } from "effect";
 import {
-  HTTPErrorTag, TimeoutErrorTag, ConfigErrorTag, UnknownErrorTag,
-  InvalidStateErrorTag,
   mapErrorsToCommandResults
 } from "cli/errors/index.ts";
+import { ApplicationLayerLive } from "cli/services/index.ts";
 
 /**
  * Wrap a commander program into a resolvable promise from a menu option.
@@ -45,6 +44,7 @@ export function loadProgram(program: Command, menuOption: MenuOption, state: Ter
               }).pipe(
                 mapErrorsToCommandResults(resolve, state),
                 tusccService,
+                Effect.provide(ApplicationLayerLive)
               );
 
               await Effect.runPromise(actionEffect);

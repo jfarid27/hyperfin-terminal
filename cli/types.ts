@@ -1,5 +1,11 @@
-import { Effect, Context } from "effect";
+import { Effect } from "effect";
 import { ProgramError } from "./errors/index.ts";
+import type { TerminalUserStateConfig } from "./services/TerminalUserState.ts";
+import { TerminalUserStateConfigContext } from "./services/TerminalUserState.ts";
+import { FetchService } from "./services/FetchService.ts";
+import { ConfigService } from "./services/ConfigService.ts";
+export type { TerminalUserStateConfig };
+export { TerminalUserStateConfigContext };
 
 /**
  * The environment types.
@@ -110,29 +116,12 @@ export enum LogLevel {
     None = 0,
 }
 
-/**
- * Configuration for the terminal user state.
- */
-export interface TerminalUserStateConfig {
-    environment: EnvironmentType;
-    logLevel: LogLevel;
-    apiKeys: APIKeyConfig;
-    loadedContext: LoadedContext;
-    actionTimeout?: number;
-    scriptContext: ScriptContext;
-}
-
-export class TerminalUserStateConfigContext extends Context.Tag("TerminalUserStateConfigContext")<
-    TerminalUserStateConfigContext,
-    TerminalUserStateConfig
->() {}
-
 export type ActionOptions = any;
 
 // export type ActionHandler = (st: TerminalUserStateConfig) => (...args: any[]) => Promise<CommandState>;
 
 export type ActionHandler = (...args: any[]) =>
-    Effect.Effect<CommandState, ProgramError, TerminalUserStateConfigContext>;
+    Effect.Effect<CommandState, ProgramError, TerminalUserStateConfigContext | FetchService | ConfigService>;
 
 /**
  * Abstract menu option for terminal state.

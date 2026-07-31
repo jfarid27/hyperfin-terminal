@@ -1,5 +1,7 @@
 import { FredSeriesType } from "../types.ts";
-import { Effect, pipe } from 'effect';
+import { Effect } from 'effect';
+import { FetchService } from "cli/services/FetchService.ts";
+import { HTTPError, LocalProcessingError } from "cli/errors/index.ts";
 
 /**
  * Fetches the series metadata for a specified series ID from the FRED API.
@@ -13,19 +15,16 @@ import { Effect, pipe } from 'effect';
 export function fetchFredSeriesMetadata(
     series: FredSeriesType,
     FRED_API_KEY: string
-): Effect.Effect<unknown, Error> {
-    return pipe(
-        Effect.tryPromise(async () => {
-            const params = new URLSearchParams({
-                series_id: series.seriesId,
-                api_key: FRED_API_KEY,
-                file_type: "json",
-            });
-            const response = await fetch(`https://api.stlouisfed.org/fred/series?${params}`);
-            return response.json();
-        }),
-        Effect.map((data) => data)
-    );
+): Effect.Effect<unknown, HTTPError | LocalProcessingError, FetchService> {
+    return Effect.gen(function* () {
+      const fs = yield* FetchService;
+      const params = new URLSearchParams({
+          series_id: series.seriesId,
+          api_key: FRED_API_KEY,
+          file_type: "json",
+      });
+      return yield* fs.fetchJson("https://api.stlouisfed.org/fred/series", params);
+    });
 }
 
 /**
@@ -43,19 +42,16 @@ export function fetchFredSeries(
     startDate: string, 
     endDate: string, 
     FRED_API_KEY: string
-): Effect.Effect<unknown, Error> {
-    return pipe(
-        Effect.tryPromise(async () => {
-            const params = new URLSearchParams({
-                series_id: series.seriesId,
-                api_key: FRED_API_KEY,
-                file_type: "json",
-                observation_start: startDate,
-                observation_end: endDate,
-            });
-            const response = await fetch(`https://api.stlouisfed.org/fred/series/observations?${params}`);
-            return response.json();
-        }),
-        Effect.map((data) => data)
-    );
+): Effect.Effect<unknown, HTTPError | LocalProcessingError, FetchService> {
+    return Effect.gen(function* () {
+      const fs = yield* FetchService;
+      const params = new URLSearchParams({
+          series_id: series.seriesId,
+          api_key: FRED_API_KEY,
+          file_type: "json",
+          observation_start: startDate,
+          observation_end: endDate,
+      });
+      return yield* fs.fetchJson("https://api.stlouisfed.org/fred/series/observations", params);
+    });
 }
