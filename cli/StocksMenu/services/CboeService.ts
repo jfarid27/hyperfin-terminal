@@ -1,5 +1,5 @@
 import { Effect, Context, Layer } from "effect";
-import { FetchService } from "./FetchService.ts";
+import { FetchService, FetchServiceLive } from "cli/services/FetchService.ts";
 import { HTTPError, LocalProcessingError } from "cli/errors/index.ts";
 
 /**

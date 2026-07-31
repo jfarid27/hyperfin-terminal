@@ -30,33 +30,8 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
                 result: { type: CommandResultType.Success },
                 state: newState,
             };
-        }).pipe(
-  Effect.catchAll((error) => {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "_tag" in error
-    ) {
-      const tag = (error as { _tag: string })._tag;
-      if (
-        tag === HTTPErrorTag ||
-        tag === ConfigErrorTag ||
-        tag === TimeoutErrorTag ||
-        tag === UnknownErrorTag
-      ) {
-        return Effect.fail(error as unknown as ProgramError);
-      }
-    }
-    return Effect.gen(function* () {
-      yield* Effect.logError(error);
-      const err = error as unknown;
-      return yield* Effect.fail(new UnknownError({
-        message: err instanceof Error ? err.message : "Action handler failed",
-      }));
-    });
-  }),
-        ),
-},
+        })
+    },
     {
         name: "stocks",
         command: "stocks",
@@ -68,33 +43,8 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
                 result: { type: CommandResultType.Success },
                 state: newState,
             };
-        }).pipe(
-  Effect.catchAll((error) => {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "_tag" in error
-    ) {
-      const tag = (error as { _tag: string })._tag;
-      if (
-        tag === HTTPErrorTag ||
-        tag === ConfigErrorTag ||
-        tag === TimeoutErrorTag ||
-        tag === UnknownErrorTag
-      ) {
-        return Effect.fail(error as unknown as ProgramError);
-      }
-    }
-    return Effect.gen(function* () {
-      yield* Effect.logError(error);
-      const err = error as unknown;
-      return yield* Effect.fail(new UnknownError({
-        message: err instanceof Error ? err.message : "Action handler failed",
-      }));
-    });
-  }),
-        ),
-},
+        })
+    },
     {
         name: "options",
         command: "options",
@@ -106,33 +56,8 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
                 result: { type: CommandResultType.Success },
                 state: newState,
             };
-        }).pipe(
-  Effect.catchAll((error) => {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "_tag" in error
-    ) {
-      const tag = (error as { _tag: string })._tag;
-      if (
-        tag === HTTPErrorTag ||
-        tag === ConfigErrorTag ||
-        tag === TimeoutErrorTag ||
-        tag === UnknownErrorTag
-      ) {
-        return Effect.fail(error as unknown as ProgramError);
-      }
-    }
-    return Effect.gen(function* () {
-      yield* Effect.logError(error);
-      const err = error as unknown;
-      return yield* Effect.fail(new UnknownError({
-        message: err instanceof Error ? err.message : "Action handler failed",
-      }));
-    });
-  }),
-        ),
-},
+        })
+    },
     {
         name: "news",
         command: "news",
@@ -144,33 +69,8 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
                 result: { type: CommandResultType.Success },
                 state: newState,
             };
-        }).pipe(
-  Effect.catchAll((error) => {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "_tag" in error
-    ) {
-      const tag = (error as { _tag: string })._tag;
-      if (
-        tag === HTTPErrorTag ||
-        tag === ConfigErrorTag ||
-        tag === TimeoutErrorTag ||
-        tag === UnknownErrorTag
-      ) {
-        return Effect.fail(error as unknown as ProgramError);
-      }
-    }
-    return Effect.gen(function* () {
-      yield* Effect.logError(error);
-      const err = error as unknown;
-      return yield* Effect.fail(new UnknownError({
-        message: err instanceof Error ? err.message : "Action handler failed",
-      }));
-    });
-  }),
-        ),
-},
+        })
+    },
     {
         name: "prediction markets",
         command: "predictions",
@@ -182,33 +82,8 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
                 result: { type: CommandResultType.Success },
                 state: newState,
             };
-        }).pipe(
-  Effect.catchAll((error) => {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "_tag" in error
-    ) {
-      const tag = (error as { _tag: string })._tag;
-      if (
-        tag === HTTPErrorTag ||
-        tag === ConfigErrorTag ||
-        tag === TimeoutErrorTag ||
-        tag === UnknownErrorTag
-      ) {
-        return Effect.fail(error as unknown as ProgramError);
-      }
-    }
-    return Effect.gen(function* () {
-      yield* Effect.logError(error);
-      const err = error as unknown;
-      return yield* Effect.fail(new UnknownError({
-        message: err instanceof Error ? err.message : "Action handler failed",
-      }));
-    });
-  }),
-        ),
-},
+        })
+    },
     {
         name: "script",
         command: "script [filename]",
@@ -238,33 +113,8 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
                     state: st,
                 };
             }
-        }).pipe(
-  Effect.catchAll((error) => {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "_tag" in error
-    ) {
-      const tag = (error as { _tag: string })._tag;
-      if (
-        tag === HTTPErrorTag ||
-        tag === ConfigErrorTag ||
-        tag === TimeoutErrorTag ||
-        tag === UnknownErrorTag
-      ) {
-        return Effect.fail(error as unknown as ProgramError);
-      }
-    }
-    return Effect.gen(function* () {
-      yield* Effect.logError(error);
-      const err = error as unknown;
-      return yield* Effect.fail(new UnknownError({
-        message: err instanceof Error ? err.message : "Action handler failed",
-      }));
-    });
-  }),
-        ),
-},
+        })
+    },
     {
         name: "keys",
         command: "keys [type] [value]",
@@ -296,33 +146,8 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
                 result: { type: CommandResultType.Success },
                 state: newState,
             };
-        }).pipe(
-  Effect.catchAll((error) => {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "_tag" in error
-    ) {
-      const tag = (error as { _tag: string })._tag;
-      if (
-        tag === HTTPErrorTag ||
-        tag === ConfigErrorTag ||
-        tag === TimeoutErrorTag ||
-        tag === UnknownErrorTag
-      ) {
-        return Effect.fail(error as unknown as ProgramError);
-      }
-    }
-    return Effect.gen(function* () {
-      yield* Effect.logError(error);
-      const err = error as unknown;
-      return yield* Effect.fail(new UnknownError({
-        message: err instanceof Error ? err.message : "Action handler failed",
-      }));
-    });
-  }),
-        ),
-},
+        })
+    },
     ...menuGlobalsTop(state),
 ]);
 
