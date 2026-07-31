@@ -1,15 +1,27 @@
 import { OptionSymbolType } from "../types.ts";
-import { Effect } from "effect";
-import { CboeService } from "cli/services/CboeService.ts";
+import { Effect, Context, Layer } from "effect";
+import { CboeService } from "cli/StocksMenu/services/CboeService.ts";
 import { HTTPError, LocalProcessingError } from "cli/errors/index.ts";
 
-/**
- * Fetch options chain for a symbol from CBOE.
- */
-export const fetchOptionsChainCboe = (
-  symbol: OptionSymbolType,
-): Effect.Effect<unknown, HTTPError | LocalProcessingError, CboeService> =>
+export interface OptionsCboeModelPort {
+  chain: {
+    get: (symbol: OptionSymbolType) => Effect.Effect<unknown, HTTPError | LocalProcessingError>;
+  };
+}
+
+export class OptionsCboeModel extends Context.Tag("hyperfin.options.OptionsCboeModel")<
+  OptionsCboeModel,
+  OptionsCboeModelPort
+>() {}
+
+export const OptionsCboeModelLive = Layer.effect(
+  OptionsCboeModel,
   Effect.gen(function* () {
     const cboe = yield* CboeService;
-    return yield* cboe.getOptionsChain(symbol.id);
-  });
+    return {
+      chain: {
+        get: (symbol: OptionSymbolType) => cboe.getOptionsChain(symbol.id),
+      },
+    } satisfies OptionsCboeModelPort;
+  }),
+);

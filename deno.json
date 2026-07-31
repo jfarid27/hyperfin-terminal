@@ -12,7 +12,7 @@
     "tasks": {
         "cli": "deno run --allow-sys --allow-run --allow-net --allow-env --allow-read=.env,./tmp,./data,./portfolios,./scripts,./node_modules --allow-write=./tmp,./data index.ts",
         "terminal": "deno run --allow-sys --allow-run --allow-net --allow-env --allow-read=.env,./tmp,./data,./portfolios,./scripts,./node_modules --allow-write=./tmp,./data terminal.ts",
-        "test": "deno test --allow-env --allow-read --allow-net --allow-sys",
+        "test": "deno test --allow-env --allow-read --allow-net --allow-sys --allow-run",
         "dev:debug": "deno run --inspect-wait=127.0.0.1:9229 --allow-sys --allow-run --allow-net --allow-env --allow-read=.env,./tmp,./data,./portfolios,./scripts,./node_modules --allow-write=./tmp,./data index.ts",
         "dev:debug:terminal": "deno run --inspect-wait=127.0.0.1:9229 --allow-sys --allow-run --allow-net --allow-env --allow-read=.env,./tmp,./data,./portfolios,./scripts,./node_modules --allow-write=./tmp,./data terminal.ts",
         "test:e2e": "deno test test/ --allow-all",

@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import government from "./../model/index.ts";
+import { FredModel } from "./../model/index.ts";
 import { DataSourceType, TerminalUserStateConfigContext } from "./../../types.ts";
 import {
     CommandResultType, LogLevel
@@ -7,11 +7,9 @@ import {
 import { inspectLogger } from "./../../utils/logging.ts";
 import { showLineChart } from "./../../components/charting.ts";
 import { pipe as pipeR, prop, map, sortBy } from "ramda";
-import { Effect } from "effect";
-import { ConfigErrorTag, HTTPErrorTag, TimeoutErrorTag, UnknownError, UnknownErrorTag, type ProgramError } from "../../errors/index.ts";
-import { ActionHandler } from "./../../types.ts";
+import { Effect, Option } from "effect";
 import { ConfigService } from "cli/services/ConfigService.ts";
-import { Option } from "effect";
+import { GovernmentServiceLive } from "../services/index.ts";
 
 /**
  * Processed FRED observation data point
@@ -32,8 +30,6 @@ interface FredApiResponse {
 /**
  * Process the FRED series data by transforming observations into
  * an array of objects with date, value, timestamp
- * @param data raw object data from FRED API 
- * @returns object array with date, value, timestamp
  */
 export const processFredData = (data: FredApiResponse): ProcessedFredObservation[] => {
     return pipeR(
@@ -49,7 +45,7 @@ export const processFredData = (data: FredApiResponse): ProcessedFredObservation
     )(data) as ProcessedFredObservation[];
 };
 
-export const fredHandler: ActionHandler = (
+export const fredHandler = (
     seriesId: string,
     startDate: string,
     endDate: string
@@ -58,10 +54,9 @@ export const fredHandler: ActionHandler = (
     const applicationLogging = inspectLogger(st);
     const config = yield* ConfigService;
     const FRED_API_KEY = Option.getOrUndefined(config.FRED_API_KEY);
-    
+
     if (!FRED_API_KEY) {
         console.log(chalk.red("No FRED API key found. Use 'keys fred <api_key>' to set it."));
-        yield* Effect.fail(new Error("No Fred API Key"));
         return {
             result: { type: CommandResultType.Error },
             state: st,
@@ -70,7 +65,6 @@ export const fredHandler: ActionHandler = (
 
     if (!seriesId) {
         console.log(chalk.red("No series ID provided"));
-        yield* Effect.fail(new Error("No Series ID provided"));
         return {
             result: { type: CommandResultType.Error },
             state: st,
@@ -79,90 +73,59 @@ export const fredHandler: ActionHandler = (
 
     if (!startDate || !endDate) {
         console.log(chalk.red("Both start date and end date are required (format: YYYY-MM-DD)"));
-        yield* Effect.fail(new Error("No Start Date or End Date provided"));
         return {
             result: { type: CommandResultType.Error },
             state: st,
         };
     }
 
-    try {
-        const seriesObj = {
-            seriesId: seriesId,
-            _type: DataSourceType.Fred as DataSourceType.Fred,
-        };
+    const seriesObj = {
+        seriesId: seriesId,
+        _type: DataSourceType.Fred as DataSourceType.Fred,
+    };
 
-        // Fetch series metadata to get the title
-        let seriesTitle = seriesId; // Default to series ID if metadata fetch fails
-        try {
-            const metadata: any = yield* government.fred.getMetadata(seriesObj, FRED_API_KEY);
-            seriesTitle = metadata?.seriess?.[0]?.title || seriesId;
-            applicationLogging(LogLevel.Debug)(`Series title: ${seriesTitle}`);
-        } catch (metadataError) {
-            applicationLogging(LogLevel.Warning)(`Failed to fetch series metadata: ${metadataError}`);
-            console.log(chalk.yellow(`Warning: Using series ID as title`));
-        }
+    const fred = yield* FredModel;
 
-        // Fetch series observations data
-        const result: any = yield* government.fred.get(seriesObj, startDate, endDate, FRED_API_KEY);
-        
-        applicationLogging(LogLevel.Debug)(result);
-
-        const processed = processFredData(result);
-        
-        // Filter out non-numeric values (FRED returns "." for missing data and other invalid values)
-        const validData = processed.filter(d => {
-            const val = d.value;
-            return typeof val === 'number' && !isNaN(val) && isFinite(val);
-        });
-        
-        if (validData.length === 0) {
-            console.log(chalk.yellow("No valid data found for the specified series and date range"));
-            return {
-                result: { type: CommandResultType.Error },
-                state: st,
-            };
-        }
-
-        yield* showLineChart(validData, "timestamp", "value", seriesTitle);
-
-        return {
-            result: { type: CommandResultType.Success },
-            state: st,
-        };
-    } catch (error) {
-        applicationLogging(LogLevel.Error)(error);
-        console.log(chalk.red("Error fetching FRED data. Please check your series ID and date range."));
-        return {
-            result: { type: CommandResultType.Error },
-            state: st,
-        };
+    // Fetch series metadata to get the title; fall back to series ID on failure
+    let seriesTitle = seriesId;
+    const metadataResult = yield* fred.getMetadata(seriesObj, FRED_API_KEY).pipe(
+      Effect.option,
+    );
+    if (Option.isSome(metadataResult)) {
+      const metadata: any = metadataResult.value;
+      seriesTitle = metadata?.seriess?.[0]?.title || seriesId;
+      applicationLogging(LogLevel.Debug)(`Series title: ${seriesTitle}`);
+    } else {
+      applicationLogging(LogLevel.Warning)(`Failed to fetch series metadata`);
+      console.log(chalk.yellow(`Warning: Using series ID as title`));
     }
-}).pipe(
-  Effect.catchAll((error) => {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "_tag" in error
-    ) {
-      const tag = (error as { _tag: string })._tag;
-      if (
-        tag === HTTPErrorTag ||
-        tag === ConfigErrorTag ||
-        tag === TimeoutErrorTag ||
-        tag === UnknownErrorTag
-      ) {
-        return Effect.fail(error as unknown as ProgramError);
-      }
-    }
-    return Effect.gen(function* () {
-      yield* Effect.logError(error);
-      const err = error as unknown;
-      return yield* Effect.fail(new UnknownError({
-        message: err instanceof Error ? err.message : "Action handler failed",
-      }));
+
+    const result: any = yield* fred.get(seriesObj, startDate, endDate, FRED_API_KEY);
+
+    applicationLogging(LogLevel.Debug)(result);
+
+    const processed = processFredData(result);
+
+    // Filter out non-numeric values (FRED returns "." for missing data)
+    const validData = processed.filter(d => {
+        const val = d.value;
+        return typeof val === 'number' && !isNaN(val) && isFinite(val);
     });
-  }),
+
+    if (validData.length === 0) {
+        console.log(chalk.yellow("No valid data found for the specified series and date range"));
+        return {
+            result: { type: CommandResultType.Error },
+            state: st,
+        };
+    }
+
+    yield* showLineChart(validData, "timestamp", "value", seriesTitle);
+
+    return {
+        result: { type: CommandResultType.Success },
+        state: st,
+    };
+}).pipe(
+  Effect.provide(GovernmentServiceLive)
 );
-
-

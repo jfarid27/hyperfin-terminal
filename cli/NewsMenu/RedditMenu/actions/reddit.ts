@@ -1,14 +1,16 @@
-import { CommandResultType, ActionHandler, TerminalUserStateConfigContext } from "./../../../types.ts";
-import news from "../model/index.ts";
+import { CommandResultType, TerminalUserStateConfigContext } from "./../../../types.ts";
+import { RedditModel } from "../model/index.ts";
 import chalk from "chalk";
 import { Effect } from "effect";
+import { NewsServiceLive } from "../services/index.ts";
 
 /**
  * Return top posts from the given search term
  */
-export const redditSearchTopHandler: ActionHandler =
+export const redditSearchTopHandler =
     (query: string, limit: number) => Effect.gen(function*() {
         const st = yield* TerminalUserStateConfigContext;
+        const reddit = yield* RedditModel;
 
         if (!query) {
             console.log(chalk.red("No query term supplied."))
@@ -18,7 +20,7 @@ export const redditSearchTopHandler: ActionHandler =
             };
         }
 
-        const redditData = yield* news.reddit.search(query, limit || 20);
+        const redditData = yield* reddit.search(query, limit || 20);
 
         for (const item of redditData) {
             console.log(chalk.green(item.title))
@@ -30,21 +32,24 @@ export const redditSearchTopHandler: ActionHandler =
             result: { type: CommandResultType.Success },
             state: st,
         };
-    });
+    }).pipe(
+      Effect.provide(NewsServiceLive)
+    );
 
 /**
  * Return top posts from the given subreddit
  */
-export const redditTopHandler: ActionHandler = (subreddit: string, limit: number) =>
+export const redditTopHandler = (subreddit: string, limit: number) =>
   Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
+    const reddit = yield* RedditModel;
 
     let _subreddit = subreddit;
     if (!_subreddit) {
       _subreddit = "ethereum"
     }
 
-    const redditData = yield* news.reddit.get(_subreddit, limit || 20);
+    const redditData = yield* reddit.get(_subreddit, limit || 20);
 
     console.log(chalk.blue.bold(`Best posts from r/${_subreddit} \n`))
 
@@ -58,4 +63,6 @@ export const redditTopHandler: ActionHandler = (subreddit: string, limit: number
       result: { type: CommandResultType.Success },
       state: st,
     };
-  });
+  }).pipe(
+    Effect.provide(NewsServiceLive)
+  );

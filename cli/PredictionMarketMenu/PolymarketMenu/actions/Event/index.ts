@@ -1,18 +1,15 @@
-import { pipe, map, zip, props } from "ramda";
+import { pipe, props } from "ramda";
 import { Effect } from "effect";
-import { ConfigErrorTag, HTTPErrorTag, TimeoutErrorTag, UnknownError, UnknownErrorTag, type ProgramError } from "../../../../errors/index.ts";
 import terminalKit from "terminal-kit";
 const { terminal } = terminalKit;
 import {
-    CommandResultType, CommandState,
-    LogLevel,
+    CommandResultType,
     TerminalUserStateConfigContext
 } from "./../../../../types.ts";
-import { ActionHandler } from "./../../../../types.ts";
 import chalk from "chalk";
-import { inspectLogger } from "./../../../../utils/logging.ts";
-import PredictionMarketsData from "./../../model/index.ts";
+import { PolymarketModel } from "./../../model/index.ts";
 import { processOutcomeData } from "./../../utils.ts";
+import { PolymarketServiceLive } from "../../services/index.ts";
 
 /**
  * Pull relevant market data from the polymarket API response for given slug.
@@ -38,12 +35,10 @@ export const processEventDataBySlug = pipe(
 
 /**
  * Fetches event for the given event slug. Note events have multiple markets.
- * @param st Terminal User State
- * @param slug Polymarket Defined Event Slug.
- * @returns CommandState
  */
 export const predictionEventViewHandler = (slug?: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
+  const polymarket = yield* PolymarketModel;
 
   if (!slug) {
     console.log("No slug provided");
@@ -53,7 +48,7 @@ export const predictionEventViewHandler = (slug?: string) => Effect.gen(function
     };
   }
 
-  const response = yield* PredictionMarketsData.polyMarketData.event.getBySlug(slug);
+  const response = yield* polymarket.event.getBySlug(slug);
   const { marketData, outcomeData } = processEventDataBySlug(response);
   yield* Effect.logDebug(marketData);
   yield* Effect.logDebug(outcomeData);
@@ -98,4 +93,6 @@ export const predictionEventViewHandler = (slug?: string) => Effect.gen(function
     result: { type: CommandResultType.Success },
     state: st,
   };
-});
+}).pipe(
+  Effect.provide(PolymarketServiceLive)
+);

@@ -1,14 +1,15 @@
 import { Effect } from "effect";
 import { InvalidStateError } from "cli/errors/index.ts";
 import {
-    ActionHandler, CommandResultType, TerminalUserStateConfigContext
+    CommandResultType, TerminalUserStateConfigContext
 } from "cli/types.ts";
 import terminalKit from "terminal-kit";
-import PredictionMarketsData from "./../../model/index.ts";
+import { PolymarketModel } from "./../../model/index.ts";
 const { terminal } = terminalKit;
 import { showMultiLineChart, TimeSeriesData } from "cli/components/charting.ts";
 import chalk from "chalk";
 import { zip, pipe, props, map, prop } from "ramda";
+import { PolymarketServiceLive } from "../../services/index.ts";
 
 export const xPolymarketMarketData = props([
     "active",
@@ -23,7 +24,7 @@ export const outcomePricesMapper = (r: string): string[] => {
     try {
         const parsed = JSON.parse(r);
         return parsed as string[];
-    } catch (error) {
+    } catch (_error) {
         return ["NA"];
     }
 }
@@ -40,9 +41,6 @@ export const zipEventOutcomePrices = (r: any) => {
 
 /**
  * Processes the outcome data for the given list of markets.
- *
- * @param markets List of markets to process.
- * @returns Array of [question, outcomes] pairs.
  */
 export const processOutcomeData = pipe(
     map((r:any) => {
@@ -60,7 +58,7 @@ export const processMarketSlugDataResponse = pipe(
 const splitClobIds = (marketResponseData: any) => {
     try {
         return JSON.parse(marketResponseData.clobTokenIds);
-    } catch (error) {
+    } catch (_error) {
         return [];
     }
 }
@@ -74,16 +72,12 @@ export const processMarketPriceHistory = pipe(
 
 /*
  * Prints a market chart for the given market slug.
- *
- * @param st Terminal User State
- * @param slug Polymarket Defined Market Slug.
- * @returns CommandState
  */
 export const marketChartHandler = (slug: string, startTs?: string, endTs?: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
+  const polymarket = yield* PolymarketModel;
   yield* Effect.logInfo(`Fetching chart for ${slug}`);
 
-  // Parse optional timestamps (Unix seconds)
   const start = startTs ? Number(startTs) : undefined;
   const end = endTs ? Number(endTs) : undefined;
 
@@ -102,7 +96,7 @@ export const marketChartHandler = (slug: string, startTs?: string, endTs?: strin
     };
   }
 
-  const response = yield* PredictionMarketsData.polyMarketData.market.getBySlug(slug);
+  const response = yield* polymarket.market.getBySlug(slug);
   yield* Effect.logDebug(response);
   const clobIds = splitClobIds(response);
   yield* Effect.logDebug(clobIds);
@@ -112,14 +106,13 @@ export const marketChartHandler = (slug: string, startTs?: string, endTs?: strin
     return yield* Effect.fail(new InvalidStateError({ message: "Invalid clob ids"}))
   }
 
-  const yesPrices = yield* PredictionMarketsData.polyMarketData.market.prices(clobIds[0], start, end);
-  const noPrices = yield* PredictionMarketsData.polyMarketData.market.prices(clobIds[1], start, end);
+  const yesPrices = yield* polymarket.market.prices(clobIds[0], start, end);
+  const noPrices = yield* polymarket.market.prices(clobIds[1], start, end);
   yield* Effect.logDebug(yesPrices);
   yield* Effect.logDebug(noPrices);
   const yesPricesProcessed = processMarketPriceHistory(yesPrices);
   const noPricesProcessed = processMarketPriceHistory(noPrices);
 
-  // Create time series data for the multi-line chart
   const timeSeries: TimeSeriesData[] = [
     {
       label: "Yes",
@@ -147,16 +140,16 @@ export const marketChartHandler = (slug: string, startTs?: string, endTs?: strin
     state: st,
   };
 
-});
+}).pipe(
+  Effect.provide(PolymarketServiceLive)
+);
 
 /**
  * Fetches market for the given market id.
- * @param st Terminal User State
- * @param tag Polymarket Defined Market ID.
- * @returns CommandState
  */
 export const predictionMarketViewHandler = (slug?: string, type?: string, startTs?: string, endTs?: string) => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
+    const polymarket = yield* PolymarketModel;
 
     if (!slug) {
         console.log("No slug provided");
@@ -170,7 +163,7 @@ export const predictionMarketViewHandler = (slug?: string, type?: string, startT
         return yield* marketChartHandler(slug, startTs, endTs);
     }
 
-    const response = yield* PredictionMarketsData.polyMarketData.market.getBySlug(slug);
+    const response = yield* polymarket.market.getBySlug(slug);
     const { marketData, outcomeData } = processMarketSlugDataResponse(response);
     yield* Effect.logDebug(marketData);
     yield* Effect.logDebug(outcomeData);
@@ -215,4 +208,6 @@ export const predictionMarketViewHandler = (slug?: string, type?: string, startT
         result: { type: CommandResultType.Success },
         state: st,
     };
-})
+}).pipe(
+  Effect.provide(PolymarketServiceLive)
+);

@@ -1,27 +1,24 @@
 /**
  * @file Polymarket Actions
  * @description ActionHandlers for fetching and displaying polymarket data.
- * @note ActionHandlers are functions that take a TerminalUserStateConfig and return a Promise<CommandState>
- * @see {@link ActionHandler}
  */
 
-import { Effect, pipe } from "effect";
-import { ConfigErrorTag, HTTPErrorTag, TimeoutErrorTag, UnknownError, UnknownErrorTag, type ProgramError } from "./../../../errors/index.ts";
+import { Effect } from "effect";
 import { project, pipe as pipeR, set, filter, toLower, lensProp, map,
-    lensPath, view, defaultTo, zip, prop, tap, find,
+    lensPath, view, defaultTo, zip, find,
     props,
     reduce
 } from "ramda";
 import terminalKit from "terminal-kit";
 const { terminal } = terminalKit;
-import PredictionMarketsData from "./../model/index.ts";
-import {CommandResultType, CommandState, PredictionMarketsType, LogLevel } from "./../../../types.ts";
+import { PolymarketModel } from "./../model/index.ts";
+import {CommandResultType, PredictionMarketsType, LogLevel } from "./../../../types.ts";
 import { TerminalUserStateConfigContext } from "./../../../types.ts";
-import { ActionHandler } from "./../../../types.ts";
 import chalk from "chalk";
 import { inspectLogger } from "./../../../utils/logging.ts";
 import { loadCSVPortfolio } from "./../../../utils/loaders.ts";
 import { PolymarketPortfolio, PolymarketPosition, PortfolioAnalysisType } from "./types.ts";
+import { PolymarketServiceLive } from "../services/index.ts";
 
 /**
  * Lens path for predictions markets data on the User State.
@@ -101,16 +98,13 @@ const outcomePricesMapper = (r: string): string[] => {
     try {
         const parsed = JSON.parse(r);
         return parsed as string[];
-    } catch (error) {
+    } catch (_error) {
         return ["NA"];
     }
 }
 
 /**
  * Processes the outcome data for the given list of markets.
- *
- * @param markets List of markets to process.
- * @returns Array of [question, outcomes] pairs.
  */
 export const processOutcomeData = pipeR(
     map((r:any) => {
@@ -136,28 +130,12 @@ const xPolymarketMarketData = props([
 ]);
 
 /**
- * Processes the market data for the given market by slug.
- */
-const processMarketDataBySlug = (slug: string) => pipe(
-    PredictionMarketsData.polyMarketData.market.getBySlug(slug),
-    Effect.flatMap((r) => {
-        return Effect.succeed({
-            response: r,
-            marketData: xPolymarketMarketData(r) as string[],
-            outcomeData: processOutcomeData([r]),
-        })
-    }),
-);
-
-/**
  * Fetches markets linked to the given tag (default: all)
- * @param st Terminal User State
- * @param tag Polymarket Defined Tag ID.
- * @returns CommandState
  */
-export const predictionMarketsViewHandler: ActionHandler = (tag?: string) => Effect.gen(function* () {
+export const predictionMarketsViewHandler = (tag?: string) => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     const applicationLogging = inspectLogger(st);
+    const polymarket = yield* PolymarketModel;
 
     if (!tag) {
         console.log("No tag provided");
@@ -167,7 +145,7 @@ export const predictionMarketsViewHandler: ActionHandler = (tag?: string) => Eff
         };
     }
 
-    const markets = yield* PredictionMarketsData.polyMarketData.markets.getByTagId(tag);
+    const markets = yield* polymarket.markets.getByTagId(tag);
 
     applicationLogging(LogLevel.Debug)(markets);
 
@@ -195,47 +173,22 @@ export const predictionMarketsViewHandler: ActionHandler = (tag?: string) => Eff
         state: st,
     };
 }).pipe(
-  Effect.catchAll((error) => {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "_tag" in error
-    ) {
-      const tag = (error as { _tag: string })._tag;
-      if (
-        tag === HTTPErrorTag ||
-        tag === ConfigErrorTag ||
-        tag === TimeoutErrorTag ||
-        tag === UnknownErrorTag
-      ) {
-        return Effect.fail(error as unknown as ProgramError);
-      }
-    }
-    return Effect.gen(function* () {
-      yield* Effect.logError(error);
-      const err = error as unknown;
-      return yield* Effect.fail(new UnknownError({
-        message: err instanceof Error ? err.message : "Action handler failed",
-      }));
-    });
-  }),
+  Effect.provide(PolymarketServiceLive)
 );
 
 /**
  * Fetches the top active markets on polymarket by liquidity
- * @param st Terminal User State
- * @param n Number of markets to fetch
- * @returns CommandState
  */
 export const polymarketMarketsTopFetchHandler = (n?: string, term?: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
+  const polymarket = yield* PolymarketModel;
 
   const limit = n ? Number(n) : 10;
-  const markets = yield* PredictionMarketsData.polyMarketData.markets.top(limit);
+  const markets = yield* polymarket.markets.top(limit);
 
   yield* Effect.logDebug(markets);
 
-  let marketsData = pipeR(
+  const marketsData = pipeR(
     xPolymarketMarketsData,
     formatMarketsDataForTable,
     filter((market: any) => term ? market[1].toLowerCase().includes(term.toLowerCase()) : true),
@@ -264,20 +217,23 @@ export const polymarketMarketsTopFetchHandler = (n?: string, term?: string) => E
     result: { type: CommandResultType.Success },
     state: st,
   };
-});
+}).pipe(
+  Effect.provide(PolymarketServiceLive)
+);
 
 /**
  * Fetches the list of available tags on polymarket. Stores the tags in the terminal user state.
  */
-export const polymarketMarketsTagsFetchHandler = (search?: string) => Effect.gen(function* () {
+export const polymarketMarketsTagsFetchHandler = (_search?: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
+  const polymarket = yield* PolymarketModel;
 
-  const tags = yield* PredictionMarketsData.polyMarketData.tags.get();
+  const tags = yield* polymarket.tags.get();
 
   yield* Effect.logDebug("Tags fetched");
   yield* Effect.logDebug(tags);
 
-  const formattedTags = processTags(tags);
+  const formattedTags = processTags(tags as readonly unknown[]);
 
   const newSt1 = set(xPolymarketTagData, formattedTags, st);
   const newSt2 = set(xPredictionMarketType, PredictionMarketsType.Polymarket, newSt1);
@@ -287,14 +243,13 @@ export const polymarketMarketsTagsFetchHandler = (search?: string) => Effect.gen
     result: { type: CommandResultType.Success },
     state: newSt2,
   };
-});
+}).pipe(
+  Effect.provide(PolymarketServiceLive)
+);
 
 
 /**
  * Searches for tags on polymarket. If there is a cached list of tags, it will search those.
- * @param st Terminal User State
- * @param search Search term
- * @returns CommandState
  */
 export const polymarketMarketsTagsSearchHandler = (search?: string) => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
@@ -380,10 +335,8 @@ export const portfolioAnalysisHandler = (type?: string, filename?: string) => Ef
 
   applicationLogging(LogLevel.Info)(`Loading portfolio at file ./portfolios/${filename}`);
 
-  let portfolio: PolymarketPortfolio | undefined = undefined;
   const loaded_portfolio = yield* loadCSVPortfolio(filename);
-
-  portfolio = formatPortfolioToPolymarketPortfolio(loaded_portfolio);
+  const portfolio = formatPortfolioToPolymarketPortfolio(loaded_portfolio);
 
   applicationLogging(LogLevel.Info)(portfolio);
 
@@ -397,7 +350,9 @@ export const portfolioAnalysisHandler = (type?: string, filename?: string) => Ef
     result: { type: CommandResultType.Error },
     state: st,
   };
-});
+}).pipe(
+  Effect.provide(PolymarketServiceLive)
+);
 
 interface PositionPoint {
     outcome: string;
@@ -428,12 +383,11 @@ type PolymarketSpotPositionResult = PolymarketSpotPosition | PolymarketSpotPosit
 
 /**
  * Processes the outcome price from the response data given a structured outcome array from the Polymarket API.
- *
  */
 const processOutcomePriceFromResponseData = (outcome_name: any) => pipeR(
     (data: any) => data[0][1],
     find((outcome: any[]) => outcome[0] === outcome_name),
-    defaultTo([0, "0"]), // Always default to 0 if outcome is not found
+    defaultTo([0, "0"]),
     (data: any) => Number(data[1])
 );
 
@@ -442,14 +396,15 @@ const processOutcomePriceFromResponseData = (outcome_name: any) => pipeR(
  */
 const portfolioAnalysisSpotHandler = (portfolio: PolymarketPortfolio) => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
+    const polymarket = yield* PolymarketModel;
     yield* Effect.logDebug(`Running Portfolio SpotHandler`);
 
     const portfolioData: PolymarketSpotPositionResult[] = yield* Effect.forEach(
         portfolio.positions,
         (position: PolymarketPosition) => Effect.gen(function* () {
             yield* Effect.logInfo("Processing MarketData for slug: " + position.slug);
-            const result = yield* processMarketDataBySlug(position.slug);
-            const { outcomeData, response } = result;
+            const response = yield* polymarket.market.getBySlug(position.slug);
+            const outcomeData = processOutcomeData([response]);
             yield* Effect.logDebug("Processed OutcomeData");
             yield* Effect.logDebug(outcomeData);
             const position_outcome = position.outcome;

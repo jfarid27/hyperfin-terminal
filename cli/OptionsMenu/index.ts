@@ -1,11 +1,12 @@
 import { registerTerminalApplication } from "../utils/program_loader.ts";
-import { Menu, MenuOption, TerminalUserStateConfig, DataSourceType, TerminalUserStateConfigContext, CommandResultType, ActionHandler } from "../types.ts";
+import { Menu, MenuOption, TerminalUserStateConfig, DataSourceType, TerminalUserStateConfigContext, CommandResultType } from "../types.ts";
 import { menuGlobals } from "../utils/menu_globals.ts";
 import { cboeOptionsChainHandler } from "../StocksMenu/actions/cboe.ts";
 import { Effect } from "effect";
 import chalk from "chalk";
+import { OptionsServiceLive } from "./services/index.ts";
 
-const optionsChainHandler: ActionHandler = (symbolStr: string) => Effect.gen(function* () {
+const optionsChainHandler = (symbolStr: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
   const datasource = st.loadedContext.options.datasource;
 
@@ -14,7 +15,9 @@ const optionsChainHandler: ActionHandler = (symbolStr: string) => Effect.gen(fun
   }
 
   return yield* cboeOptionsChainHandler(symbolStr);
-});
+}).pipe(
+  Effect.provide(OptionsServiceLive)
+);
 
 const optionsMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
   {

@@ -1,13 +1,13 @@
 import { Effect } from "effect";
 import {
-    ActionHandler, CommandResultType, TerminalUserStateConfigContext,
-
+    CommandResultType, TerminalUserStateConfigContext,
 } from "./../../../../types.ts";
 import terminalKit from "terminal-kit";
-import PredictionMarketsData from "./../../model/index.ts";
+import { PolymarketModel } from "./../../model/index.ts";
 const { terminal } = terminalKit;
 import { pipe, map, filter } from "ramda";
 import { processOutcomeData } from "./../../utils.ts";
+import { PolymarketServiceLive } from "../../services/index.ts";
 
 export const processEventsFromResponse = pipe(
     (r: any) => r.events,
@@ -35,6 +35,7 @@ export const processMarketsFromResponse = pipe(
 
 export const polymarketMarketsSearchHandler = (query?: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
+  const polymarket = yield* PolymarketModel;
   if (!query) {
     return {
       result: { type: CommandResultType.Success },
@@ -42,7 +43,7 @@ export const polymarketMarketsSearchHandler = (query?: string) => Effect.gen(fun
     };
   }
   console.log(`Fetching markets for query: ${query}`);
-  const response = yield* PredictionMarketsData.polyMarketData.search.get(query);
+  const response = yield* polymarket.search.get(query);
 
   const eventData = processEventsFromResponse(response);
 
@@ -103,4 +104,6 @@ export const polymarketMarketsSearchHandler = (query?: string) => Effect.gen(fun
     result: { type: CommandResultType.Success },
     state: st,
   };
-});
+}).pipe(
+  Effect.provide(PolymarketServiceLive)
+);

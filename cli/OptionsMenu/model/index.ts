@@ -1,12 +1,8 @@
-import { OptionSymbolType } from "../types.ts";
-import { fetchOptionsChainCboe } from "./cboe.ts";
+import { Layer } from "effect";
+import { OptionsCboeModelLive } from "./cboe.ts";
 
-const options = {
-  cboe: {
-    chain: {
-      get: (symbol: OptionSymbolType) => fetchOptionsChainCboe(symbol),
-    },
-  },
-};
+export { OptionsCboeModel } from "./cboe.ts";
 
-export default options;
+export const OptionsModelLive = Layer.mergeAll(
+  OptionsCboeModelLive,
+);

@@ -1,16 +1,8 @@
-import { getRedditBest, getRedditSearchTop } from "./reddit.ts";
+import { Layer } from "effect";
+import { RedditModelLive } from "./reddit.ts";
 
-export const reddit = {
-    get: getRedditBest,
-    search: getRedditSearchTop,
-}
+export { RedditModel } from "./reddit.ts";
 
-
-/**
- * News model
- */
-export const news = {
-    reddit
-}
-
-export default news;
+export const NewsModelLive = Layer.mergeAll(
+  RedditModelLive,
+);

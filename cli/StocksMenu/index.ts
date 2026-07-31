@@ -1,10 +1,10 @@
 import { registerTerminalApplication } from "../utils/program_loader.ts";
-import { Menu, MenuOption, TerminalUserStateConfig, DataSourceType, TerminalUserStateConfigContext, CommandResultType, ActionHandler } from "cli/types.ts";
+import { Menu, MenuOption, TerminalUserStateConfig, DataSourceType, TerminalUserStateConfigContext, CommandResultType } from "cli/types.ts";
 import { menuGlobals } from "../utils/menu_globals.ts";
 import { chartPriceHandler } from "./actions/alphavantage.ts";
 import { cboeSpotPriceHandler, cboeHistoryHandler } from "./actions/cboe.ts";
 import { massiveSpotPriceHandler } from "./actions/massive.ts";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { lensPath, view } from "ramda";
 import { StocksServiceLive } from "./services/index.ts";
 

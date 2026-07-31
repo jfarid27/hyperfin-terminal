@@ -12,6 +12,7 @@ import {
 import { Effect } from "effect";
 import { ConfigService } from "cli/services/ConfigService.ts";
 import { Option } from "effect";
+import { StocksServiceLive } from "../services/index.ts";
 
 const tokenLens = lensPath(["loadedContext", "token", "symbol"]);
 const getLoadedToken = view(tokenLens);
@@ -70,4 +71,6 @@ export const chartPriceHandler = (symbolStr: string) => Effect.gen(function* () 
     result: { type: CommandResultType.Success },
     state: st,
   };
-});
+}).pipe(
+  Effect.provide(StocksServiceLive)
+);
