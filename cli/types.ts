@@ -5,6 +5,9 @@ import { TerminalUserStateConfigContext } from "./services/TerminalUserState.ts"
 import { FetchService } from "./services/FetchService.ts";
 import { ConfigService } from "./services/ConfigService.ts";
 import { CboeService } from "./services/CboeService.ts";
+import { AlphaVantageModel } from "./StocksMenu/model/alphavantage.ts";
+import { MassiveModel } from "./StocksMenu/model/massive.ts";
+import { CboeModel } from "./StocksMenu/model/cboe.ts";
 export type { TerminalUserStateConfig };
 export { TerminalUserStateConfigContext };
 
@@ -136,7 +139,7 @@ export type ActionOptions = any;
 // export type ActionHandler = (st: TerminalUserStateConfig) => (...args: any[]) => Promise<CommandState>;
 
 export type ActionHandler = (...args: any[]) =>
-    Effect.Effect<CommandState, ProgramError, TerminalUserStateConfigContext | FetchService | ConfigService | CboeService>;
+    Effect.Effect<CommandState, ProgramError, TerminalUserStateConfigContext | FetchService | ConfigService | CboeService | AlphaVantageModel | MassiveModel | CboeModel>;
 
 /**
  * Abstract menu option for terminal state.

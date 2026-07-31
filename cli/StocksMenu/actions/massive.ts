@@ -3,7 +3,7 @@ import { ActionHandler, DataSourceType, TerminalUserStateConfigContext, CommandR
 import { Effect } from "effect";
 import { ConfigService } from "cli/services/ConfigService.ts";
 import { Option } from "effect";
-import stocks from "../model/index.ts";
+import { MassiveModel } from "../model/massive.ts";
 import terminalKit from "terminal-kit";
 const { terminal } = terminalKit;
 
@@ -11,11 +11,13 @@ export const massiveSpotPriceHandler: ActionHandler = (symbol: string) => Effect
   const st = yield* TerminalUserStateConfigContext;
   const config = yield* ConfigService;
   const key = Option.getOrUndefined(config.MASSIVE_API_KEY) || "";
+  const massive = yield* MassiveModel;
 
-  const result = yield* stocks.massive.spot.get(
+  const raw = yield* massive.spot.get(
     { name: symbol, id: symbol.toUpperCase(), _type: DataSourceType.Massive },
     key,
   );
+  const result = raw as any;
   const ticker = result?.ticker;
   if (!ticker) {
     console.log(chalk.red("No data returned from Massive API"));
