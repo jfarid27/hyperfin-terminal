@@ -10,6 +10,7 @@ import { join } from "node:path";
 import process from "node:process";
 import { defaultTo, map, pipe as pipeR, split, trim } from "ramda";
 import { Effect, pipe } from "effect";
+import { LocalProcessingError } from "cli/errors/index.ts";
 
 /**
  * Splits a file string by lines, then by commas and trims whitespace.
@@ -38,10 +39,15 @@ const processCSV = pipeR(
  */
 export const loadCSVPortfolio = (filename: string) => {
     return pipe(
-        Effect.tryPromise(() => {
-            const file_path= join(process.cwd(), "portfolios", filename);
-            return readFile(file_path, "utf-8");
+        Effect.tryPromise({
+            try: () => {
+                const file_path = join(process.cwd(), "portfolios", filename);
+                return readFile(file_path, "utf-8");
+            },
+            catch: (err) => new LocalProcessingError({
+                message: err instanceof Error ? err.message : `Failed to load portfolio: ${filename}`,
+            }),
         }),
-        Effect.flatMap((file_content) => Effect.succeed(processCSV(file_content))) 
+        Effect.map((file_content) => processCSV(file_content))
     )
 };

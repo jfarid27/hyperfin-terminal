@@ -1,16 +1,13 @@
-import { pipe, map, props } from "ramda";
 import { Effect } from "effect";
-import { ConfigErrorTag, HTTPErrorTag, TimeoutErrorTag, UnknownError, UnknownErrorTag, type ProgramError } from "../../../../errors/index.ts";
 import terminalKit from "terminal-kit";
 const { terminal } = terminalKit;
 import {
     CommandResultType,
-    LogLevel, TerminalUserStateConfigContext
+    TerminalUserStateConfigContext
 } from "./../../../../types.ts";
-import type { ActionHandler,} from "./../../../../types.ts";
 import chalk from "chalk";
-import { inspectLogger } from "./../../../../utils/logging.ts";
-import PredictionMarketsData from "./../../model/index.ts";
+import { KalshiModel } from "./../../model/index.ts";
+import { KalshiServiceLive } from "../../services/index.ts";
 
 /**
  * Extract market summary data for display
@@ -30,13 +27,11 @@ const extractMarketSummary = (market: any) => {
  * Extract bid/ask data with computed spreads for yes/no options
  */
 const extractBidAskData = (market: any) => {
-    // Parse bid/ask values, will be NaN if invalid
     const yesBid = parseFloat(market.yes_bid_dollars);
     const yesAsk = parseFloat(market.yes_ask_dollars);
     const noBid = parseFloat(market.no_bid_dollars);
     const noAsk = parseFloat(market.no_ask_dollars);
 
-    // Validate that all values are valid numbers before computing spreads
     const yesSpread = (!isNaN(yesBid) && !isNaN(yesAsk))
         ? (yesAsk - yesBid).toFixed(4)
         : "N/A";
@@ -87,12 +82,10 @@ export const processMarketsData = (markets: any[]) => {
 
 /**
  * Fetches markets for the given event ticker from Kalshi.
- * @param st Terminal User State
- * @param eventTicker Kalshi Event Ticker (e.g., "KXHIGHNY-26JAN10")
- * @returns CommandState
  */
-export const kalshiEventViewHandler: ActionHandler = (eventTicker?: string) => Effect.gen(function* () {
+export const kalshiEventViewHandler = (eventTicker?: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
+  const kalshi = yield* KalshiModel;
 
   if (!eventTicker) {
     console.log("No event ticker provided");
@@ -102,7 +95,7 @@ export const kalshiEventViewHandler: ActionHandler = (eventTicker?: string) => E
     };
   }
 
-  const response = yield* PredictionMarketsData.kalshiData.markets.getByEventTicker(eventTicker);
+  const response = yield* kalshi.markets.getByEventTicker(eventTicker);
   yield* Effect.logDebug(response);
 
   if (!response.markets || response.markets.length === 0) {
@@ -115,15 +108,12 @@ export const kalshiEventViewHandler: ActionHandler = (eventTicker?: string) => E
 
   const processedMarkets = processMarketsData(response.markets);
 
-  // Display each market
   for (let i = 0; i < response.markets.length; i++) {
-    const market = response.markets[i];
     const processed = processedMarkets[i];
 
     console.log(chalk.blue.bold(`\nMarket ${i + 1}: ${processed.summary.title}`))
     console.log(chalk.blue("Subtitle: ") + processed.summary.subtitle)
 
-    // Volume and Liquidity table
     terminal.table([
       ['Volume', 'Volume 24h', 'Liquidity', 'Liquidity (USD)'],
       [
@@ -145,7 +135,6 @@ export const kalshiEventViewHandler: ActionHandler = (eventTicker?: string) => E
 
     console.log(chalk.blue.bold("Bid/Ask Prices and Spreads"))
 
-    // Bid/Ask table for Yes/No options
     terminal.table([
       ['Option', 'Bid', 'Ask', 'Spread'],
       ['Yes', processed.bidAsk.yes.bid, processed.bidAsk.yes.ask, processed.bidAsk.yes.spread],
@@ -163,7 +152,6 @@ export const kalshiEventViewHandler: ActionHandler = (eventTicker?: string) => E
 
     console.log(chalk.blue.bold("Price Range"))
 
-    // Price range table
     terminal.table([
       ['Start', 'End'],
       [processed.priceRange.start, processed.priceRange.end],
@@ -183,4 +171,6 @@ export const kalshiEventViewHandler: ActionHandler = (eventTicker?: string) => E
     result: { type: CommandResultType.Success },
     state: st,
   };
-});
+}).pipe(
+  Effect.provide(KalshiServiceLive)
+);

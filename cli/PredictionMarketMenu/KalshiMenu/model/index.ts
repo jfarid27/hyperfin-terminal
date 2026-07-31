@@ -1,15 +1,6 @@
-import {
-    fetchMarketsByEventTicker,
-} from "./Kalshi.ts";
+import { Layer } from "effect";
+import { KalshiModelLive } from "./Kalshi.ts";
 
-const KalshiData = {
-    markets: {
-        getByEventTicker: fetchMarketsByEventTicker,
-    },
-}
+export { KalshiModel } from "./Kalshi.ts";
 
-const PredictionMarketsData = {
-   kalshiData: KalshiData
-}
-
-export default PredictionMarketsData;
+export const KalshiModelLayer = KalshiModelLive;

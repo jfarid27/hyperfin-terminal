@@ -7,7 +7,7 @@ description:
 allowed-tools: Bash(ls:*) Bash(echo:*) Bash(cat:*) Bash(deno:*) Bash(npx:*)
 metadata:
   author: open-eth-terminal
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Open Eth Terminal Action Generator
@@ -29,110 +29,158 @@ user to generate the appropriate code for the action.
 
 ### Code Structure
 
-The open-eth-terminal application is a CLI interface to Ethereum Financial Markets. The overall
-structure of the application is as follows:
-
 ```bash
 OpenEthTerminal/
 ├── deno.json
-├── open-eth-terminal/
-│   ├── index.ts        -- Main terminal application entry point.
-│   ├── [Menu]          -- Namespaced Menu folders for logical menu groupings.
-│   ├──     [SubMenu]/  -- Possible submenus within the namespace for the menu.
-│   ├──         [...]
-│   ├──     actions/   -- Action code for commands that fetch or show data.
-│   ├──     model/     -- Model code that abstracts data fetching necessary to show data.
-│   ├──     types.ts   -- Typescript Typings for the specific menu.
-│   ├──     utils.ts   -- Utilities for the specific menu.
-│   ├──     index.ts
-│   ├── utils.ts   -- Utilities for the application.
-│   ├── types.ts   -- Typescript Typings for the application.
-├── package.json
-├── tsconfig.json
-├── scripts/             -- OpenEthTerminal scripts folder.
-│   ├── script1.txt
-│   └── script2.txt
-├── skills/              -- Skills for the application.
-├── README.md            -- README for the application.
+├── index.ts                 -- Application entry
+├── cli/
+│   ├── index.ts             -- Main terminal menu
+│   ├── types.ts
+│   ├── errors/              -- ProgramError tagged errors
+│   ├── services/            -- ApplicationLayerLive (Config + Fetch)
+│   ├── {Menu}/
+│   │   ├── index.ts         -- Menu + registerTerminalApplication
+│   │   ├── types.ts
+│   │   ├── model/           -- Context.Tag models + *ModelLive Layers
+│   │   ├── services/        -- {Menu}ServiceLive Layer
+│   │   └── actions/         -- Handlers that Effect.provide the menu Layer
+│   └── utils/
+│       └── program_loader.ts -- mapErrorsToCommandResults
+├── skills/
+└── README.md
 ```
 
-### Action Pattern (Effect-based)
+### Effect Layer Architecture
 
-All actions now use Effect.js instead of Promises. The key types are:
+| Layer | Role | Dependencies |
+|-------|------|--------------|
+| **Action handlers** | Menu entrypoints | Only `TerminalUserStateConfigContext` after provide |
+| **Models** | Raw fetch / data access (`Context.Tag`) | `FetchService` (+ API key args) |
+| **Services** | Optional domain logic steps | Fetch / Config |
+| **`{Menu}ServiceLive`** | Provides models + `ApplicationLayerLive` | Wired via `Effect.provide` |
+
+`ActionHandler` type:
 
 ```typescript
-// types.ts
 export type ActionHandler = (...args: any[]) =>
-    Effect.Effect<CommandState, unknown, TerminalUserStateConfigContext>;
+    Effect.Effect<CommandState, ProgramError, TerminalUserStateConfigContext>;
 ```
 
-Actions are **flat functions** (no `(st) =>` wrapper). State is obtained from the Effect Context system:
+### Action Pattern
 
 ```typescript
-import { Effect } from "effect";
-import { TerminalUserStateConfigContext } from "../../types.ts";
+import { Effect, Option } from "effect";
+import { TerminalUserStateConfigContext, CommandResultType } from "cli/types.ts";
+import { MockModel } from "../model/index.ts";
+import { MockServiceLive } from "../services/index.ts";
+import { ConfigService } from "cli/services/ConfigService.ts";
 
 export const myHandler = (param1: string) => Effect.gen(function*() {
     const st = yield* TerminalUserStateConfigContext;
-    // ... use st ...
-    return {
-        result: { type: CommandResultType.Success },
-        state: st,
-    };
-});
+    const config = yield* ConfigService;
+    const model = yield* MockModel;
+
+    if (!param1) {
+        console.log("No param1 provided");
+        return { result: { type: CommandResultType.Error }, state: st };
+    }
+
+    const result = yield* model.api.get(param1);
+    return { result: { type: CommandResultType.Success }, state: st };
+}).pipe(
+  Effect.provide(MockServiceLive)
+);
 ```
 
 Key rules:
-- **No `async`/`await`** — use `yield*` inside `Effect.gen(function*() { ... })`
-- **No `(st) =>` wrapper** — state comes from `yield* TerminalUserStateConfigContext`
-- **Promise-based APIs** (e.g. `fetch`, model functions that return Promises) are bridged with `yield* Effect.promise(() => somePromiseReturningFn(...))`
-- **Error handling**: use `try/catch` inside `Effect.gen` as normal, or `yield* Effect.fail(...)` for early exits
-- **Return type**: always `{ result: CommandResult, state: TerminalUserStateConfig }`
+- **No `async`/`await`** — use `yield*` inside `Effect.gen`
+- **No `(st) =>` wrapper** — state from `yield* TerminalUserStateConfigContext`
+- **Always** `.pipe(Effect.provide({Menu}ServiceLive))` so the handler only requires Context
+- **No handler-level `catchAll` remappers** — `program_loader` / `mapErrorsToCommandResults` handles `ProgramError`
+- Fail with tagged errors (`ConfigError`, `HTTPError`, …) or return `CommandResultType.Error`
+- Prefer `FetchService.fetchJson` in models — not raw axios/`fetch`
+
+### Model Pattern
+
+```typescript
+import { Effect, Context, Layer } from "effect";
+import { FetchService } from "cli/services/FetchService.ts";
+import { HTTPError, LocalProcessingError } from "cli/errors/index.ts";
+
+export interface MockModelPort {
+  api: {
+    get: (param1: string) => Effect.Effect<string, HTTPError | LocalProcessingError>;
+  };
+}
+
+export class MockModel extends Context.Tag("hyperfin.mock.MockModel")<
+  MockModel,
+  MockModelPort
+>() {}
+
+export const MockModelLive = Layer.effect(
+  MockModel,
+  Effect.gen(function* () {
+    const fs = yield* FetchService;
+    return {
+      api: {
+        get: (param1: string) =>
+          Effect.succeed(`Mock Data: ${param1}`),
+      },
+    } satisfies MockModelPort;
+  }),
+);
+```
+
+### Menu Service Layer
+
+```typescript
+import { Layer } from "effect";
+import { MockModelLive } from "../model/index.ts";
+import { ApplicationLayerLive } from "cli/services/index.ts";
+
+export const MockServices = Layer.provide(MockModelLive, ApplicationLayerLive);
+export const MockServiceLive = Layer.merge(MockServices, ApplicationLayerLive);
+```
 
 ## Workflow
 
 When users call on this agent, follow this workflow:
 
 1.  **Prospecting**: Show a general greeting found in the [./references/greeting.md](./references/greeting.md) file.
-    Ask the user for a description of the action they would like to create. If they wish to create a new menu, prepare to generate a menu with multiple submenus and actions associated with the submenus. 
-    
+    Ask the user for a description of the action they would like to create. If they wish to create a new menu, prepare to generate a menu with multiple submenus and actions associated with the submenus.
+
     Ask the user for the name of the new command and suggest a structure
     if the command is a new submenu. Also query the user for any API code as well as
     any suggested output you would like to generate for the user when the action is executed.
 2.  **Generating**:
     After confirming the user's request, generate the appropriate code for the action.
-    
+
     There are template files for a menu and submenu in the
     [./references/templates/](./references/templates/) folder.
     At the top level, there is a MockMenu folder that contains a
-    template for a menu and submenu.
-    
+    template for a menu and submenu. Prefer StocksMenu (`cli/StocksMenu/`) as the live reference.
+
+    For a **new menu**, generate:
+    - `model/{provider}.ts` — Context.Tag + Layer
+    - `model/index.ts` — `Layer.mergeAll`
+    - `services/index.ts` — `{Menu}ServiceLive`
+    - `actions/{feature}.ts` — handler + `Effect.provide`
+    - `index.ts` — wire menu options
+
     For environment variable linking, please do these steps:
-    
-    - Look at the (./../../cli/types.ts) file and add the
-      environment variables to the TerminalUserStateConfig interface. Also
-      add the environment variable to the APIKeyType enum.
-    - Look at the (./../../cli/index.ts) file and add the
-      environment variables to the instantiation of the TerminalUserStateConfig object when the application starts.
+
+    - Look at `cli/types.ts` and add the environment variables to the TerminalUserStateConfig interface / APIKeyType enum as needed.
+    - Look at `cli/services/ConfigService.ts` and wire the key.
+    - Look at `cli/index.ts` if keys must appear in the startup state.
     - Notify the user that the environment variables must be added to
-      the .env file in the root directory of the application. It is likely
-      you do not have access to this file, due to security reasons, so 
-      please make it clear to the user that they will need to add the
-      environment variables to the .env file manually with the correct
-      name.
-      
-    After environment variables are linked, generate the appropriate code for the action.
-    
-    Note that the import links in the template files are relative to the
-    cli folder using standard deno import paths. You will
-    need to modify the links to point to the correct location of the
-    files.
-    
+      the `.env` file in the root directory manually.
+
 3.  **Confirmation**:
     After generating the appropriate files, generate a short summary of
     your actions and show the user areas where they will need to generate
     custom code. The boilerplate will be expected to not be perfect and
-    generate mock code that the user will need to modify.
+    generate mock code that the user will need to modify. Run `deno check index.ts`.
 
 4.  **Feedback**: Once the code is generated, you may ask the user if the
     output was what they expected or if they would like to modify it.

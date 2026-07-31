@@ -1,6 +1,6 @@
 import Parser from "rss-parser";
-import { Effect, pipe } from 'effect';
-import { pipe as pipeR, project, map, filter } from 'ramda';
+import { Effect, Context, Layer, pipe } from "effect";
+import { pipe as pipeR, project, map, filter } from "ramda";
 import { HTTPError } from "cli/errors/index.ts";
 
 const MAX_TITLE_LENGTH = 65;
@@ -15,8 +15,6 @@ interface RedditPost {
 
 /**
  * Pluck relevant data from feed and transform it into something nice to display.
- * @param {any} feed Feed to generate data from
- * @returns {any} Generated data
  */
 const generateRedditDataFromFeed = pipeR(
   project(["pubDate", "title", "link", "author"]),
@@ -31,45 +29,39 @@ const generateRedditDataFromFeed = pipeR(
   })
 );
 
-/**
- * Fetch best posts from the given subreddit
- * @param subreddit Subreddit to fetch posts from
- * @param limit Number of posts to fetch
- * @returns Feed object
- */
-export function getRedditBest(subreddit: string, limit: number=20): Effect.Effect<RedditPost[], HTTPError> {
+export interface RedditModelPort {
+  get: (subreddit: string, limit?: number) => Effect.Effect<RedditPost[], HTTPError>;
+  search: (query: string, limit?: number) => Effect.Effect<RedditPost[], HTTPError>;
+}
+
+export class RedditModel extends Context.Tag("hyperfin.news.RedditModel")<
+  RedditModel,
+  RedditModelPort
+>() {}
+
+export const RedditModelLive = Layer.succeed(RedditModel, {
+  get: (subreddit: string, limit: number = 20) => {
     const url = `https://www.reddit.com/r/${subreddit}/hot/.rss?limit=${limit}`;
     const parser = new Parser();
     return pipe(
-        Effect.tryPromise(() => parser.parseURL(url)),
-        Effect.map((response: any) => {
-            return generateRedditDataFromFeed(response.items)
-        }),
-        Effect.catchAll((err) => Effect.gen(function* () {
-          yield * Effect.logError(err);
-          return yield* new HTTPError({ message: "Failed to fetch Reddit RSS feed." })
-        }))
+      Effect.tryPromise(() => parser.parseURL(url)),
+      Effect.map((response: any) => generateRedditDataFromFeed(response.items)),
+      Effect.catchAll((err) => Effect.gen(function* () {
+        yield* Effect.logError(err);
+        return yield* new HTTPError({ message: "Failed to fetch Reddit RSS feed." });
+      })),
     );
-}
-
-/**
- * Fetch top posts from the given query
- * @param query Query to fetch posts from
- * @param limit Number of posts to fetch
- * @returns Feed object
- */
-export function getRedditSearchTop(query: string, limit: number=20): Effect.Effect<RedditPost[], HTTPError> {
+  },
+  search: (query: string, limit: number = 20) => {
     const url = `https://www.reddit.com/search/.rss?q=${query}&type=posts&sort=top&t=week&limit=${limit}`;
     const parser = new Parser();
     return pipe(
       Effect.tryPromise(() => parser.parseURL(url)),
-      Effect.map((response: any) => {
-          return generateRedditDataFromFeed(response.items)
-      }),
+      Effect.map((response: any) => generateRedditDataFromFeed(response.items)),
       Effect.catchAll((err) => Effect.gen(function* () {
-        yield * Effect.logError(err);
-        return yield* new HTTPError({ message: "Failed to fetch Reddit RSS feed." })
-      }))
-
+        yield* Effect.logError(err);
+        return yield* new HTTPError({ message: "Failed to fetch Reddit RSS feed." });
+      })),
     );
-}
+  },
+});

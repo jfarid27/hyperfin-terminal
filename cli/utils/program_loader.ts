@@ -11,7 +11,6 @@ import { Effect } from "effect";
 import {
   mapErrorsToCommandResults
 } from "cli/errors/index.ts";
-import { ApplicationLayerLive } from "cli/services/index.ts";
 
 /**
  * Wrap a commander program into a resolvable promise from a menu option.
@@ -43,8 +42,7 @@ export function loadProgram(program: Command, menuOption: MenuOption, state: Ter
                 resolve(res);
               }).pipe(
                 mapErrorsToCommandResults(resolve, state),
-                tusccService,
-                Effect.provide(ApplicationLayerLive)
+                tusccService
               );
 
               await Effect.runPromise(actionEffect);
