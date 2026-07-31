@@ -12,7 +12,7 @@ import newsTerminal from "./NewsMenu/index.ts";
 import figlet from "figlet";
 
 import {
-    Menu, MenuOption, TerminalUserStateConfig, CommandResultType, LogLevel, EnvironmentType, TerminalUserStateConfigContext
+    Menu, MenuOption, TerminalUserStateConfig, CommandResultType, LogLevel, EnvironmentType, TerminalUserStateConfigContext, DataSourceType
 } from "./types.ts";
 import { registerTerminalApplication } from "./utils/program_loader.ts";
 import { Effect } from "effect";
@@ -369,7 +369,10 @@ export async function startMain(scriptFilename?: string) {
         fred: process.env.FRED_API_KEY,
         massive: process.env.MASSIVE_API_KEY,
     },
-    loadedContext: {},
+    loadedContext: {
+      stocks: { datasource: DataSourceType.CBOE },
+      options: { datasource: DataSourceType.CBOE },
+    },
     scriptContext: {}
   };
 

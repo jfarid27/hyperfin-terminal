@@ -7,7 +7,7 @@ import chalk from "chalk";
 
 const optionsChainHandler: ActionHandler = (symbolStr: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
-  const datasource = st.loadedContext?.options?.datasource ?? DataSourceType.CBOE;
+  const datasource = st.loadedContext.options.datasource;
 
   if (datasource !== DataSourceType.CBOE) {
     console.log(chalk.yellow("Massive options not yet implemented, falling back to CBOE."));

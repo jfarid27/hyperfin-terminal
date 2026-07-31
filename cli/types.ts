@@ -69,12 +69,12 @@ export interface CryptoContext {
 
 export interface StocksContext {
     symbol?: string;
-    datasource?: DataSourceType.Massive | DataSourceType.CBOE;
+    datasource: DataSourceType.Massive | DataSourceType.CBOE;
 }
 
 export interface OptionsContext {
     symbol?: string;
-    datasource?: DataSourceType.Massive | DataSourceType.CBOE;
+    datasource: DataSourceType.Massive | DataSourceType.CBOE;
 }
 
 export enum PredictionMarketsType {
@@ -96,8 +96,8 @@ export interface PredictionMarketsContext {
 export interface LoadedContext {
     crypto?: CryptoContext;
     predictionMarkets?: PredictionMarketsContext;
-    stocks?: StocksContext;
-    options?: OptionsContext;
+    stocks: StocksContext;
+    options: OptionsContext;
 }
 
 /**

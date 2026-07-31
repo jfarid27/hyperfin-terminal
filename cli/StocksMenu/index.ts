@@ -23,7 +23,7 @@ const spotPriceHandler: ActionHandler = (symbolStr: string) => Effect.gen(functi
     return { result: { type: CommandResultType.Error }, state: st };
   }
 
-  const datasource = st.loadedContext?.stocks?.datasource ?? DataSourceType.CBOE;
+  const datasource = st.loadedContext.stocks.datasource;
 
   if (datasource === DataSourceType.Massive) {
     const config = yield* ConfigService;
