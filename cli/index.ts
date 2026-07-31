@@ -3,6 +3,7 @@ import { lensPath, set, view } from "ramda";
 import cryptoTerminal from "./CryptoMenu/index.ts";
 import predictionMarketsTerminal from "./PredictionMarketMenu/index.ts";
 import stocksTerminal from "./StocksMenu/index.ts";
+import optionsTerminal from "./OptionsMenu/index.ts";
 import { menuGlobalsTop } from "./utils/menu_globals.ts";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -63,6 +64,44 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
         action: () => Effect.gen(function*() {
             const st = yield* TerminalUserStateConfigContext;
             const newState = yield* Effect.promise(async () => stocksTerminal(st));
+            return {
+                result: { type: CommandResultType.Success },
+                state: newState,
+            };
+        }).pipe(
+  Effect.catchAll((error) => {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "_tag" in error
+    ) {
+      const tag = (error as { _tag: string })._tag;
+      if (
+        tag === HTTPErrorTag ||
+        tag === ConfigErrorTag ||
+        tag === TimeoutErrorTag ||
+        tag === UnknownErrorTag
+      ) {
+        return Effect.fail(error as unknown as ProgramError);
+      }
+    }
+    return Effect.gen(function* () {
+      yield* Effect.logError(error);
+      const err = error as unknown;
+      return yield* Effect.fail(new UnknownError({
+        message: err instanceof Error ? err.message : "Action handler failed",
+      }));
+    });
+  }),
+        ),
+},
+    {
+        name: "options",
+        command: "options",
+        description: "Fetch options data from various sources",
+        action: () => Effect.gen(function*() {
+            const st = yield* TerminalUserStateConfigContext;
+            const newState = yield* Effect.promise(async () => optionsTerminal(st));
             return {
                 result: { type: CommandResultType.Success },
                 state: newState,

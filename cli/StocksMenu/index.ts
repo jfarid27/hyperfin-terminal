@@ -2,6 +2,7 @@ import { registerTerminalApplication } from "../utils/program_loader.ts";
 import { Menu, MenuOption, TerminalUserStateConfig } from "../types.ts";
 import { menuGlobals } from "../utils/menu_globals.ts";
 import { chartPriceHandler, spotPriceHandler } from "./actions/alphavantage.ts";
+import { historyPriceHandler } from "./actions/cboe.ts";
 
 const stocksMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
     {
@@ -15,6 +16,12 @@ const stocksMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
         command: "spot [symbol]",
         description: "Fetch spot prices for the given symbol",
         action: spotPriceHandler,
+    },
+    {
+        name: "history",
+        command: "history [symbol]",
+        description: "Fetch historical prices from CBOE for the given symbol",
+        action: historyPriceHandler,
     },
     ...menuGlobals(state),
 ]

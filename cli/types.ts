@@ -4,6 +4,7 @@ import type { TerminalUserStateConfig } from "./services/TerminalUserState.ts";
 import { TerminalUserStateConfigContext } from "./services/TerminalUserState.ts";
 import { FetchService } from "./services/FetchService.ts";
 import { ConfigService } from "./services/ConfigService.ts";
+import { CboeService } from "./services/CboeService.ts";
 export type { TerminalUserStateConfig };
 export { TerminalUserStateConfigContext };
 
@@ -38,6 +39,7 @@ export enum DataSourceType {
     FreeCryptoAPI = 'freecryptoapi',
     Fred = 'fred',
     Massive = 'massive',
+    CBOE = 'cboe',
 }
 
 /**
@@ -50,6 +52,7 @@ export interface DatasourceKeyMapping {
     [DataSourceType.FreeCryptoAPI]: APIKeyType.FreeCryptoAPI;
     [DataSourceType.Fred]: APIKeyType.Fred;
     [DataSourceType.Massive]: APIKeyType.Massive;
+    [DataSourceType.CBOE]: APIKeyType.Massive;
 }
 
 /**
@@ -62,6 +65,16 @@ export type APIKeyConfig = {
 export interface CryptoContext {
     symbol?: string;
     datasource?: DataSourceType;
+}
+
+export interface StocksContext {
+    symbol?: string;
+    datasource?: DataSourceType.Massive | DataSourceType.CBOE;
+}
+
+export interface OptionsContext {
+    symbol?: string;
+    datasource?: DataSourceType.Massive | DataSourceType.CBOE;
 }
 
 export enum PredictionMarketsType {
@@ -83,6 +96,8 @@ export interface PredictionMarketsContext {
 export interface LoadedContext {
     crypto?: CryptoContext;
     predictionMarkets?: PredictionMarketsContext;
+    stocks?: StocksContext;
+    options?: OptionsContext;
 }
 
 /**
@@ -121,7 +136,7 @@ export type ActionOptions = any;
 // export type ActionHandler = (st: TerminalUserStateConfig) => (...args: any[]) => Promise<CommandState>;
 
 export type ActionHandler = (...args: any[]) =>
-    Effect.Effect<CommandState, ProgramError, TerminalUserStateConfigContext | FetchService | ConfigService>;
+    Effect.Effect<CommandState, ProgramError, TerminalUserStateConfigContext | FetchService | ConfigService | CboeService>;
 
 /**
  * Abstract menu option for terminal state.
