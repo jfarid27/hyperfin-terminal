@@ -20,17 +20,10 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
-  ENVIRONMENT, LOG_LEVEL,
-  COINGECKO_API_KEY, ALPHAVANTAGE_API_KEY,
-  BLOCKCHAINCOM_API_KEY, FREECRYPTOAPI_API_KEY,
-  FRED_API_KEY,
-  MASSIVE_API_KEY,
-} from "cli/config.ts";
-
-import {
   Menu, MenuOption, TerminalUserStateConfig,
   CommandResultType, LogLevel, EnvironmentType,
   CommandState, TerminalUserStateConfigContext,
+  DataSourceType,
 } from "cli/types.ts";
 import { Effect } from "effect";
 import { ConfigErrorTag, HTTPErrorTag, TimeoutErrorTag, UnknownError, UnknownErrorTag, type ProgramError } from "cli/errors/index.ts";
@@ -371,26 +364,29 @@ export async function startHyperFin(scriptFilename?: string) {
     "production": EnvironmentType.Production,
   };
 
-  const logLevel = (LOG_LEVEL && LOG_LEVEL in logLevelMap)
-    ? logLevelMap[LOG_LEVEL]
+  const logLevel = (process.env.LOG_LEVEL && process.env.LOG_LEVEL in logLevelMap)
+    ? logLevelMap[process.env.LOG_LEVEL]
     : 0;
 
-  const environment = (ENVIRONMENT && ENVIRONMENT in environmentMap)
-    ? environmentMap[ENVIRONMENT]
+  const environment = (process.env.ENVIRONMENT && process.env.ENVIRONMENT in environmentMap)
+    ? environmentMap[process.env.ENVIRONMENT]
     : EnvironmentType.Production;
 
   const state: TerminalUserStateConfig = {
     environment: environment,
     logLevel: logLevel,
     apiKeys: {
-      coingecko: COINGECKO_API_KEY,
-      alphavantage: ALPHAVANTAGE_API_KEY,
-      blockchaincom: BLOCKCHAINCOM_API_KEY,
-      freecryptoapi: FREECRYPTOAPI_API_KEY,
-      fred: FRED_API_KEY,
-      massive: MASSIVE_API_KEY,
+      coingecko: process.env.COINGECKO_API_KEY,
+      alphavantage: process.env.ALPHAVANTAGE_API_KEY,
+      blockchaincom: process.env.BLOCKCHAINCOM_API_KEY,
+      freecryptoapi: process.env.FREECRYPTOAPI_API_KEY,
+      fred: process.env.FRED_API_KEY,
+      massive: process.env.MASSIVE_API_KEY,
     },
-    loadedContext: {},
+    loadedContext: {
+      stocks: { datasource: DataSourceType.CBOE },
+      options: { datasource: DataSourceType.CBOE },
+    },
     scriptContext: {},
   };
 

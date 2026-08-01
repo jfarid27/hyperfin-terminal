@@ -37,25 +37,36 @@ structure of the application is as follows:
 ```bash
 OpenEthTerminal/
 ├── deno.json
-├── open-eth-terminal/
-│   ├── index.ts        -- Main terminal application entry point.
-│   ├── [Menu]          -- Namespaced Menu folders for logical menu groupings.
-│   ├──     [SubMenu]/  -- Possible submenus within the namespace for the menu.
-│   ├──         [...]
-│   ├──     actions/   -- Action code for commands that fetch or show data.
-│   ├──     model/     -- Model code that abstracts data fetching necessary to show data.
-│   ├──     types.ts   -- Typescript Typings for the specific menu.
-│   ├──     utils.ts   -- Utilities for the specific menu.
-│   ├──     index.ts
-│   ├── utils.ts   -- Utilities for the application.
-│   ├── types.ts   -- Typescript Typings for the application.
-├── package.json
-├── tsconfig.json
-├── scripts/             -- OpenEthTerminal scripts folder.
+├── index.ts              -- Classic CLI entry point (deno task cli)
+├── terminal.ts           -- Bloomberg-style TUI entry point (deno task terminal)
+├── cli/
+│   ├── index.ts          -- Main terminal menu (CLI mode)
+│   ├── types.ts          -- Core types (Menu, MenuOption, ActionHandler, etc.)
+│   ├── errors/           -- ProgramError tagged errors
+│   ├── services/         -- ConfigService, FetchService, TerminalUserState
+│   ├── {Menu}/           -- Namespaced Menu folders
+│   │   ├── index.ts      -- Menu definition + registerTerminalApplication
+│   │   ├── types.ts
+│   │   ├── model/        -- Context.Tag models + Layers
+│   │   ├── services/     -- {Menu}ServiceLive Layer
+│   │   └── actions/      -- Action handlers
+│   └── utils/
+│       ├── program_loader.ts  -- Commander-based program loading
+│       ├── menu_globals.ts    -- Global menu options (exit, back, showconfig)
+│       └── scripts.ts         -- Script execution
+├── terminal/
+│   ├── index.ts          -- TUI entry point: startHyperFin(), menu options
+│   ├── HyperFinTerminal.ts -- Main TUI loop, keybinding dispatch
+│   ├── MainPanel.ts      -- Full-screen layout (data area, command input, menu bar)
+│   └── xmtp/
+│       ├── client.ts     -- XMTP chat client
+│       ├── ChatPanel.ts  -- Chat UI
+│       └── account.ts    -- XMTP key management
+├── scripts/              -- OpenEthTerminal scripts folder
 │   ├── script1.txt
 │   └── script2.txt
-├── skills/              -- Skills for the application.
-├── README.md            -- README for the application.
+├── skills/               -- Skills for the application
+├── README.md             -- README for the application
 ```
 
 

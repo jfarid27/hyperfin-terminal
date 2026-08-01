@@ -46,3 +46,19 @@
 
 -   **chart**: `chart [symbol]` - Fetch chart data for the given symbol
 -   **spot**: `spot [symbol]` - Fetch spot prices for the given symbol
+
+### Options Menu
+
+-   **options**: `options` - Fetch options data from various sources
+
+### Chat (TUI only)
+
+-   **chat**: `chat` - Open XMTP chat — message other users on the XMTP network
+
+### Global Commands
+
+-   **script**: `script [filename]` - Run a script from the scripts folder
+-   **keys**: `keys [type] [value]` - Set or get the API keys
+-   **exit**: `exit` - Exit the application
+-   **back**: `back` - Go back to the previous menu
+-   **showconfig**: `showconfig` - Show the current configuration (Development only)

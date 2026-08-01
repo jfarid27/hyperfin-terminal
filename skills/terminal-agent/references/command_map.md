@@ -2,7 +2,18 @@
 
 This document provides a visual tree of every terminal command and its associated submenu within the Open Eth Terminal application.
 
+## Application Entry Points
+
+The application has two entry points:
+
+- **`index.ts`** — Classic CLI mode (`deno task cli`). Uses `registerTerminalApplication` with commander-based command parsing.
+- **`terminal.ts`** — Bloomberg-style TUI mode (`deno task terminal`). Uses `HyperFinTerminal` with terminal-kit full-screen rendering.
+
+Both share the same menu infrastructure (sub-terminals, actions, models) from the `cli/` folder.
+
 ## Command Tree
+
+### Main Menu (CLI & TUI)
 
 - **`crypto`**: Fetch crypto prices from various sources
     - **`price [symbol]`**: Fetch current price for the given symbol
@@ -13,6 +24,9 @@ This document provides a visual tree of every terminal command and its associate
 - **`stocks`**: Fetch stock prices from various sources
     - **`chart [symbol]`**: Fetch chart data for the given symbol
     - **`spot [symbol]`**: Fetch spot prices for the given symbol
+    - *Global Options*: `exit`, `back`, `showconfig` (dev only)
+
+- **`options`**: Fetch options data from various sources
     - *Global Options*: `exit`, `back`, `showconfig` (dev only)
 
 - **`news`**: Fetch news from various sources
@@ -42,6 +56,8 @@ This document provides a visual tree of every terminal command and its associate
     - **`fred [seriesId] [startDate] [endDate]`**: Fetch and chart FRED economic data series.
     - *Global Options*: `exit`, `back`, `showconfig` (dev only)
 
+- **`chat`** *(TUI only)*: Open XMTP chat — message other users on the XMTP network
+
 - **`script [filename]`**: Run a script from the scripts folder with a specified filename
 
 - **`keys [type] [value]`**: Set or get the API keys
@@ -51,3 +67,33 @@ This document provides a visual tree of every terminal command and its associate
 - **`back`**: Go back to the previous menu
 
 - **`showconfig`**: Show the current configuration (Development only)
+
+## TUI-Specific Features
+
+The Bloomberg-style TUI (`terminal.ts`) provides:
+
+- **Full-screen layout** with data area, command input line, and menu bar
+- **Number key shortcuts** for menu options (e.g., press `1` for crypto)
+- **Command typing** — type commands directly (e.g., `crypto`, `stocks spot AAPL`)
+- **Console output capture** — action output is displayed in the data area
+- **XMTP chat integration** — real-time messaging via the XMTP network
+- **Key bindings**: `↑↓` navigate, `Tab` switch panes, `Enter` send, `Esc` exit
+
+## Architecture
+
+```
+terminal/
+├── index.ts              — Entry point: startHyperFin(), menu options, state init
+├── HyperFinTerminal.ts   — Main TUI loop, keybinding dispatch, command execution
+├── MainPanel.ts          — Full-screen layout (data area, command input, menu bar)
+└── xmtp/
+    ├── client.ts         — XMTP chat client (connect, send, receive)
+    ├── ChatPanel.ts      — Chat UI (contacts pane, messages, input)
+    └── account.ts        — XMTP key generation and storage
+```
+
+The terminal reuses all CLI infrastructure:
+- `cli/types.ts` — `Menu`, `MenuOption`, `ActionHandler`, `CommandState`, etc.
+- `cli/services/TerminalUserState.ts` — `TerminalUserStateConfig` and `TerminalUserStateConfigContext`
+- `cli/errors/index.ts` — `ProgramError` tagged errors
+- `cli/{Menu}/` — Sub-terminal menus (Crypto, Stocks, News, etc.)
