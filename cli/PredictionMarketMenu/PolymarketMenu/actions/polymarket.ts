@@ -12,10 +12,9 @@ import { project, pipe as pipeR, set, filter, toLower, lensProp, map,
 import terminalKit from "terminal-kit";
 const { terminal } = terminalKit;
 import { PolymarketModel } from "./../model/index.ts";
-import {CommandResultType, PredictionMarketsType, LogLevel } from "./../../../types.ts";
+import {CommandResultType, PredictionMarketsType } from "./../../../types.ts";
 import { TerminalUserStateConfigContext } from "./../../../types.ts";
 import chalk from "chalk";
-import { inspectLogger } from "./../../../utils/logging.ts";
 import { loadCSVPortfolio } from "./../../../utils/loaders.ts";
 import { PolymarketPortfolio, PolymarketPosition, PortfolioAnalysisType } from "./types.ts";
 import { PolymarketServiceLive } from "../services/index.ts";
@@ -134,7 +133,6 @@ const xPolymarketMarketData = props([
  */
 export const predictionMarketsViewHandler = (tag?: string) => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
-    const applicationLogging = inspectLogger(st);
     const polymarket = yield* PolymarketModel;
 
     if (!tag) {
@@ -147,7 +145,7 @@ export const predictionMarketsViewHandler = (tag?: string) => Effect.gen(functio
 
     const markets = yield* polymarket.markets.getByTagId(tag);
 
-    applicationLogging(LogLevel.Debug)(markets);
+    yield* Effect.logDebug(markets);
 
     const marketsData = pipeR(
         xPolymarketMarketsData,
@@ -323,8 +321,6 @@ const  formatPortfolioToPolymarketPortfolio = pipeR(
 export const portfolioAnalysisHandler = (type?: string, filename?: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
 
-  const applicationLogging = inspectLogger(st);
-
   if (!type || !filename) {
     console.log("No type or filename provided");
     return {
@@ -333,14 +329,14 @@ export const portfolioAnalysisHandler = (type?: string, filename?: string) => Ef
     };
   }
 
-  applicationLogging(LogLevel.Info)(`Loading portfolio at file ./portfolios/${filename}`);
+  yield* Effect.logInfo(`Loading portfolio at file ./portfolios/${filename}`);
 
   const loaded_portfolio = yield* loadCSVPortfolio(filename);
   const portfolio = formatPortfolioToPolymarketPortfolio(loaded_portfolio);
 
-  applicationLogging(LogLevel.Info)(portfolio);
+  yield* Effect.logInfo(portfolio);
 
-  applicationLogging(LogLevel.Info)(`Fetching portfolio analysis for ${type} at file ./portfolios/${filename}`);
+  yield* Effect.logInfo(`Fetching portfolio analysis for ${type} at file ./portfolios/${filename}`);
 
   if (type == PortfolioAnalysisType.Spot) {
     return yield* portfolioAnalysisSpotHandler(portfolio);

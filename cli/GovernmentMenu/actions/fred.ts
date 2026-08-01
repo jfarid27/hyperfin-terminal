@@ -2,9 +2,8 @@ import chalk from "chalk";
 import { FredModel } from "./../model/index.ts";
 import { DataSourceType, TerminalUserStateConfigContext } from "./../../types.ts";
 import {
-    CommandResultType, LogLevel
+    CommandResultType,
 } from "./../../types.ts";
-import { inspectLogger } from "./../../utils/logging.ts";
 import { showLineChart } from "./../../components/charting.ts";
 import { pipe as pipeR, prop, map, sortBy } from "ramda";
 import { Effect, Option } from "effect";
@@ -51,7 +50,6 @@ export const fredHandler = (
     endDate: string
 ) => Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
-    const applicationLogging = inspectLogger(st);
     const config = yield* ConfigService;
     const FRED_API_KEY = Option.getOrUndefined(config.FRED_API_KEY);
 
@@ -94,15 +92,15 @@ export const fredHandler = (
     if (Option.isSome(metadataResult)) {
       const metadata: any = metadataResult.value;
       seriesTitle = metadata?.seriess?.[0]?.title || seriesId;
-      applicationLogging(LogLevel.Debug)(`Series title: ${seriesTitle}`);
+      yield* Effect.logDebug(`Series title: ${seriesTitle}`);
     } else {
-      applicationLogging(LogLevel.Warning)(`Failed to fetch series metadata`);
+      yield* Effect.logWarning(`Failed to fetch series metadata`);
       console.log(chalk.yellow(`Warning: Using series ID as title`));
     }
 
     const result: any = yield* fred.get(seriesObj, startDate, endDate, FRED_API_KEY);
 
-    applicationLogging(LogLevel.Debug)(result);
+    yield* Effect.logDebug(result);
 
     const processed = processFredData(result);
 

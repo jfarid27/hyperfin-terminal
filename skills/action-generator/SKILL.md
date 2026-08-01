@@ -105,6 +105,7 @@ Key rules:
 - **No handler-level `catchAll` remappers** — `program_loader` / `mapErrorsToCommandResults` handles `ProgramError`
 - Fail with tagged errors (`ConfigError`, `HTTPError`, …) or return `CommandResultType.Error`
 - Prefer `FetchService.fetchJson` in models — not raw axios/`fetch`
+- **Use `yield* Effect.logInfo(...)` / `yield* Effect.logDebug(...)` for logging** — not `inspectLogger` (removed)
 
 ### Model Pattern
 
