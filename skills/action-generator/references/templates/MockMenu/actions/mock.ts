@@ -1,9 +1,8 @@
 import chalk from "chalk";
 import {
-    CommandState, CommandResultType, LogLevel,
+    CommandState, CommandResultType,
     TerminalUserStateConfigContext
 } from "cli/types.ts";
-import { inspectLogger } from "cli/utils/logging.ts";
 import model from "./../model/index.ts";
 import { Effect } from "effect";
 
@@ -13,7 +12,6 @@ import { Effect } from "effect";
  */
 export const mockHandler = (param1: string) => Effect.gen(function*() {
     const st = yield* TerminalUserStateConfigContext;
-    const applicationLogging = inspectLogger(st);
 
     if (!param1) {
         console.log(chalk.red("No param1 provided"));
@@ -23,7 +21,7 @@ export const mockHandler = (param1: string) => Effect.gen(function*() {
         };
     }
 
-    applicationLogging(LogLevel.Debug)("Mock Param: " + param1);
+    yield* Effect.logDebug("Mock Param: " + param1);
 
     const result = yield* Effect.promise(() => model.api.get(param1));
 

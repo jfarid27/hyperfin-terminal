@@ -3,9 +3,7 @@ import { CoinGeckoModel } from "../model/index.ts";
 import {
     TerminalUserStateConfigContext,
     CommandResultType, DataSourceType,
-    LogLevel
 } from "../../types.ts";
-import { inspectLogger } from "./../../utils/logging.ts"
 import { getLoadedToken } from "./../../utils/index.ts";
 import { showLineChart } from "../../components/charting.ts";
 import { Effect, Option } from 'effect';
@@ -22,7 +20,6 @@ import { CryptoServiceLive } from "../services/index.ts";
 export const chartPriceHandler = (symbolStr: string) => Effect.gen(function*() {
     const st = yield* TerminalUserStateConfigContext;
     const config = yield* ConfigService;
-    const applicationLogging = inspectLogger(st);
     const API_KEY = Option.getOrUndefined(config.COINGECKO_API_KEY);
 
     if (!API_KEY) {
@@ -43,8 +40,8 @@ export const chartPriceHandler = (symbolStr: string) => Effect.gen(function*() {
         };
     }
 
-    applicationLogging(LogLevel.Info)(`Fetching chart for ${loadedTokenSymbol}`);
-    applicationLogging(LogLevel.Info)(`Using CoinGecko API key.`);
+    yield* Effect.logInfo(`Fetching chart for ${loadedTokenSymbol}`);
+    yield* Effect.logInfo(`Using CoinGecko API key.`);
 
     const symbolObj = {
         name: loadedTokenSymbol,
@@ -57,8 +54,8 @@ export const chartPriceHandler = (symbolStr: string) => Effect.gen(function*() {
 
     yield* showLineChart(chartData.prices, "timestamp", "price", `${loadedTokenSymbol} Price`);
 
-    applicationLogging(LogLevel.Debug)("Result: ");
-    applicationLogging(LogLevel.Debug)(chartData);
+    yield* Effect.logDebug("Result: ");
+    yield* Effect.logDebug(chartData);
 
     return {
         result: { type: CommandResultType.Success },

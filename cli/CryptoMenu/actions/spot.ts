@@ -2,10 +2,8 @@ import chalk from "chalk";
 import { CoinGeckoModel } from "../model/index.ts";
 import {
     CommandResultType, DataSourceType,
-    LogLevel,
     TerminalUserStateConfigContext
 } from "../../types.ts";
-import { inspectLogger } from "./../../utils/logging.ts"
 import { getLoadedToken } from "./../../utils/index.ts";
 import { Effect, Option } from 'effect';
 import { ConfigService } from "cli/services/ConfigService.ts";
@@ -21,7 +19,6 @@ import { CryptoServiceLive } from "../services/index.ts";
 export const spotPriceHandler = (symbolStr: string) => Effect.gen(function*() {
     const st = yield* TerminalUserStateConfigContext;
     const config = yield* ConfigService;
-    const applicationLogging = inspectLogger(st);
     const API_KEY = Option.getOrUndefined(config.COINGECKO_API_KEY);
 
     if (!API_KEY) {
@@ -42,8 +39,8 @@ export const spotPriceHandler = (symbolStr: string) => Effect.gen(function*() {
         };
     }
 
-    applicationLogging(LogLevel.Info)(`Fetching spot price for ${loadedTokenSymbol}`);
-    applicationLogging(LogLevel.Info)(`Using CoinGecko API key.`);
+    yield* Effect.logInfo(`Fetching spot price for ${loadedTokenSymbol}`);
+    yield* Effect.logInfo(`Using CoinGecko API key.`);
 
     const symbolObj = {
       name: loadedTokenSymbol,
@@ -54,8 +51,8 @@ export const spotPriceHandler = (symbolStr: string) => Effect.gen(function*() {
     const coingecko = yield* CoinGeckoModel;
     const result = yield* coingecko.spot.get(symbolObj, API_KEY);
 
-    applicationLogging(LogLevel.Debug)("Result: ");
-    applicationLogging(LogLevel.Debug)(result);
+    yield* Effect.logDebug("Result: ");
+    yield* Effect.logDebug(result);
 
     console.log(chalk.yellow(`Symbol: ${result.symbol.name}`));
     console.log(chalk.green(`Price: $${result.price}`));
