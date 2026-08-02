@@ -3,7 +3,6 @@ import { lensPath, set, view } from "ramda";
 import cryptoTerminal from "./CryptoMenu/index.ts";
 import predictionMarketsTerminal from "./PredictionMarketMenu/index.ts";
 import stocksTerminal from "./StocksMenu/index.ts";
-import optionsTerminal from "./OptionsMenu/index.ts";
 import { menuGlobalsTop } from "./utils/menu_globals.ts";
 import newsTerminal from "./NewsMenu/index.ts";
 import { executeScript } from "./utils/scripts.ts";
@@ -37,19 +36,6 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
         action: () => Effect.gen(function*() {
             const st = yield* TerminalUserStateConfigContext;
             const newState = yield* Effect.promise(async () => stocksTerminal(st));
-            return {
-                result: { type: CommandResultType.Success },
-                state: newState,
-            };
-        })
-    },
-    {
-        name: "options",
-        command: "options",
-        description: "Fetch options data from various sources",
-        action: () => Effect.gen(function*() {
-            const st = yield* TerminalUserStateConfigContext;
-            const newState = yield* Effect.promise(async () => optionsTerminal(st));
             return {
                 result: { type: CommandResultType.Success },
                 state: newState,
@@ -168,7 +154,7 @@ export async function startMain(scriptFilename?: string) {
         massive: process.env.MASSIVE_API_KEY,
     },
     loadedContext: {
-      stocks: { datasource: DataSourceType.CBOE },
+      stocks: { datasource: DataSourceType.AlphaVantage },
       options: { datasource: DataSourceType.CBOE },
     },
     scriptContext: {}
