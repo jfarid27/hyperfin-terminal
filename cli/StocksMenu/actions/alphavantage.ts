@@ -1,6 +1,6 @@
 import chalk from "chalk";
-import { AlphaVantageModel } from "./../model/alphavantage.ts";
-import { ActionHandler, DataSourceType, TerminalUserStateConfigContext } from "./../../types.ts";
+import { AlphaVantageService } from "./../services/AlphaVantageService.ts";
+import { DataSourceType, TerminalUserStateConfigContext } from "./../../types.ts";
 import {
     CommandResultType
 } from "./../../types.ts";
@@ -10,8 +10,6 @@ import {
   prop, mapObjIndexed, sortBy
 } from "ramda";
 import { Effect } from "effect";
-import { ConfigService } from "cli/services/ConfigService.ts";
-import { Option } from "effect";
 import { StocksServiceLive } from "../services/index.ts";
 
 const tokenLens = lensPath(["loadedContext", "token", "symbol"]);
@@ -31,17 +29,12 @@ const processDailyData = pipe(
       sortBy(prop("timestamp"))
 );
 
+export const spotPriceHandler = (symbolStr: string) => Effect.gen(function* () {
+  // TODO: Fetch spot price and show formatted output with chalk.
+});
+
 export const chartPriceHandler = (symbolStr: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
-  const config = yield* ConfigService;
-  const ALPHAVANTAGE_API_KEY = Option.getOrUndefined(config.ALPHAVANTAGE_API_KEY);
-  if (!ALPHAVANTAGE_API_KEY) {
-    console.log(chalk.red("No AlphaVantage API key found"));
-    return {
-      result: { type: CommandResultType.Error },
-      state: st,
-    };
-  }
 
   const loadedTokenSymbol: string | undefined = symbolStr || getLoadedToken(st);
 
@@ -59,8 +52,8 @@ export const chartPriceHandler = (symbolStr: string) => Effect.gen(function* () 
     _type: DataSourceType.AlphaVantage,
   };
 
-  const av = yield* AlphaVantageModel;
-  const result = yield* av.chart.get(symbolObj, ALPHAVANTAGE_API_KEY);
+  const av = yield* AlphaVantageService;
+  const result = yield* av.getChart(symbolObj);
 
   yield* Effect.logDebug(result);
 
