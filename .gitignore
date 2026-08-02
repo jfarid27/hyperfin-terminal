@@ -1,6 +1,6 @@
 node_modules
 .env
-/tmp/*
+tmp
 /data/*
 /scripts/*
 /portfolios/*

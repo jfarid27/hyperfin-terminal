@@ -66,7 +66,7 @@ export interface CryptoContext {
 
 export interface StocksContext {
     symbol?: string;
-    datasource: DataSourceType.Massive | DataSourceType.CBOE;
+    datasource: DataSourceType.AlphaVantage;
 }
 
 export interface OptionsContext {
