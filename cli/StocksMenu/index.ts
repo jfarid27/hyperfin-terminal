@@ -1,12 +1,15 @@
 import { registerTerminalApplication } from "../utils/program_loader.ts";
 import { Menu, MenuOption, TerminalUserStateConfig, TerminalUserStateConfigContext, CommandResultType } from "cli/types.ts";
+import { StocksDataSourceTypeSchema, StocksDataSourceType } from "./types.ts";
 import { menuGlobals } from "../utils/menu_globals.ts";
 import { chartPriceHandler, spotPriceHandler } from "./actions/alphavantage.ts";
-import { Effect } from "effect";
-import { lensPath, view } from "ramda";
+import { Effect, Schema } from "effect";
+import { lensPath, set, view } from "ramda";
 import { StocksServiceLive } from "./services/index.ts";
+import chalk from "chalk";
 
 const tokenLens = lensPath(["loadedContext", "token", "symbol"]);
+const datasourceTypeLens = lensPath(["loadedContext", "stocks", "datasource"]);
 const getLoadedToken = view(tokenLens);
 
 const spotHandler = (symbolStr: string) => Effect.gen(function* () {
@@ -31,6 +34,34 @@ const chartHandler = (symbolStr: string) => Effect.gen(function* () {
   return yield* chartPriceHandler(symbol);
 }).pipe(Effect.provide(StocksServiceLive));
 
+/**
+ * Switch the datasource for actions in the stocks menu using available
+ * APIs.
+ */
+const datasourceSwapHandler = (datatypeStr: string) => Effect.gen(function* () {
+  const st = yield* TerminalUserStateConfigContext;
+  if (!datatypeStr) {
+    console.log(chalk.red("No source provided."));
+    return { result: { type: CommandResultType.Error }, state: st };
+  }
+  yield* Effect.logDebug(`Swapping datasource to ${datatypeStr}`);
+
+  const updatedE = Schema.decodeUnknownEither(StocksDataSourceTypeSchema)(datatypeStr);
+  const val = yield* updatedE;
+
+  const updatedSt = set<TerminalUserStateConfig, StocksDataSourceType>(datasourceTypeLens, val, st);
+  yield* Effect.logDebug(updatedSt.loadedContext.stocks);
+  console.log(chalk.green(`Swapped datasource to ${val}`));
+  return { result: { type: CommandResultType.Success }, state: updatedSt };
+
+}).pipe(
+  Effect.catchTag("ParseError", (_err) => Effect.gen(function* (){
+    const st = yield* TerminalUserStateConfigContext;
+    console.log(chalk.red("Invalid source provided."));
+    return { result: { type: CommandResultType.Error }, state: st };
+  }))
+);
+
 const stocksMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
   {
     name: "chart",
@@ -43,6 +74,12 @@ const stocksMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
     command: "spot [symbol]",
     description: "Fetch spot price for the given symbol",
     action: spotHandler,
+  },
+  {
+    name: "source",
+    command: "source [datatypeSource]",
+    description: "Switch the source of data between various available types.",
+    action: datasourceSwapHandler
   },
   ...menuGlobals(state),
 ];

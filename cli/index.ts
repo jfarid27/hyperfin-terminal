@@ -6,11 +6,11 @@ import stocksTerminal from "./StocksMenu/index.ts";
 import { menuGlobalsTop } from "./utils/menu_globals.ts";
 import newsTerminal from "./NewsMenu/index.ts";
 import { executeScript } from "./utils/scripts.ts";
-
 import figlet from "figlet";
-
 import {
-    Menu, MenuOption, TerminalUserStateConfig, CommandResultType, LogLevel, EnvironmentType, TerminalUserStateConfigContext, DataSourceType
+  Menu, MenuOption, TerminalUserStateConfig,
+  CommandResultType, EnvironmentType, TerminalUserStateConfigContext, DataSourceType,
+  logLevelFromEnv,
 } from "./types.ts";
 import { registerTerminalApplication } from "./utils/program_loader.ts";
 import { Effect } from "effect";
@@ -123,21 +123,12 @@ export async function startMain(scriptFilename?: string) {
   // Only show banner on initial load
   console.log(chalk.green(figlet.textSync("Open Eth Terminal", { horizontalLayout: 'full' })));
 
-  const logLevelMap: { [key: string]: LogLevel } = {
-    "debug": LogLevel.Debug,
-    "info": LogLevel.Info,
-    "warning": LogLevel.Warning,
-    "error": LogLevel.Error,
-  };
+  const logLevel = logLevelFromEnv(process.env.LOG_LEVEL);
 
   const environmentMap: { [key: string]: EnvironmentType } = {
     "development": EnvironmentType.Development,
     "production": EnvironmentType.Production,
   };
-
-
-  const logLevel = (process.env.LOG_LEVEL && process.env.LOG_LEVEL in logLevelMap) ?
-    logLevelMap[process.env.LOG_LEVEL] : 0;
 
   const environment = (process.env.ENVIRONMENT && process.env.ENVIRONMENT in environmentMap) ?
     environmentMap[process.env.ENVIRONMENT] : EnvironmentType.Production;

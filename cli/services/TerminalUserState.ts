@@ -1,4 +1,4 @@
-import type { EnvironmentType, LogLevel, APIKeyConfig, LoadedContext, ScriptContext } from "cli/types.ts";
+import type { EnvironmentType, AppLogLevel, APIKeyConfig, LoadedContext, ScriptContext } from "cli/types.ts";
 import { Context } from "effect";
 
 /**
@@ -6,7 +6,7 @@ import { Context } from "effect";
  */
 export interface TerminalUserStateConfig {
     environment: EnvironmentType;
-    logLevel: LogLevel;
+    logLevel: AppLogLevel;
     apiKeys: APIKeyConfig;
     loadedContext: LoadedContext;
     actionTimeout?: number;
