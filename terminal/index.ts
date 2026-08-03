@@ -21,9 +21,9 @@ import { join } from "node:path";
 
 import {
   Menu, MenuOption, TerminalUserStateConfig,
-  CommandResultType, LogLevel, EnvironmentType,
+  CommandResultType, EnvironmentType,
   CommandState, TerminalUserStateConfigContext,
-  DataSourceType,
+  DataSourceType, logLevelFromEnv,
 } from "cli/types.ts";
 import { Effect } from "effect";
 import { ConfigErrorTag, HTTPErrorTag, TimeoutErrorTag, UnknownError, UnknownErrorTag, type ProgramError } from "cli/errors/index.ts";
@@ -352,21 +352,12 @@ const mainMenu: Menu = {
  * Start the HyperFin terminal.
  */
 export async function startHyperFin(scriptFilename?: string) {
-  const logLevelMap: { [key: string]: LogLevel } = {
-    "debug": LogLevel.Debug,
-    "info": LogLevel.Info,
-    "warning": LogLevel.Warning,
-    "error": LogLevel.Error,
-  };
-
   const environmentMap: { [key: string]: EnvironmentType } = {
     "development": EnvironmentType.Development,
     "production": EnvironmentType.Production,
   };
 
-  const logLevel = (process.env.LOG_LEVEL && process.env.LOG_LEVEL in logLevelMap)
-    ? logLevelMap[process.env.LOG_LEVEL]
-    : 0;
+  const logLevel = logLevelFromEnv(process.env.LOG_LEVEL);
 
   const environment = (process.env.ENVIRONMENT && process.env.ENVIRONMENT in environmentMap)
     ? environmentMap[process.env.ENVIRONMENT]
@@ -384,7 +375,7 @@ export async function startHyperFin(scriptFilename?: string) {
       massive: process.env.MASSIVE_API_KEY,
     },
     loadedContext: {
-      stocks: { datasource: DataSourceType.CBOE },
+      stocks: { datasource: DataSourceType.AlphaVantage },
       options: { datasource: DataSourceType.CBOE },
     },
     scriptContext: {},

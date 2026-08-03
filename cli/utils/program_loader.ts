@@ -7,7 +7,7 @@ import {
   TerminalUserStateConfig,
   TerminalUserStateConfigContext
 } from "../types.ts";
-import { Effect } from "effect";
+import { Effect, LogLevel, Logger } from "effect";
 import {
   mapErrorsToCommandResults
 } from "cli/errors/index.ts";
@@ -42,7 +42,8 @@ export function loadProgram(program: Command, menuOption: MenuOption, state: Ter
                 resolve(res);
               }).pipe(
                 mapErrorsToCommandResults(resolve, state),
-                tusccService
+                tusccService,
+                Logger.withMinimumLogLevel(state.logLevel)
               );
 
               await Effect.runPromise(actionEffect);

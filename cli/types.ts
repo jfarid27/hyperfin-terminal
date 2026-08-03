@@ -1,9 +1,9 @@
-import { Effect } from "effect";
+import { Effect, LogLevel } from "effect";
 import { ProgramError } from "./errors/index.ts";
 import type { TerminalUserStateConfig } from "./services/TerminalUserState.ts";
 import { TerminalUserStateConfigContext } from "./services/TerminalUserState.ts";
 export type { TerminalUserStateConfig };
-export { TerminalUserStateConfigContext };
+export { TerminalUserStateConfigContext, LogLevel };
 
 /**
  * The environment types.
@@ -17,6 +17,38 @@ export enum EnvironmentType {
 /**
  * List of available API key types.
  */
+export type ConfiguredLogLevel =
+  | typeof LogLevel.Debug
+  | typeof LogLevel.Info
+  | typeof LogLevel.Warning
+  | typeof LogLevel.Error;
+
+/** Effect log levels used in terminal config (env-mapped levels plus default). */
+export type AppLogLevel = ConfiguredLogLevel | typeof LogLevel.None;
+
+export const LOG_LEVEL_ENV_MAP = {
+  debug: LogLevel.Debug,
+  info: LogLevel.Info,
+  warning: LogLevel.Warning,
+  error: LogLevel.Error,
+} as const satisfies Record<string, ConfiguredLogLevel>;
+
+export type LogLevelEnvKey = keyof typeof LOG_LEVEL_ENV_MAP;
+
+export function isLogLevelEnvKey(value: string): value is LogLevelEnvKey {
+  return value in LOG_LEVEL_ENV_MAP;
+}
+
+export function logLevelFromEnv(
+  raw: string | undefined,
+  defaultLevel: AppLogLevel = LogLevel.None,
+): AppLogLevel {
+  if (raw !== undefined && isLogLevelEnvKey(raw)) {
+    return LOG_LEVEL_ENV_MAP[raw];
+  }
+  return defaultLevel;
+}
+
 export enum APIKeyType {
     CoinGecko = "coingecko",
     Alphavantage = "alphavantage",
@@ -66,7 +98,7 @@ export interface CryptoContext {
 
 export interface StocksContext {
     symbol?: string;
-    datasource: DataSourceType.AlphaVantage;
+    datasource: DataSourceType.AlphaVantage | DataSourceType.Massive;
 }
 
 export interface OptionsContext {
@@ -106,26 +138,6 @@ export interface ScriptContext {
     currentCommand?: string;
     tailCommands?: string[];
     exitAfterCompletion?: boolean;
-}
-
-/**
- * Log levels allowing for developers to order log messages. It is intended that
- * these do not affect general output messages to the user.
- *
- * The log levels are ordered from highest to lowest priority.
- * Levels:
- *  - Debug: 4 (Most verbose. Intended to show information about inputs and outputs as well as verbose data.)
- *  - Info: 3 (General extra information. Intended for showing input and output details.)
- *  - Warning: 2 (Non-critical warnings. Intended for showing possible issues.)
- *  - Error: 1 (Critical error details. Intended for showing extra information about errors.)
- *  - None: 0 (No extra information is shown. Intended for production.)
- */
-export enum LogLevel {
-    Debug = 4,
-    Info = 3,
-    Warning = 2,
-    Error = 1,
-    None = 0,
 }
 
 export type ActionOptions = any;
