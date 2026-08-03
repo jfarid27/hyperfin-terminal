@@ -2,9 +2,11 @@ import { registerTerminalApplication } from "../utils/program_loader.ts";
 import { Menu, MenuOption, TerminalUserStateConfig, TerminalUserStateConfigContext, CommandResultType } from "cli/types.ts";
 import { StocksDataSourceTypeSchema, StocksDataSourceType } from "./types.ts";
 import { menuGlobals } from "../utils/menu_globals.ts";
-import { chartPriceHandler, spotPriceHandler } from "./actions/alphavantage.ts";
+import { chartPriceHandler, spotPriceHandler as alphaVantageSpotPriceHandler } from "./actions/alphavantage.ts";
+import { spotPriceHandler as massiveSpotPriceHandler } from "./actions/Massive.ts";
 import { Effect, Schema } from "effect";
 import { lensPath, set, view } from "ramda";
+import { DataSourceType } from "cli/types.ts";
 import { StocksServiceLive } from "./services/index.ts";
 import chalk from "chalk";
 
@@ -20,7 +22,13 @@ const spotHandler = (symbolStr: string) => Effect.gen(function* () {
     return { result: { type: CommandResultType.Error }, state: st };
   }
 
-  return yield* spotPriceHandler(symbol);
+  const datasource = st.loadedContext.stocks.datasource;
+  yield* Effect.logInfo(`Fetching data from ${datasource}`);
+  if (datasource === DataSourceType.Massive) {
+    return yield* massiveSpotPriceHandler(symbol);
+  }
+
+  return yield* alphaVantageSpotPriceHandler(symbol);
 }).pipe(Effect.provide(StocksServiceLive));
 
 const chartHandler = (symbolStr: string) => Effect.gen(function* () {
