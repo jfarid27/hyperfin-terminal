@@ -44,40 +44,58 @@ export type ProgramError = HTTPError | ConfigError | TimeoutError | UnknownError
    * Convert errors to appropriate command results.
    */
 export const mapErrorsToCommandResults = (resolve: any, state: any) => Effect.catchTags({
-    [HTTPErrorTag]: (_error) => Effect.sync(() => {
-      resolve({
+  [HTTPErrorTag]: (_error: HTTPError) => Effect.gen(function* () {
+      yield* Effect.logDebug(`HTTPError: ${_error.message}`);
+      return yield* Effect.sync(() => {
+        resolve({
+            result: { type: CommandResultType.Error },
+            state: state,
+        });
+      })
+    }),
+  [TimeoutErrorTag]: (_error: TimeoutError) => Effect.gen(function* () {
+      yield* Effect.logDebug(`TimeoutError: ${_error.message}`);
+      return yield* Effect.sync(() => {
+        resolve({
+            result: { type: CommandResultType.Timeout },
+            state: state,
+        });
+      });
+    }),
+    [ConfigErrorTag]: (_error: ConfigError) => Effect.gen(function* () {
+      yield* Effect.logDebug(`ConfigError: ${_error.message}`);
+      return yield* Effect.sync(() => {
+        resolve({
           result: { type: CommandResultType.Error },
           state: state,
+        });
       });
     }),
-    [TimeoutErrorTag]: (_error) => Effect.sync(() => {
-      resolve({
-          result: { type: CommandResultType.Timeout },
-          state: state,
-      });
-    }),
-    [ConfigErrorTag]: (_error) => Effect.sync(() => {
-      resolve({
-          result: { type: CommandResultType.Timeout },
-          state: state,
-      });
-    }),
-    [UnknownErrorTag]: (_error) => Effect.sync(() => {
-      resolve({
+    [UnknownErrorTag]: (_error: UnknownError) => Effect.gen(function* () {
+      yield* Effect.logDebug(`UnknownError: ${_error.message}`);
+      return yield* Effect.sync(() => {
+        resolve({
           result: { type: CommandResultType.Error },
           state: state,
+        });
       });
     }),
-    [InvalidStateErrorTag]: (_error) => Effect.sync(() => {
-      resolve({
+    [InvalidStateErrorTag]: (_error: InvalidStateError) => Effect.gen(function* () {
+      yield* Effect.logDebug(`InvalidStateError: ${_error.message}`);
+      return yield* Effect.sync(() => {
+        resolve({
           result: { type: CommandResultType.Error },
           state: state,
+        });
       });
     }),
-    [LocalProcessingErrorTag]: (_error) => Effect.sync(() => {
-      resolve({
+    [LocalProcessingErrorTag]: (_error: LocalProcessingError) => Effect.gen(function* () {
+      yield* Effect.logDebug(`LocalProcessingError: ${_error.message}`);
+      return yield* Effect.sync(() => {
+        resolve({
           result: { type: CommandResultType.Error },
           state: state,
+        });
       });
     }),
   });
