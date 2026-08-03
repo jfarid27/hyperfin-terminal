@@ -3,7 +3,7 @@ import { Menu, MenuOption, TerminalUserStateConfig, TerminalUserStateConfigConte
 import { StocksDataSourceTypeSchema, StocksDataSourceType } from "./types.ts";
 import { menuGlobals } from "../utils/menu_globals.ts";
 import { chartPriceHandler, spotPriceHandler } from "./actions/alphavantage.ts";
-import { Effect, Either, Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { lensPath, set, view } from "ramda";
 import { StocksServiceLive } from "./services/index.ts";
 import chalk from "chalk";
@@ -33,6 +33,7 @@ const chartHandler = (symbolStr: string) => Effect.gen(function* () {
 
   return yield* chartPriceHandler(symbol);
 }).pipe(Effect.provide(StocksServiceLive));
+<<<<<<< HEAD
 
 /**
  * Switch the datasource for actions in the stocks menu using available
@@ -61,6 +62,8 @@ const datasourceSwapHandler = (datatypeStr: string) => Effect.gen(function* () {
     return { result: { type: CommandResultType.Error }, state: st };
   }))
 );
+=======
+>>>>>>> origin/development
 
 const stocksMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
   {
@@ -74,12 +77,15 @@ const stocksMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
     command: "spot [symbol]",
     description: "Fetch spot price for the given symbol",
     action: spotHandler,
+<<<<<<< HEAD
   },
   {
     name: "source",
     command: "source [datatypeSource]",
     description: "Switch the source of data between various available types.",
     action: datasourceSwapHandler
+=======
+>>>>>>> origin/development
   },
   ...menuGlobals(state),
 ];
