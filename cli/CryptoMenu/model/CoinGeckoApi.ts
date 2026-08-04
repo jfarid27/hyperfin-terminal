@@ -1,40 +1,65 @@
-import { lensProp, lensPath, view, defaultTo, pipe as pipeR, map } from "ramda";
 import { DataSourceType } from "./../../types.ts";
 import { SpotPoint, ChartData, ChartPoint, CryptoSymbolType } from "./../types.ts";
-import { Effect, Context, Layer } from "effect";
+import { Effect, Context, Layer, Schema } from "effect";
 import { FetchService } from "cli/services/FetchService.ts";
 import { ConfigError, HTTPError, LocalProcessingError } from "cli/errors/index.ts";
 
-type CoinGeckoChartResponse = {
-    prices: number[][];
-}
+// ── Raw response schemas (match CoinGecko's exact JSON shape) ──
 
-/**
- * Converts a CoinGecko chart response to chart points.
- */
-const convertCoinGeckoChartResponseToChartData = pipeR(
-  view(lensProp<CoinGeckoChartResponse, "prices">("prices")),
-  defaultTo([]),
-  map((p): ChartPoint => ({
-    timestamp: p[0],
-    price: p[1],
-  }))
-);
+const CoinGeckoPriceRaw = Schema.Record({
+  key: Schema.String,
+  value: Schema.Record({ key: Schema.String, value: Schema.Number }),
+});
 
-/**
- * Gets the price from the CoinGecko API response.
- */
-const getPrice = (symbol: CryptoSymbolType) => pipeR(
-    view(lensPath(["data", symbol.id, "usd"])),
-    defaultTo(0)
-);
+const CoinGeckoChartRaw = Schema.Struct({
+  prices: Schema.Array(Schema.Tuple(Schema.Number, Schema.Number)),
+});
+
+// ── Decode helpers ──
+
+const decodePriceResponse = (raw: unknown) =>
+  Schema.decodeUnknown(CoinGeckoPriceRaw)(raw).pipe(
+    Effect.catchTag("ParseError", (e) =>
+      Effect.logDebug(`CoinGecko price response shape changed: ${e.message}`).pipe(
+        Effect.andThen(
+          Effect.fail(
+            new HTTPError({ message: `Invalid CoinGecko price response shape: ${e.message}` }),
+          ),
+        ),
+      ),
+    ),
+  );
+
+const decodeChartResponse = (raw: unknown) =>
+  Schema.decodeUnknown(CoinGeckoChartRaw)(raw).pipe(
+    Effect.catchTag("ParseError", (e) =>
+      Effect.logDebug(`CoinGecko chart response shape changed: ${e.message}`).pipe(
+        Effect.andThen(
+          Effect.fail(
+            new HTTPError({ message: `Invalid CoinGecko chart response shape: ${e.message}` }),
+          ),
+        ),
+      ),
+    ),
+  );
+
+// ── Extractors ──
+
+const extractPrice = (symbol: CryptoSymbolType) =>
+  (raw: Schema.Schema.Type<typeof CoinGeckoPriceRaw>): number =>
+    raw[symbol.id]?.["usd"] ?? 0;
+
+const extractChartData = (raw: Schema.Schema.Type<typeof CoinGeckoChartRaw>): ChartPoint[] =>
+  raw.prices.map(([timestamp, price]) => ({ timestamp, price }));
+
+// ── Service port ──
 
 export interface CoinGeckoModelPort {
   spot: {
-    get: (symbol: CryptoSymbolType, apiKey: string) => Effect.Effect<SpotPoint, ConfigError | HTTPError | LocalProcessingError>;
+    get: (symbol: CryptoSymbolType) => Effect.Effect<SpotPoint, ConfigError | HTTPError | LocalProcessingError>;
   };
   chart: {
-    get: (symbol: CryptoSymbolType, apiKey: string) => Effect.Effect<ChartData, ConfigError | HTTPError | LocalProcessingError>;
+    get: (symbol: CryptoSymbolType) => Effect.Effect<ChartData, ConfigError | HTTPError | LocalProcessingError>;
   };
 }
 
@@ -49,50 +74,37 @@ export const CoinGeckoModelLive = Layer.effect(
     const fs = yield* FetchService;
     return {
       spot: {
-        get: (symbol: CryptoSymbolType, apiKey: string) =>
+        get: (symbol: CryptoSymbolType) =>
           Effect.gen(function* () {
             if (symbol._type !== DataSourceType.CoinGecko) {
               return yield* new ConfigError({ message: "Invalid data source type for CoinGecko." });
             }
-            if (!apiKey) {
-              return yield* new ConfigError({ message: "Missing CoinGecko API Key." });
-            }
-            const COINGECKO_PRICE_API = "https://pro-api.coingecko.com/api/v3/simple/price";
+            const COINGECKO_PRICE_API = "https://api.coingecko.com/api/v3/simple/price";
             const params = new URLSearchParams({
               vs_currencies: "usd",
               ids: symbol.id,
             });
-            const data = yield* fs.fetchJson(COINGECKO_PRICE_API, params, {
-              headers: {
-                "x_cg_pro_api_key": apiKey,
-              },
-            });
-            const price = getPrice(symbol)(data);
+            const data = yield* fs.fetchJson(COINGECKO_PRICE_API, params);
+            const validated = yield* decodePriceResponse(data);
+            const price = extractPrice(symbol)(validated);
             return { symbol, price };
           }),
       },
       chart: {
-        get: (symbol: CryptoSymbolType, apiKey: string) =>
+        get: (symbol: CryptoSymbolType) =>
           Effect.gen(function* () {
             if (symbol._type !== DataSourceType.CoinGecko) {
               return yield* new ConfigError({ message: "Invalid data source type for CoinGecko." });
             }
-            if (!apiKey) {
-              return yield* new ConfigError({ message: "Missing CoinGecko API Key." });
-            }
-            const COINGECKO_CHART_API = "https://pro-api.coingecko.com/api/v3/coins/{id}/market_chart";
+            const COINGECKO_CHART_API = `https://api.coingecko.com/api/v3/coins/${symbol.id}/market_chart`;
             const params = new URLSearchParams({
-              vs_currencies: "usd",
+              vs_currency: "usd",
               days: "14",
               interval: "daily",
-              id: symbol.id,
             });
-            const res = yield* fs.fetchJson(COINGECKO_CHART_API, params, {
-              headers: {
-                "x_cg_pro_api_key": apiKey,
-              },
-            });
-            const prices = convertCoinGeckoChartResponseToChartData(res);
+            const res = yield* fs.fetchJson(COINGECKO_CHART_API, params);
+            const validated = yield* decodeChartResponse(res);
+            const prices = extractChartData(validated);
             return { symbol, prices };
           }),
       },

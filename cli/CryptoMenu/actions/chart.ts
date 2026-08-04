@@ -6,29 +6,16 @@ import {
 } from "../../types.ts";
 import { getLoadedToken } from "./../../utils/index.ts";
 import { showLineChart } from "../../components/charting.ts";
-import { Effect, Option } from 'effect';
-import { ConfigService } from "cli/services/ConfigService.ts";
+import { Effect } from 'effect';
 import { CryptoServiceLive } from "../services/index.ts";
 
 /**
  * Handler for the chart price command.
  *
- * At the moment, all handing is done by CoinGeckoAPI for chart.
- * The function will error if no CoinGecko API key is provided on
- * the {@link TerminalUserStateConfig}.
+ * Uses the free CoinGecko API for chart data (no API key required).
  */
 export const chartPriceHandler = (symbolStr: string) => Effect.gen(function*() {
     const st = yield* TerminalUserStateConfigContext;
-    const config = yield* ConfigService;
-    const API_KEY = Option.getOrUndefined(config.COINGECKO_API_KEY);
-
-    if (!API_KEY) {
-        console.log(chalk.red("No CoinGecko API key provided"));
-        return {
-            result: { type: CommandResultType.Error },
-            state: st,
-        };
-    }
 
     const loadedTokenSymbol: string | undefined = symbolStr || getLoadedToken(st);
 
@@ -41,7 +28,6 @@ export const chartPriceHandler = (symbolStr: string) => Effect.gen(function*() {
     }
 
     yield* Effect.logInfo(`Fetching chart for ${loadedTokenSymbol}`);
-    yield* Effect.logInfo(`Using CoinGecko API key.`);
 
     const symbolObj = {
         name: loadedTokenSymbol,
@@ -50,7 +36,7 @@ export const chartPriceHandler = (symbolStr: string) => Effect.gen(function*() {
     };
 
     const coingecko = yield* CoinGeckoModel;
-    const chartData = yield* coingecko.chart.get(symbolObj, API_KEY);
+    const chartData = yield* coingecko.chart.get(symbolObj);
 
     yield* showLineChart(chartData.prices, "timestamp", "price", `${loadedTokenSymbol} Price`);
 

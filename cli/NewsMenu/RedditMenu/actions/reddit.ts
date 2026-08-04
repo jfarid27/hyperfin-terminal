@@ -1,7 +1,7 @@
 import { CommandResultType, TerminalUserStateConfigContext } from "./../../../types.ts";
 import { RedditModel } from "../model/index.ts";
 import chalk from "chalk";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { NewsServiceLive } from "../services/index.ts";
 
 /**
@@ -21,6 +21,7 @@ export const redditSearchTopHandler =
         }
 
         const redditData = yield* reddit.search(query, limit || 20);
+        yield* Effect.logInfo(`Found ${redditData.length} results for "${query}"`)
 
         for (const item of redditData) {
             console.log(chalk.green(item.title))
@@ -39,17 +40,15 @@ export const redditSearchTopHandler =
 /**
  * Return top posts from the given subreddit
  */
-export const redditTopHandler = (subreddit: string, limit: number) =>
+export const redditTopHandler = (subreddit: string | undefined, limit: number = 20) =>
   Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     const reddit = yield* RedditModel;
 
-    let _subreddit = subreddit;
-    if (!_subreddit) {
-      _subreddit = "ethereum"
-    }
+    const _subreddit = subreddit ?? "ethereum";
 
-    const redditData = yield* reddit.get(_subreddit, limit || 20);
+    const redditData = yield* reddit.get(_subreddit, limit);
+    yield* Effect.logInfo(`Found ${redditData.length} results for "${_subreddit}"`)
 
     console.log(chalk.blue.bold(`Best posts from r/${_subreddit} \n`))
 
