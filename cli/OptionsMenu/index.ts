@@ -3,6 +3,7 @@ import { Menu, MenuOption, TerminalUserStateConfig, TerminalUserStateConfigConte
 import { OptionsDataSourceTypeSchema, OptionsDataSourceType } from "./types.ts";
 import { menuGlobals } from "../utils/menu_globals.ts";
 import { chainHandler } from "./actions/chain.ts";
+import { volcurveHandler } from "./actions/volcurve.ts";
 import { Effect, Schema } from "effect";
 import { lensPath, set, view } from "ramda";
 import { DataSourceType } from "cli/types.ts";
@@ -22,6 +23,17 @@ const optionsChainHandler = (symbolStr: string, dateStr?: string) => Effect.gen(
   }
 
   return yield* chainHandler(symbol, dateStr);
+}).pipe(Effect.provide(OptionsServiceLive));
+
+const optionsVolcurveHandler = (symbolStr: string, typeStr?: string, dateStr?: string) => Effect.gen(function* () {
+  const st = yield* TerminalUserStateConfigContext;
+  const symbol = symbolStr || getLoadedToken(st);
+  if (!symbol) {
+    console.log("No symbol provided");
+    return { result: { type: CommandResultType.Error }, state: st };
+  }
+
+  return yield* volcurveHandler(symbol, typeStr, dateStr);
 }).pipe(Effect.provide(OptionsServiceLive));
 
 /**
@@ -56,6 +68,12 @@ const optionsMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
     command: "chain [symbol] [date]",
     description: "Fetch options chain for the given symbol (Yahoo Finance)",
     action: optionsChainHandler,
+  },
+  {
+    name: "volcurve",
+    command: "volcurve [symbol] [type] [date]",
+    description: "Plot implied volatility curve across strikes (call/put, default call)",
+    action: optionsVolcurveHandler,
   },
   {
     name: "source",
