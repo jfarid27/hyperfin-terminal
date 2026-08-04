@@ -144,6 +144,18 @@ The chart will display the series data with the official series title from FRED.
 
 You can find series IDs by browsing [FRED](https://fred.stlouisfed.org/).
 
+### Options Chains
+
+The Options menu provides access to stock options chain data from Yahoo Finance (no API key required).
+
+To use:
+1. Navigate to the options menu: `options`
+2. Fetch the nearest expiration chain: `chain AAPL`
+3. Fetch a specific expiration by index: `chain AAPL 3`
+4. Fetch a specific expiration by date: `chain AAPL 2026-08-21`
+
+The chain displays calls and puts in color-coded terminal-kit tables with contract symbol, ITM/OTM status, strike, last price, bid/ask, volume, open interest, and implied volatility.
+
 ## Development
 
 ### System Design

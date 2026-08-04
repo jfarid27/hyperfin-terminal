@@ -40,10 +40,11 @@ const baseState: TerminalUserStateConfig = {
     freecryptoapi: undefined,
     fred: undefined,
     massive: undefined,
+    yahoofinance: undefined,
   },
   loadedContext: {
     stocks: { datasource: DataSourceType.AlphaVantage },
-    options: { datasource: DataSourceType.AlphaVantage as any },
+    options: { datasource: DataSourceType.YahooFinance },
   },
   scriptContext: {},
 };
