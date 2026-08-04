@@ -56,6 +56,7 @@ export enum APIKeyType {
     FreeCryptoAPI = "freecryptoapi",
     Fred = "fred",
     Massive = "massive",
+    YahooFinance = "yahoofinance",
 }
 
 /**
@@ -69,6 +70,7 @@ export enum DataSourceType {
     Fred = 'fred',
     Massive = 'massive',
     CBOE = 'cboe',
+    YahooFinance = 'yahoofinance',
 }
 
 /**
@@ -82,6 +84,7 @@ export interface DatasourceKeyMapping {
     [DataSourceType.Fred]: APIKeyType.Fred;
     [DataSourceType.Massive]: APIKeyType.Massive;
     [DataSourceType.CBOE]: APIKeyType.Massive;
+    [DataSourceType.YahooFinance]: APIKeyType.YahooFinance;
 }
 
 /**
@@ -103,7 +106,7 @@ export interface StocksContext {
 
 export interface OptionsContext {
     symbol?: string;
-    datasource: DataSourceType.Massive | DataSourceType.CBOE;
+    datasource: DataSourceType.YahooFinance;
 }
 
 export enum PredictionMarketsType {

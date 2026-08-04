@@ -1,7 +1,7 @@
 import { CommandResultType, TerminalUserStateConfigContext } from "./../../../types.ts";
 import { RedditModel } from "../model/index.ts";
 import chalk from "chalk";
-import { Effect, Option } from "effect";
+import { Effect } from "effect";
 import { NewsServiceLive } from "../services/index.ts";
 
 /**
