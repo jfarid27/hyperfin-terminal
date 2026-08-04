@@ -22,7 +22,7 @@ const toTableRow = (c: OptionContract) => [
   (c.impliedVolatility * 100).toFixed(1) + "%",
 ];
 
-export const chainHandler = (symbolStr: string) =>
+export const chainHandler = (symbolStr: string, dateStr?: string) =>
   Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
     const symbol = symbolStr || getLoadedToken(st);
@@ -48,10 +48,41 @@ export const chainHandler = (symbolStr: string) =>
       return { result: { type: CommandResultType.Error }, state: st };
     }
 
-    const nearestExp = expirations[0];
-    const chain: OptionsChain = yield* yf.getChain(symbolObj, nearestExp);
+    // Resolve the target expiration
+    let targetExp: number;
+    if (dateStr) {
+      // Try parsing as an index (1-based, "1" = nearest)
+      const idx = parseInt(dateStr);
+      if (!Number.isNaN(idx) && idx >= 1 && idx <= expirations.length) {
+        targetExp = expirations[idx - 1];
+      } else {
+        // Try parsing as a date string (YYYY-MM-DD)
+        const targetDate = new Date(dateStr);
+        if (!Number.isNaN(targetDate.getTime())) {
+          const targetUnix = targetDate.getTime() / 1000;
+          const match = expirations.find((e) => {
+            const expDate = new Date(e * 1000).toISOString().slice(0, 10);
+            return expDate === dateStr || Math.abs(e - targetUnix) < 86400;
+          });
+          if (match) {
+            targetExp = match;
+          } else {
+            console.log(chalk.red(`Expiration ${dateStr} not found. Available: ${expirations.map((e) => new Date(e * 1000).toISOString().slice(0, 10)).join(", ")}`));
+            return { result: { type: CommandResultType.Error }, state: st };
+          }
+        } else {
+          console.log(chalk.red(`Invalid date or index: ${dateStr}. Use YYYY-MM-DD or a 1-based index.`));
+          return { result: { type: CommandResultType.Error }, state: st };
+        }
+      }
+    } else {
+      targetExp = expirations[0];
+    }
 
-    console.log(chalk.bold(`\n${chain.ticker} Options — ${chain.expirationDate}`));
+    const chain: OptionsChain = yield* yf.getChain(symbolObj, targetExp);
+    const expDate = new Date(targetExp * 1000).toISOString().slice(0, 10);
+
+    console.log(chalk.bold(`\n${chain.ticker} Options — ${expDate}`));
     console.log(chalk.dim(`Underlying: $${chain.underlyingPrice.toFixed(2)}  ·  ${chain.calls.length + chain.puts.length} contracts across ${expirations.length} expirations`));
     console.log("");
 

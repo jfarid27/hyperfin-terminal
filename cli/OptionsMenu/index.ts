@@ -13,7 +13,7 @@ const tokenLens = lensPath(["loadedContext", "token", "symbol"]);
 const datasourceTypeLens = lensPath(["loadedContext", "options", "datasource"]);
 const getLoadedToken = view(tokenLens);
 
-const optionsChainHandler = (symbolStr: string) => Effect.gen(function* () {
+const optionsChainHandler = (symbolStr: string, dateStr?: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
   const symbol = symbolStr || getLoadedToken(st);
   if (!symbol) {
@@ -21,7 +21,7 @@ const optionsChainHandler = (symbolStr: string) => Effect.gen(function* () {
     return { result: { type: CommandResultType.Error }, state: st };
   }
 
-  return yield* chainHandler(symbol);
+  return yield* chainHandler(symbol, dateStr);
 }).pipe(Effect.provide(OptionsServiceLive));
 
 /**
@@ -53,7 +53,7 @@ const datasourceSwapHandler = (datatypeStr: string) => Effect.gen(function* () {
 const optionsMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
   {
     name: "chain",
-    command: "chain [symbol]",
+    command: "chain [symbol] [date]",
     description: "Fetch options chain for the given symbol (Yahoo Finance)",
     action: optionsChainHandler,
   },
