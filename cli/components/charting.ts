@@ -66,6 +66,64 @@ export function lineChart(data: any[], x: string, y: string) {
 }
 
 /**
+ * Display a basic single line chart from the given data, treating x as a
+ * numeric axis (not a date). Used for scatter/curve plots like vol curves.
+ */
+export function showNumericLineChart(
+    data: Record<string, any>[],
+    x: string,
+    y: string,
+    title: string = "Chart"
+): Effect.Effect<void, LocalProcessingError> {
+    const jsdom = new JSDOM("");
+    const document = jsdom.window.document;
+
+    const plot = Plot.plot({
+        document: document,
+        title,
+        style: {
+            background: "black",
+            color: "white",
+        },
+        grid: true,
+        x: { label: x, ticks: 10, tickFormat: (d: number) => d.toFixed(0) },
+        y: { label: y },
+        marks: [
+            Plot.line(data, {
+                x: (d: any) => Number(d[x]),
+                y: (d: any) => Number(d[y]),
+                stroke: "dodgerblue",
+            }),
+            Plot.dot(data, {
+                x: (d: any) => Number(d[x]),
+                y: (d: any) => Number(d[y]),
+                stroke: "dodgerblue",
+                r: 2,
+            }),
+        ]
+    });
+
+    const svg = plot.tagName.toLowerCase() === "svg" ? plot : plot.querySelector("svg");
+    if (svg) {
+        svg.setAttribute("style", "background-color: black; color: white;");
+        const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        bg.setAttribute("width", "100%");
+        bg.setAttribute("height", "100%");
+        bg.setAttribute("fill", "black");
+        if (svg.firstChild) {
+            svg.insertBefore(bg, svg.firstChild);
+        } else {
+            svg.appendChild(bg);
+        }
+    }
+
+    return Effect.tryPromise({
+      try: () => show(plot),
+      catch: () => new LocalProcessingError({ message: "Failed to show plot." })
+    });
+}
+
+/**
  * Display a basic single line chart from the given data.
  * @param data The data to be displayed.
  * @param x The x axis label.
