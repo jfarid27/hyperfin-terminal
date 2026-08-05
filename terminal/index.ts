@@ -366,7 +366,7 @@ export async function startHyperFin(scriptFilename?: string) {
   const state: TerminalUserStateConfig = {
     environment: environment,
     logLevel: logLevel,
-    sessionPath: "",
+    sessionPath: "", // TODO: Update this to a terminal session when terminal is actually available.
     apiKeys: {
       coingecko: process.env.COINGECKO_API_KEY,
       alphavantage: process.env.ALPHAVANTAGE_API_KEY,
