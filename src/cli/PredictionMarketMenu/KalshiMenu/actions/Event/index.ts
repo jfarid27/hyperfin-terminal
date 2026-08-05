@@ -6,8 +6,8 @@ import {
     TerminalUserStateConfigContext
 } from "../../../../types.ts";
 import chalk from "chalk";
-import { KalshiModel } from "src/cli/services/KalshiService/types.ts";
-import { KalshiServiceLive } from "src/cli/services/KalshiService/index.ts";
+import { KalshiModel } from "src/services/KalshiService/types.ts";
+import { KalshiServiceLive } from "src/services/KalshiService/index.ts";
 
 /**
  * Extract market summary data for display

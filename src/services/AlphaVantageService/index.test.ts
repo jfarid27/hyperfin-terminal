@@ -6,7 +6,7 @@ import {
   TimeSeriesDailyRaw,
   toSpotQuote,
   toChartPoints,
-} from "../../../services/AlphaVantageService/index.ts";
+} from "./index.ts";
 
 // ── Real API response fixtures (from curl against NVDA, 2026-08-02) ──
 

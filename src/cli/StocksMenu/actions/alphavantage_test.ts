@@ -2,7 +2,7 @@ import { describe, it } from "jsr:@std/testing/bdd";
 import { expect } from "jsr:@std/expect";
 import { Effect, Layer } from "effect";
 import { spotPriceHandler, chartPriceHandler } from "./alphavantage.ts";
-import { AlphaVantageService, type SpotQuote, type ChartPoint } from "../services/AlphaVantageService.ts";
+import { AlphaVantageService, type SpotQuote, type ChartPoint } from "src/services/AlphaVantageService/index.ts";
 import { ChartRenderer } from "../services/ChartRenderer.ts";
 import { TerminalUserStateConfigContext } from "../../types.ts";
 import { CommandResultType, DataSourceType, EnvironmentType, LogLevel } from "../../types.ts";
