@@ -1,7 +1,7 @@
 {
-  "name": "open-eth-terminal",
-  "version": "0.0.1",
-  "description": "A CLI Interface to Ethereum Financial Markets.",
+  "name": "hyperfin-terminal",
+  "version": "0.0.4",
+  "description": "A CLI Interface to Financial Market Data.",
   "keywords": [
     "Ethereum",
     "finance",
