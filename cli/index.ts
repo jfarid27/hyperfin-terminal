@@ -4,6 +4,7 @@ import cryptoTerminal from "./CryptoMenu/index.ts";
 import predictionMarketsTerminal from "./PredictionMarketMenu/index.ts";
 import stocksTerminal from "./StocksMenu/index.ts";
 import optionsTerminal from "./OptionsMenu/index.ts";
+import bondsTerminal from "./BondsMenu/index.ts";
 import { menuGlobalsTop } from "./utils/menu_globals.ts";
 import newsTerminal from "./NewsMenu/index.ts";
 import { executeScript } from "./utils/scripts.ts";
@@ -50,6 +51,19 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
         action: () => Effect.gen(function*() {
             const st = yield* TerminalUserStateConfigContext;
             const newState = yield* Effect.promise(async () => optionsTerminal(st));
+            return {
+                result: { type: CommandResultType.Success },
+                state: newState,
+            };
+        })
+    },
+    {
+        name: "bonds",
+        command: "bonds",
+        description: "Fetch bond yields from Yahoo Finance",
+        action: () => Effect.gen(function*() {
+            const st = yield* TerminalUserStateConfigContext;
+            const newState = yield* Effect.promise(async () => bondsTerminal(st));
             return {
                 result: { type: CommandResultType.Success },
                 state: newState,
