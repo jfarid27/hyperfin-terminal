@@ -1,4 +1,4 @@
-import { DataSourceType } from "cli/types.ts";
+import { DataSourceType } from "src/cli/types.ts";
 
 export interface FredSeriesType {
     seriesId: string;

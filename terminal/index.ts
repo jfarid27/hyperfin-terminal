@@ -11,11 +11,11 @@
 
 import chalk from "chalk";
 import { lensPath, set, view } from "ramda";
-import cryptoTerminal from "cli/CryptoMenu/index.ts";
-import predictionMarketsTerminal from "cli/PredictionMarketMenu/index.ts";
-import stocksTerminal from "cli/StocksMenu/index.ts";
-import newsTerminal from "cli/NewsMenu/index.ts";
-import { menuGlobalsTop } from "cli/utils/menu_globals.ts";
+import cryptoTerminal from "src/cli/CryptoMenu/index.ts";
+import predictionMarketsTerminal from "src/cli/PredictionMarketMenu/index.ts";
+import stocksTerminal from "src/cli/StocksMenu/index.ts";
+import newsTerminal from "src/cli/NewsMenu/index.ts";
+import { menuGlobalsTop } from "src/cli/utils/menu_globals.ts";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -24,9 +24,9 @@ import {
   CommandResultType, EnvironmentType,
   CommandState, TerminalUserStateConfigContext,
   DataSourceType, logLevelFromEnv,
-} from "cli/types.ts";
+} from "src/cli/types.ts";
 import { Effect } from "effect";
-import { ConfigErrorTag, HTTPErrorTag, TimeoutErrorTag, UnknownError, UnknownErrorTag, type ProgramError } from "cli/errors/index.ts";
+import { ConfigErrorTag, HTTPErrorTag, TimeoutErrorTag, UnknownError, UnknownErrorTag, type ProgramError } from "src/cli/errors/index.ts";
 import { HyperFinTerminal } from "./HyperFinTerminal.ts";
 
 /**

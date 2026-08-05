@@ -2,7 +2,7 @@ import chalk from "chalk";
 import {
     CommandState, CommandResultType,
     TerminalUserStateConfigContext
-} from "cli/types.ts";
+} from "src/cli/types.ts";
 import model from "./../model/index.ts";
 import { Effect } from "effect";
 

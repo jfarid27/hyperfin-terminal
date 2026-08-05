@@ -6,7 +6,7 @@
     "baseUrl": ".",
     "ignoreDeprecations": "6.0",
     "paths": {
-      "cli/*": ["./cli/*"],
+      "cli/*": ["src/cli/*"],
       "terminal/*": ["./terminal/*"]
     },
     "esModuleInterop": true,
