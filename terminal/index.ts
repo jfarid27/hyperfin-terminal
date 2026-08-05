@@ -22,7 +22,7 @@ import { join } from "node:path";
 import {
   Menu, MenuOption, TerminalUserStateConfig,
   CommandResultType, EnvironmentType,
-  CommandState, TerminalUserStateConfigContext,
+  TerminalUserStateConfigContext,
   DataSourceType, logLevelFromEnv,
 } from "src/cli/types.ts";
 import { Effect } from "effect";
@@ -366,6 +366,7 @@ export async function startHyperFin(scriptFilename?: string) {
   const state: TerminalUserStateConfig = {
     environment: environment,
     logLevel: logLevel,
+    sessionPath: "",
     apiKeys: {
       coingecko: process.env.COINGECKO_API_KEY,
       alphavantage: process.env.ALPHAVANTAGE_API_KEY,
@@ -373,10 +374,11 @@ export async function startHyperFin(scriptFilename?: string) {
       freecryptoapi: process.env.FREECRYPTOAPI_API_KEY,
       fred: process.env.FRED_API_KEY,
       massive: process.env.MASSIVE_API_KEY,
+      yahoofinance: process.env.YAHOOFINANCE_API_KEY,
     },
     loadedContext: {
       stocks: { datasource: DataSourceType.AlphaVantage },
-      options: { datasource: DataSourceType.CBOE },
+      options: { datasource: DataSourceType.YahooFinance },
     },
     scriptContext: {},
   };

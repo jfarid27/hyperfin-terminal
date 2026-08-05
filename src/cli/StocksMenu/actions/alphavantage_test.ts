@@ -33,6 +33,7 @@ const mockChartPoints: ChartPoint[] = [
 const baseState: TerminalUserStateConfig = {
   environment: EnvironmentType.Development,
   logLevel: LogLevel.None,
+  sessionPath: "",
   apiKeys: {
     coingecko: undefined,
     alphavantage: undefined,

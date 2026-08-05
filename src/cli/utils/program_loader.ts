@@ -7,27 +7,12 @@ import {
   TerminalUserStateConfig,
   TerminalUserStateConfigContext
 } from "../types.ts";
-import { Effect, LogLevel, Logger } from "effect";
+import { Effect, Logger } from "effect";
 import {
-  LocalProcessingError,
   mapErrorsToCommandResults
 } from "src/cli/errors/index.ts";
-
-/**
- * Append command argument strings to the session log file.
- */
-export const logSessionArgs = (
-  args: string[],
-  state: TerminalUserStateConfig,
-): Effect.Effect<void, LocalProcessingError> =>
-  Effect.tryPromise({
-    try: () =>
-      Deno.writeTextFile(state.sessionPath, `${args.join(" ")}\n`, { append: true }),
-    catch: () =>
-      new LocalProcessingError({
-        message: `Failed to append session log at ${state.sessionPath}`,
-      }),
-  });
+import { installGlobalHandlers } from "./global_handlers.ts";
+import { logSessionArgs } from "./session_logging.ts";
 
 /**
  * Wrap a commander program into a resolvable promise from a menu option.
@@ -80,6 +65,8 @@ export const registerTerminalApplication = (menu: Menu) => {
 
     async function terminalApplication(st: TerminalUserStateConfig): Promise<TerminalUserStateConfig> {
 
+        installGlobalHandlers();
+
         const menu_options = menu.options(st);
         // Only show menu if not in script mode
         if (!st.scriptContext?.currentCommand) {
@@ -109,6 +96,22 @@ export const registerTerminalApplication = (menu: Menu) => {
                 input = st.scriptContext.currentCommand;
                 console.log(chalk.yellow(`Executing script command: ${input}`));
                 isScriptExecution = true;
+            } else if (!Deno.stdin.isTerminal()) {
+                // Piped/redirected stdin — read the whole thing synchronously
+                // instead of blocking on terminal.inputField (which hangs
+                // forever on a drained pipe).
+                const decoder = new TextDecoder();
+                const buf = new Uint8Array(4096);
+                const n = await Deno.stdin.read(buf);
+                if (n === null) {
+                  console.log(chalk.yellow("No input on stdin — exiting."));
+                  process.exit(0);
+                }
+                input = decoder.decode(buf.subarray(0, n)).trim();
+                // Strip the trailing newline that echo/pipes append.
+                // Only take the first line — multi-line piped input is
+                // treated as a single command.
+                input = input.split("\n")[0].trim();
             } else {
                 terminal(menu.name + " > ");
                 const answer = await new Promise<string>((resolve) => {
@@ -119,7 +122,12 @@ export const registerTerminalApplication = (menu: Menu) => {
                 input = answer?.trim();
             }
 
-            if (!input) return terminalApplication(st);
+            if (!input) {
+              if (!Deno.stdin.isTerminal()) {
+                process.exit(0);
+              }
+              return terminalApplication(st);
+            }
             terminal('\n');
 
             const program = new Command();
@@ -146,16 +154,15 @@ export const registerTerminalApplication = (menu: Menu) => {
             });
 
             const args = input.split(/\s+/);
+
+            // Log the input immediately — before dispatching the command.
+            // Navigation commands (e.g. "stocks") block inside a nested
+            // inputField and don't resolve until the user exits the submenu,
+            // so logging after parseAsync would defer the log indefinitely.
+            await Effect.runPromise(logSessionArgs(args, st));
+
             await program.parseAsync(args, { from: "user" });
             const result = await Promise.race(resultPs);
-
-            if (result.result.type !== CommandResultType.Error) {
-              await Effect.runPromise(
-                logSessionArgs(args, st).pipe(
-                  Effect.catchAll(() => Effect.void),
-                ),
-              );
-            }
 
             if (result.result.type === CommandResultType.Back) {
                 return result.state;
