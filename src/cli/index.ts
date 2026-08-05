@@ -16,6 +16,8 @@ import {
 } from "./types.ts";
 import { registerTerminalApplication } from "./utils/program_loader.ts";
 import { Effect } from "effect";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
     {
@@ -147,9 +149,11 @@ const mainMenu: Menu = {
 
 export const terminalMain = registerTerminalApplication(mainMenu);
 
-export async function startMain(scriptFilename?: string) {
-  // Only show banner on initial load
-  console.log(chalk.green(figlet.textSync("Open Eth Terminal", { horizontalLayout: 'full' })));
+export async function startMain(sessionPath: string, scriptFilename?: string) {
+  // Only show banner on initial load, and only in interactive TTY mode.
+  if (Deno.stdin.isTerminal()) {
+    console.log(chalk.green(figlet.textSync("Open Eth Terminal", { horizontalLayout: 'full' })));
+  }
 
   const logLevel = logLevelFromEnv(process.env.LOG_LEVEL);
 
@@ -161,9 +165,30 @@ export async function startMain(scriptFilename?: string) {
   const environment = (process.env.ENVIRONMENT && process.env.ENVIRONMENT in environmentMap) ?
     environmentMap[process.env.ENVIRONMENT] : EnvironmentType.Production;
 
+  // Build script context from --oet-script flag.
+  let scriptContext = {};
+  if (scriptFilename) {
+    try {
+      const scriptPath = join(process.cwd(), "scripts", scriptFilename);
+      const content = await readFile(scriptPath, "utf-8");
+      const lines = content.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+      const [currentCommand, ...tailCommands] = lines;
+      scriptContext = {
+        filename: scriptFilename,
+        currentCommand,
+        tailCommands,
+        exitAfterCompletion: true,
+      };
+    } catch {
+      console.error(chalk.red(`Failed to load script: ${scriptFilename}`));
+      process.exit(1);
+    }
+  }
+
   const state: TerminalUserStateConfig = {
     environment: environment,
     logLevel: logLevel,
+    sessionPath: sessionPath,
     apiKeys: {
         coingecko: process.env.COINGECKO_API_KEY,
         alphavantage: process.env.ALPHAVANTAGE_API_KEY,
@@ -177,7 +202,7 @@ export async function startMain(scriptFilename?: string) {
       stocks: { datasource: DataSourceType.AlphaVantage },
       options: { datasource: DataSourceType.YahooFinance },
     },
-    scriptContext: {}
+    scriptContext,
   };
 
   try {

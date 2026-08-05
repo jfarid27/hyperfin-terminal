@@ -7,10 +7,12 @@ import {
   TerminalUserStateConfig,
   TerminalUserStateConfigContext
 } from "../types.ts";
-import { Effect, LogLevel, Logger } from "effect";
+import { Effect, Logger } from "effect";
 import {
   mapErrorsToCommandResults
 } from "src/cli/errors/index.ts";
+import { installGlobalHandlers } from "./global_handlers.ts";
+import { logSessionArgs } from "./session_logging.ts";
 
 /**
  * Wrap a commander program into a resolvable promise from a menu option.
@@ -63,6 +65,8 @@ export const registerTerminalApplication = (menu: Menu) => {
 
     async function terminalApplication(st: TerminalUserStateConfig): Promise<TerminalUserStateConfig> {
 
+        installGlobalHandlers();
+
         const menu_options = menu.options(st);
         // Only show menu if not in script mode
         if (!st.scriptContext?.currentCommand) {
@@ -92,17 +96,38 @@ export const registerTerminalApplication = (menu: Menu) => {
                 input = st.scriptContext.currentCommand;
                 console.log(chalk.yellow(`Executing script command: ${input}`));
                 isScriptExecution = true;
+            } else if (!Deno.stdin.isTerminal()) {
+                // Piped/redirected stdin — read the whole thing synchronously
+                // instead of blocking on terminal.inputField (which hangs
+                // forever on a drained pipe).
+                const decoder = new TextDecoder();
+                const buf = new Uint8Array(4096);
+                const n = await Deno.stdin.read(buf);
+                if (n === null) {
+                  console.log(chalk.yellow("No input on stdin — exiting."));
+                  process.exit(0);
+                }
+                input = decoder.decode(buf.subarray(0, n)).trim();
+                // Strip the trailing newline that echo/pipes append.
+                // Only take the first line — multi-line piped input is
+                // treated as a single command.
+                input = input.split("\n")[0].trim();
             } else {
                 terminal(menu.name + " > ");
                 const answer = await new Promise<string>((resolve) => {
                     terminal.inputField((_error, input) => {
-                        resolve(input || '');
+                      resolve(input || '');
                     });
                 });
                 input = answer?.trim();
             }
 
-            if (!input) return terminalApplication(st);
+            if (!input) {
+              if (!Deno.stdin.isTerminal()) {
+                process.exit(0);
+              }
+              return terminalApplication(st);
+            }
             terminal('\n');
 
             const program = new Command();
@@ -129,25 +154,31 @@ export const registerTerminalApplication = (menu: Menu) => {
             });
 
             const args = input.split(/\s+/);
+
+            // Log the input immediately — before dispatching the command.
+            // Navigation commands (e.g. "stocks") block inside a nested
+            // inputField and don't resolve until the user exits the submenu,
+            // so logging after parseAsync would defer the log indefinitely.
+            await Effect.runPromise(logSessionArgs(args, st));
+
             await program.parseAsync(args, { from: "user" });
             const result = await Promise.race(resultPs);
 
-            if (result && result.result.type === CommandResultType.Back) {
+            if (result.result.type === CommandResultType.Back) {
                 return result.state;
             }
 
-            if (result && result.result.type === CommandResultType.Exit) {
+            if (result.result.type === CommandResultType.Exit) {
                 process.exit(0);
             }
 
-            if (result.result?.type === CommandResultType.Timeout) {
+            if (result.result.type === CommandResultType.Timeout) {
                 console.log(chalk.red("Command timed out"));
             }
 
-            if (result.result?.type === CommandResultType.Error) {
-                console.log(chalk.red("Command failed"));
+            if (result.result.type === CommandResultType.Error) {
+                console.log(chalk.red("Invalid command"));
             }
-
 
             const nextState = result.state;
 
