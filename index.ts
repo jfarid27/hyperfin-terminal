@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { startMain } from "cli/index.ts";
+import { startMain } from "src/cli/index.ts";
 
 // Parse command-line arguments for --oet-script flag
 const args = process.argv.slice(2);

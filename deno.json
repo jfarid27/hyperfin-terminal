@@ -1,12 +1,10 @@
 {
     "imports": {
-        "cli/": "./cli/",
-        "terminal/": "./terminal/"
+        "src/": "./src/"
     },
     "compilerOptions": {
         "paths": {
-            "cli/*": ["./cli/*"],
-            "terminal/*": ["./terminal/*"]
+            "src/*": ["./src/*"]
         }
     },
     "tasks": {
