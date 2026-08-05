@@ -147,9 +147,9 @@ const mainMenu: Menu = {
 
 export const terminalMain = registerTerminalApplication(mainMenu);
 
-export async function startMain(scriptFilename?: string) {
+export function startMain(scriptFilename?: string) {
   // Only show banner on initial load
-  console.log(chalk.green(figlet.textSync("Open Eth Terminal", { horizontalLayout: 'full' })));
+  console.log(chalk.green(figlet.textSync("HyperFin Terminal", { horizontalLayout: 'full' })));
 
   const logLevel = logLevelFromEnv(process.env.LOG_LEVEL);
 
@@ -180,10 +180,10 @@ export async function startMain(scriptFilename?: string) {
     scriptContext: {}
   };
 
-  try {
-    await terminalMain(state);
-  } catch (error) {
-    console.error("Error in main terminal:", error);
-    process.exit(1);
-  }
+  return terminalMain(state).pipe(
+    Effect.catchAll((_err) => Effect.gen(function* () {
+      console.error("Error in main terminal. Stopping process.");
+      yield* Effect.logDebug(_err);
+    }))
+  );
 }

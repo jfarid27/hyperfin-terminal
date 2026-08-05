@@ -1,5 +1,5 @@
-import { Effect, Data } from "effect";
-import { CommandResultType } from "cli/types.ts";
+import { Effect, Data, Deferred } from "effect";
+import { CommandState, CommandResultType, TerminalUserStateConfig } from "cli/types.ts";
 
 export const ConfigErrorTag = "hyperterm.errors.ConfigError";
 // Represents a configuration error.
@@ -43,59 +43,60 @@ export type ProgramError = HTTPError | ConfigError | TimeoutError | UnknownError
   /**
    * Convert errors to appropriate command results.
    */
-export const mapErrorsToCommandResults = (resolve: any, state: any) => Effect.catchTags({
+export const mapErrorsToCommandResults = (resolve: Deferred.Deferred<CommandState>, st: TerminalUserStateConfig) => Effect.catchTags({
   [HTTPErrorTag]: (_error: HTTPError) => Effect.gen(function* () {
       yield* Effect.logDebug(`HTTPError: ${_error.message}`);
-      return yield* Effect.sync(() => {
-        resolve({
-            result: { type: CommandResultType.Error },
-            state: state,
-        });
-      })
-    }),
+
+    const result: CommandState = {
+      result: { type: CommandResultType.Error },
+      state: st,
+    };
+    yield* Deferred.succeed(resolve, result);
+    return;
+  }),
   [TimeoutErrorTag]: (_error: TimeoutError) => Effect.gen(function* () {
-      yield* Effect.logDebug(`TimeoutError: ${_error.message}`);
-      return yield* Effect.sync(() => {
-        resolve({
-            result: { type: CommandResultType.Timeout },
-            state: state,
-        });
-      });
-    }),
-    [ConfigErrorTag]: (_error: ConfigError) => Effect.gen(function* () {
-      yield* Effect.logDebug(`ConfigError: ${_error.message}`);
-      return yield* Effect.sync(() => {
-        resolve({
-          result: { type: CommandResultType.Error },
-          state: state,
-        });
-      });
-    }),
-    [UnknownErrorTag]: (_error: UnknownError) => Effect.gen(function* () {
-      yield* Effect.logDebug(`UnknownError: ${_error.message}`);
-      return yield* Effect.sync(() => {
-        resolve({
-          result: { type: CommandResultType.Error },
-          state: state,
-        });
-      });
-    }),
-    [InvalidStateErrorTag]: (_error: InvalidStateError) => Effect.gen(function* () {
-      yield* Effect.logDebug(`InvalidStateError: ${_error.message}`);
-      return yield* Effect.sync(() => {
-        resolve({
-          result: { type: CommandResultType.Error },
-          state: state,
-        });
-      });
-    }),
-    [LocalProcessingErrorTag]: (_error: LocalProcessingError) => Effect.gen(function* () {
-      yield* Effect.logDebug(`LocalProcessingError: ${_error.message}`);
-      return yield* Effect.sync(() => {
-        resolve({
-          result: { type: CommandResultType.Error },
-          state: state,
-        });
-      });
-    }),
-  });
+    yield* Effect.logDebug(`TimeoutError: ${_error.message}`);
+    const result: CommandState = {
+      result: { type: CommandResultType.Timeout },
+      state: st,
+    };
+    yield* Deferred.succeed(resolve, result);
+    return;
+  }),
+  [ConfigErrorTag]: (_error: ConfigError) => Effect.gen(function* () {
+    yield* Effect.logDebug(`ConfigError: ${_error.message}`);
+    const result: CommandState = {
+      result: { type: CommandResultType.Error },
+      state: st,
+    };
+    yield* Deferred.succeed(resolve, result);
+    return;
+  }),
+  [UnknownErrorTag]: (_error: UnknownError) => Effect.gen(function* () {
+    yield* Effect.logDebug(`UnknownError: ${_error.message}`);
+    const result: CommandState = {
+      result: { type: CommandResultType.Error },
+      state: st,
+    };
+    yield* Deferred.succeed(resolve, result);
+    return;
+  }),
+  [InvalidStateErrorTag]: (_error: InvalidStateError) => Effect.gen(function* () {
+    yield* Effect.logDebug(`InvalidStateError: ${_error.message}`);
+    const result: CommandState = {
+      result: { type: CommandResultType.Error },
+      state: st,
+    };
+    yield* Deferred.succeed(resolve, result);
+    return;
+  }),
+  [LocalProcessingErrorTag]: (_error: LocalProcessingError) => Effect.gen(function* () {
+    yield* Effect.logDebug(`LocalProcessingError: ${_error.message}`);
+    const result: CommandState = {
+      result: { type: CommandResultType.Error },
+      state: st,
+    };
+    yield* Deferred.succeed(resolve, result);
+    return;
+  }),
+});

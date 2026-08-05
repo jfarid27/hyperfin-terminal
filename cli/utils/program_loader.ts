@@ -7,7 +7,7 @@ import {
   TerminalUserStateConfig,
   TerminalUserStateConfigContext
 } from "../types.ts";
-import { Effect, LogLevel, Logger } from "effect";
+import { Effect, Deferred, Logger } from "effect";
 import {
   mapErrorsToCommandResults
 } from "cli/errors/index.ts";
@@ -26,30 +26,33 @@ import {
  * @returns A promise that resolves to the command state.
  */
 export function loadProgram(program: Command, menuOption: MenuOption, state: TerminalUserStateConfig) {
-    return new Promise<CommandState>((resolve, reject) => {
-        program
-            .command(menuOption.command)
-            .description(menuOption.description)
-            .action(async (...args: any[]) => {
+  return Effect.gen(function* () {
+    const deferred = yield* Deferred.make<CommandState>();
+    program
+        .command(menuOption.command)
+        .description(menuOption.description)
+        .action(async (...args: any[]) => {
 
-              const tusccService = Effect.provideService(
-                TerminalUserStateConfigContext, state
-              );
+          const tusccService = Effect.provideService(
+            TerminalUserStateConfigContext, state
+          );
 
-              // Compose the action effect with the deferred effect.
-              const actionEffect = Effect.gen(function* () {
-                const res = yield* menuOption.action(...args);
-                resolve(res);
-              }).pipe(
-                mapErrorsToCommandResults(resolve, state),
-                tusccService,
-                Logger.withMinimumLogLevel(state.logLevel)
-              );
+          // Compose the action effect with the deferred effect.
+          const actionEffect = Effect.gen(function* () {
+            const res = yield* menuOption.action(...args);
+            yield* Deferred.succeed(deferred, res);
+            return;
+          }).pipe(
+            mapErrorsToCommandResults(deferred, state),
+            tusccService,
+            Logger.withMinimumLogLevel(state.logLevel)
+          );
 
-              await Effect.runPromise(actionEffect);
-            });
+          return Effect.runPromise(actionEffect);
+        });
 
-    });
+    return yield* Deferred.await(deferred);
+  });
 }
 
 /*
@@ -60,132 +63,137 @@ export function loadProgram(program: Command, menuOption: MenuOption, state: Ter
  * @returns A function that takes a terminal user state config and returns a promise that resolves to the terminal user state config.
  */
 export const registerTerminalApplication = (menu: Menu) => {
+  const terminalApplication = (st: TerminalUserStateConfig): Effect.Effect<TerminalUserStateConfig> => Effect.gen(function* () {
 
-    async function terminalApplication(st: TerminalUserStateConfig): Promise<TerminalUserStateConfig> {
+    const menu_options = menu.options(st);
+    // Only show menu if not in script mode
+    if (!st.scriptContext?.currentCommand) {
+      console.log(chalk.blue(menu.name));
+      const tableDescriptions = menu_options.map((option) => [option.name, option.command, option.description]);
 
-        const menu_options = menu.options(st);
-        // Only show menu if not in script mode
-        if (!st.scriptContext?.currentCommand) {
-            console.log(chalk.blue(menu.name));
-            const tableDescriptions = menu_options.map((option) => [option.name, option.command, option.description]);
-
-            terminal.table([
-                ['Name', 'Command', 'Description'],
-                ...tableDescriptions,
-            ], {
-                hasBorder: true,
-                contentHasMarkup: true,
-                borderChars: 'lightRounded',
-                borderAttr: { color: 'cyan' },
-                textAttr: { bgColor: 'default' },
-                firstRowTextAttr: { bgColor: 'cyan' },
-                width: 120,
-                fit: true
-            });
-        }
-
-        try {
-            let input = "";
-            let isScriptExecution = false;
-
-            if (st.scriptContext?.currentCommand) {
-                input = st.scriptContext.currentCommand;
-                console.log(chalk.yellow(`Executing script command: ${input}`));
-                isScriptExecution = true;
-            } else {
-                terminal(menu.name + " > ");
-                const answer = await new Promise<string>((resolve) => {
-                    terminal.inputField((_error, input) => {
-                        resolve(input || '');
-                    });
-                });
-                input = answer?.trim();
-            }
-
-            if (!input) return terminalApplication(st);
-            terminal('\n');
-
-            const program = new Command();
-            program.exitOverride();
-            program.configureOutput({
-              writeErr: (str) => process.stdout.write(chalk.red(str)),
-            });
-
-            const resultPs: Promise<CommandState>[] = menu_options.map((option) => {
-                if (isScriptExecution) {
-                    const [nextCommand, ...rest] = st.scriptContext.tailCommands || [];
-
-                    const nextScriptState: TerminalUserStateConfig = {
-                        ...st,
-                        scriptContext: {
-                            ...st.scriptContext,
-                            currentCommand: nextCommand,
-                            tailCommands: rest
-                        }
-                    };
-                    return loadProgram(program, option, nextScriptState)
-                }
-                return loadProgram(program, option, st)
-            });
-
-            const args = input.split(/\s+/);
-            await program.parseAsync(args, { from: "user" });
-            const result = await Promise.race(resultPs);
-
-            if (result && result.result.type === CommandResultType.Back) {
-                return result.state;
-            }
-
-            if (result && result.result.type === CommandResultType.Exit) {
-                process.exit(0);
-            }
-
-            if (result.result?.type === CommandResultType.Timeout) {
-                console.log(chalk.red("Command timed out"));
-            }
-
-            if (result.result?.type === CommandResultType.Error) {
-                console.log(chalk.red("Command failed"));
-            }
-
-
-            const nextState = result.state;
-
-            // Check if script has completed and should exit
-            if (isScriptExecution &&
-                nextState.scriptContext?.exitAfterCompletion &&
-                !nextState.scriptContext?.currentCommand) {
-                console.log(chalk.green("Script execution completed successfully"));
-                process.exit(0);
-            }
-
-            return terminalApplication(nextState);
-
-        } catch (err: unknown) {
-            console.log(chalk.red("An unhandled critical error occurred during running."));
-            console.log(chalk.red(err))
-
-            // Fix for script loop on error:
-            // If error occurred during script execution, abort.
-            if (st.scriptContext?.currentCommand) {
-                console.log(chalk.red("Script execution aborted due to error."));
-
-                // If running from command line with --oet-script, exit with error code
-                if (st.scriptContext?.exitAfterCompletion) {
-                    process.exit(1);
-                }
-
-                const abortState = {
-                    ...st,
-                    scriptContext: {} // Clear script context
-                };
-                return terminalApplication(abortState);
-            }
-
-            return terminalApplication(st);
-        }
-
+      terminal.table([
+        ['Name', 'Command', 'Description'],
+        ...tableDescriptions,
+      ], {
+        hasBorder: true,
+        contentHasMarkup: true,
+        borderChars: 'lightRounded',
+        borderAttr: { color: 'cyan' },
+        textAttr: { bgColor: 'default' },
+        firstRowTextAttr: { bgColor: 'cyan' },
+        width: 120,
+        fit: true
+      });
     }
 
-    return terminalApplication;
+    let input = "";
+    let isScriptExecution = false;
+
+    if (st.scriptContext?.currentCommand) {
+      input = st.scriptContext.currentCommand;
+      console.log(chalk.yellow(`Executing script command: ${input}`));
+      isScriptExecution = true;
+    } else {
+      terminal(menu.name + " > ");
+      const answer = yield* Effect.tryPromise({
+        try: () => new Promise<string>((resolve) => {
+          terminal.inputField((_error, input) => {
+            console.log(_error)
+            console.log(input)
+            if (_error) resolve('');
+            resolve(input || '');
+          });
+        }),
+        catch: () => ''
+      });
+      input = answer?.trim();
+    }
+
+    if (!input) return yield* terminalApplication(st);
+    terminal('\n');
+
+    const program = new Command();
+    program.exitOverride();
+    program.configureOutput({
+      writeErr: (str) => process.stdout.write(chalk.red(str)),
+    });
+
+    const resultPs = menu_options.map((option) => {
+      if (isScriptExecution) {
+        const [nextCommand, ...rest] = st.scriptContext.tailCommands || [];
+
+        const nextScriptState: TerminalUserStateConfig = {
+          ...st,
+          scriptContext: {
+            ...st.scriptContext,
+            currentCommand: nextCommand,
+            tailCommands: rest
+          }
+        };
+        return loadProgram(program, option, nextScriptState)
+      }
+      return loadProgram(program, option, st)
+    });
+
+    const args = input.split(/\s+/);
+    yield* Effect.tryPromise(() => program.parseAsync(args, { from: "user" }));
+    const result = yield* Effect.raceAll(resultPs);
+
+    if (result && result.result.type === CommandResultType.Back) {
+      return yield* Effect.succeed(result.state);
+    }
+
+    if (result && result.result.type === CommandResultType.Exit) {
+      process.exit(0);
+    }
+
+    if (result.result?.type === CommandResultType.Timeout) {
+      console.log(chalk.red("Command timed out"));
+    }
+
+    if (result.result?.type === CommandResultType.Error) {
+      console.log(chalk.red("Command failed"));
+    }
+
+
+    const nextState = result.state;
+
+    // Check if script has completed and should exit
+    if (isScriptExecution &&
+      nextState.scriptContext?.exitAfterCompletion &&
+      !nextState.scriptContext?.currentCommand) {
+      console.log(chalk.green("Script execution completed successfully"));
+      process.exit(0);
+    }
+
+    return yield* terminalApplication(nextState);
+  }).pipe(
+    Effect.catchAll((_err) => Effect.gen(function* () {
+      console.log(chalk.red("An unhandled critical error occurred during running."));
+      console.log(chalk.red(_err))
+
+      // Fix for script loop on error:
+      // If error occurred during script execution, abort.
+      if (st.scriptContext?.currentCommand) {
+        console.log(chalk.red("Script execution aborted due to error."));
+
+        // If running from command line with --oet-script, exit with error code
+        if (st.scriptContext?.exitAfterCompletion) {
+          process.exit(1);
+        }
+
+        const abortState = {
+          ...st,
+          scriptContext: {} // Clear script context
+        };
+        return yield* terminalApplication(abortState);
+      }
+
+      return yield* terminalApplication(st);
+    }))
+  )
+
+
+
+  return terminalApplication;
 }
