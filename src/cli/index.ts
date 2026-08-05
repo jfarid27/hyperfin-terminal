@@ -147,7 +147,7 @@ const mainMenu: Menu = {
 
 export const terminalMain = registerTerminalApplication(mainMenu);
 
-export async function startMain(scriptFilename?: string) {
+export async function startMain(sessionPath: string, scriptFilename?: string) {
   // Only show banner on initial load
   console.log(chalk.green(figlet.textSync("Open Eth Terminal", { horizontalLayout: 'full' })));
 
@@ -164,6 +164,7 @@ export async function startMain(scriptFilename?: string) {
   const state: TerminalUserStateConfig = {
     environment: environment,
     logLevel: logLevel,
+    sessionPath: sessionPath,
     apiKeys: {
         coingecko: process.env.COINGECKO_API_KEY,
         alphavantage: process.env.ALPHAVANTAGE_API_KEY,

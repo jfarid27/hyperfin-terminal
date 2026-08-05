@@ -9,8 +9,25 @@ import {
 } from "../types.ts";
 import { Effect, LogLevel, Logger } from "effect";
 import {
+  LocalProcessingError,
   mapErrorsToCommandResults
 } from "src/cli/errors/index.ts";
+
+/**
+ * Append command argument strings to the session log file.
+ */
+export const logSessionArgs = (
+  args: string[],
+  state: TerminalUserStateConfig,
+): Effect.Effect<void, LocalProcessingError> =>
+  Effect.tryPromise({
+    try: () =>
+      Deno.writeTextFile(state.sessionPath, `${args.join(" ")}\n`, { append: true }),
+    catch: () =>
+      new LocalProcessingError({
+        message: `Failed to append session log at ${state.sessionPath}`,
+      }),
+  });
 
 /**
  * Wrap a commander program into a resolvable promise from a menu option.
@@ -96,7 +113,7 @@ export const registerTerminalApplication = (menu: Menu) => {
                 terminal(menu.name + " > ");
                 const answer = await new Promise<string>((resolve) => {
                     terminal.inputField((_error, input) => {
-                        resolve(input || '');
+                      resolve(input || '');
                     });
                 });
                 input = answer?.trim();
@@ -132,22 +149,29 @@ export const registerTerminalApplication = (menu: Menu) => {
             await program.parseAsync(args, { from: "user" });
             const result = await Promise.race(resultPs);
 
-            if (result && result.result.type === CommandResultType.Back) {
+            if (result.result.type !== CommandResultType.Error) {
+              await Effect.runPromise(
+                logSessionArgs(args, st).pipe(
+                  Effect.catchAll(() => Effect.void),
+                ),
+              );
+            }
+
+            if (result.result.type === CommandResultType.Back) {
                 return result.state;
             }
 
-            if (result && result.result.type === CommandResultType.Exit) {
+            if (result.result.type === CommandResultType.Exit) {
                 process.exit(0);
             }
 
-            if (result.result?.type === CommandResultType.Timeout) {
+            if (result.result.type === CommandResultType.Timeout) {
                 console.log(chalk.red("Command timed out"));
             }
 
-            if (result.result?.type === CommandResultType.Error) {
+            if (result.result.type === CommandResultType.Error) {
                 console.log(chalk.red("Command failed"));
             }
-
 
             const nextState = result.state;
 

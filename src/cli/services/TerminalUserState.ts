@@ -11,6 +11,7 @@ export interface TerminalUserStateConfig {
     loadedContext: LoadedContext;
     actionTimeout?: number;
     scriptContext: ScriptContext;
+    sessionPath: string;
 }
 
 export class TerminalUserStateConfigContext extends Context.Tag("hyperfin.services.TerminalUserStateConfigContext")<
