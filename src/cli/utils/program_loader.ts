@@ -3,220 +3,238 @@ import terminalKit from "terminal-kit";
 const { terminal } = terminalKit;
 import { Command } from "commander";
 import {
-  CommandState, CommandResultType, Menu, MenuOption,
-  TerminalUserStateConfig,
+  type CommandState, CommandResultType, type Menu, type MenuOption,
+  type TerminalUserStateConfig,
   TerminalUserStateConfigContext
 } from "../types.ts";
-import { Effect, Logger } from "effect";
-import {
-  mapErrorsToCommandResults
-} from "src/cli/errors/index.ts";
+import { Effect, Fiber, Logger } from "effect";
+import { mapErrorsToCommandResults } from "src/cli/errors/index.ts";
 import { installGlobalHandlers } from "./global_handlers.ts";
 import { logSessionArgs } from "./session_logging.ts";
 
-/**
- * Wrap a commander program into a resolvable promise from a menu option.
- *
- * The reason this exists is because commander actions return promises of void,
- * but we need to resolve the command state of a completed action and pass it to
- * the next call.
- *
- * @param program The commander program to wrap.
- * @param menuOption The menu option to wrap.
- * @param state The terminal user state config.
- * @param ops The options for the program.
- * @returns A promise that resolves to the command state.
- */
-export function loadProgram(program: Command, menuOption: MenuOption, state: TerminalUserStateConfig) {
-    return new Promise<CommandState>((resolve, reject) => {
-        program
-            .command(menuOption.command)
-            .description(menuOption.description)
-            .action(async (...args: any[]) => {
+// ---------------------------------------------------------------------------
+// loadProgram — wraps a commander action into an Effect<CommandState>.
+// The Effect is lazy: it only runs when forked/executed, which happens
+// after commander's parseAsync dispatches the matching command.
+// ---------------------------------------------------------------------------
+export function loadProgram(
+  program: Command,
+  menuOption: MenuOption,
+  state: TerminalUserStateConfig,
+): Effect.Effect<CommandState> {
+  return Effect.promise<CommandState>(() =>
+    new Promise<CommandState>((resolve) => {
+      program
+        .command(menuOption.command)
+        .description(menuOption.description)
+        .action(async (...args: any[]) => {
+          const tusccService = Effect.provideService(
+            TerminalUserStateConfigContext, state,
+          );
 
-              const tusccService = Effect.provideService(
-                TerminalUserStateConfigContext, state
-              );
+          // Run the action, catch errors into CommandState, then resolve
+          // the outer Promise. Effect.tap ensures resolve is called
+          // regardless of whether the action succeeded or was caught by
+          // mapErrorsToCommandResults.
+          const actionEffect = menuOption.action(...args).pipe(
+            mapErrorsToCommandResults(state),
+            tusccService,
+            Logger.withMinimumLogLevel(state.logLevel),
+            Effect.tap((res) => Effect.sync(() => resolve(res))),
+          );
 
-              // Compose the action effect with the deferred effect.
-              const actionEffect = Effect.gen(function* () {
-                const res = yield* menuOption.action(...args);
-                resolve(res);
-              }).pipe(
-                mapErrorsToCommandResults(resolve, state),
-                tusccService,
-                Logger.withMinimumLogLevel(state.logLevel)
-              );
-
-              await Effect.runPromise(actionEffect);
-            });
-
-    });
+          await Effect.runPromise(actionEffect);
+        });
+    }),
+  );
 }
 
-/*
- * Register a terminal application from a menu. Note the function is curried to allow
- * the terminal application runner to pass the menu registry and user state in separate calls.
- *
- * @param menu The menu to register.
- * @returns A function that takes a terminal user state config and returns a promise that resolves to the terminal user state config.
- */
+// ---------------------------------------------------------------------------
+// registerTerminalApplication — the recursive menu loop, now as an Effect.
+//
+// Returns Effect<TerminalUserStateConfig> instead of Promise<TerminalUserStateConfig>.
+// Recursion is via Effect.gen + yield* (not async/await), so the entire
+// call stack stays inside the Effect runtime.
+// ---------------------------------------------------------------------------
 export const registerTerminalApplication = (menu: Menu) => {
 
-    async function terminalApplication(st: TerminalUserStateConfig): Promise<TerminalUserStateConfig> {
+  const terminalApplication = (
+    st: TerminalUserStateConfig,
+  ): Effect.Effect<TerminalUserStateConfig> =>
+    Effect.gen(function* () {
 
-        installGlobalHandlers();
+      installGlobalHandlers();
 
-        const menu_options = menu.options(st);
-        // Only show menu if not in script mode
-        if (!st.scriptContext?.currentCommand) {
-            console.log(chalk.blue(menu.name));
-            const tableDescriptions = menu_options.map((option) => [option.name, option.command, option.description]);
+      const menu_options = menu.options(st);
 
-            terminal.table([
-                ['Name', 'Command', 'Description'],
-                ...tableDescriptions,
-            ], {
-                hasBorder: true,
-                contentHasMarkup: true,
-                borderChars: 'lightRounded',
-                borderAttr: { color: 'cyan' },
-                textAttr: { bgColor: 'default' },
-                firstRowTextAttr: { bgColor: 'cyan' },
-                width: 120,
-                fit: true
-            });
+      // Show menu only when not in script mode
+      if (!st.scriptContext?.currentCommand) {
+        console.log(chalk.blue(menu.name));
+        const tableDescriptions = menu_options.map((option) =>
+          [option.name, option.command, option.description],
+        );
+        terminal.table([
+          ["Name", "Command", "Description"],
+          ...tableDescriptions,
+        ], {
+          hasBorder: true,
+          contentHasMarkup: true,
+          borderChars: "lightRounded",
+          borderAttr: { color: "cyan" },
+          textAttr: { bgColor: "default" },
+          firstRowTextAttr: { bgColor: "cyan" },
+          width: 120,
+          fit: true,
+        });
+      }
+
+      // --- Read input ---------------------------------------------------
+      let input = "";
+      let isScriptExecution = false;
+
+      if (st.scriptContext?.currentCommand) {
+        input = st.scriptContext.currentCommand;
+        console.log(chalk.yellow(`Executing script command: ${input}`));
+        isScriptExecution = true;
+      } else if (!Deno.stdin.isTerminal()) {
+        const decoder = new TextDecoder();
+        const buf = new Uint8Array(4096);
+        const n = yield* Effect.promise(() => Deno.stdin.read(buf));
+        if (n === null) {
+          console.log(chalk.yellow("No input on stdin — exiting."));
+          process.exit(0);
+          return yield* Effect.die("unreachable");
         }
+        input = decoder.decode(buf.subarray(0, n)).trim();
+        input = input.split("\n")[0].trim();
+      } else {
+        terminal(menu.name + " > ");
+        const answer = yield* Effect.promise<string>(() =>
+          new Promise((resolve) => {
+            terminal.inputField((_error, inp) => resolve(inp || ""));
+          }),
+        );
+        input = answer?.trim();
+      }
 
-        try {
-            let input = "";
-            let isScriptExecution = false;
-
-            if (st.scriptContext?.currentCommand) {
-                input = st.scriptContext.currentCommand;
-                console.log(chalk.yellow(`Executing script command: ${input}`));
-                isScriptExecution = true;
-            } else if (!Deno.stdin.isTerminal()) {
-                // Piped/redirected stdin — read the whole thing synchronously
-                // instead of blocking on terminal.inputField (which hangs
-                // forever on a drained pipe).
-                const decoder = new TextDecoder();
-                const buf = new Uint8Array(4096);
-                const n = await Deno.stdin.read(buf);
-                if (n === null) {
-                  console.log(chalk.yellow("No input on stdin — exiting."));
-                  process.exit(0);
-                }
-                input = decoder.decode(buf.subarray(0, n)).trim();
-                // Strip the trailing newline that echo/pipes append.
-                // Only take the first line — multi-line piped input is
-                // treated as a single command.
-                input = input.split("\n")[0].trim();
-            } else {
-                terminal(menu.name + " > ");
-                const answer = await new Promise<string>((resolve) => {
-                    terminal.inputField((_error, input) => {
-                      resolve(input || '');
-                    });
-                });
-                input = answer?.trim();
-            }
-
-            if (!input) {
-              if (!Deno.stdin.isTerminal()) {
-                process.exit(0);
-              }
-              return terminalApplication(st);
-            }
-            terminal('\n');
-
-            const program = new Command();
-            program.exitOverride();
-            program.configureOutput({
-              writeErr: (str) => process.stdout.write(chalk.red(str)),
-            });
-
-            const resultPs: Promise<CommandState>[] = menu_options.map((option) => {
-                if (isScriptExecution) {
-                    const [nextCommand, ...rest] = st.scriptContext.tailCommands || [];
-
-                    const nextScriptState: TerminalUserStateConfig = {
-                        ...st,
-                        scriptContext: {
-                            ...st.scriptContext,
-                            currentCommand: nextCommand,
-                            tailCommands: rest
-                        }
-                    };
-                    return loadProgram(program, option, nextScriptState)
-                }
-                return loadProgram(program, option, st)
-            });
-
-            const args = input.split(/\s+/);
-
-            // Log the input immediately — before dispatching the command.
-            // Navigation commands (e.g. "stocks") block inside a nested
-            // inputField and don't resolve until the user exits the submenu,
-            // so logging after parseAsync would defer the log indefinitely.
-            await Effect.runPromise(logSessionArgs(args, st));
-
-            await program.parseAsync(args, { from: "user" });
-            const result = await Promise.race(resultPs);
-
-            if (result.result.type === CommandResultType.Back) {
-                return result.state;
-            }
-
-            if (result.result.type === CommandResultType.Exit) {
-                process.exit(0);
-            }
-
-            if (result.result.type === CommandResultType.Timeout) {
-                console.log(chalk.red("Command timed out"));
-            }
-
-            if (result.result.type === CommandResultType.Error) {
-                console.log(chalk.red("Invalid command"));
-            }
-
-            const nextState = result.state;
-
-            // Check if script has completed and should exit
-            if (isScriptExecution &&
-                nextState.scriptContext?.exitAfterCompletion &&
-                !nextState.scriptContext?.currentCommand) {
-                console.log(chalk.green("Script execution completed successfully"));
-                process.exit(0);
-            }
-
-            return terminalApplication(nextState);
-
-        } catch (err: unknown) {
-            console.log(chalk.red("An unhandled critical error occurred during running."));
-            console.log(chalk.red(err))
-
-            // Fix for script loop on error:
-            // If error occurred during script execution, abort.
-            if (st.scriptContext?.currentCommand) {
-                console.log(chalk.red("Script execution aborted due to error."));
-
-                // If running from command line with --oet-script, exit with error code
-                if (st.scriptContext?.exitAfterCompletion) {
-                    process.exit(1);
-                }
-
-                const abortState = {
-                    ...st,
-                    scriptContext: {} // Clear script context
-                };
-                return terminalApplication(abortState);
-            }
-
-            return terminalApplication(st);
+      if (!input) {
+        if (!Deno.stdin.isTerminal()) {
+          return yield* Effect.die("no stdin input");
         }
+        return yield* terminalApplication(st);
+      }
+      terminal("\n");
 
-    }
+      // --- Build commander program --------------------------------------
+      const program = new Command();
+      program.exitOverride();
+      program.configureOutput({
+        writeErr: (str) => process.stdout.write(chalk.red(str)),
+      });
 
-    return terminalApplication;
-}
+      // Create lazy effects for every menu option
+      const effects: Effect.Effect<CommandState>[] = menu_options.map((option) => {
+        if (isScriptExecution) {
+          const [nextCommand, ...rest] = st.scriptContext.tailCommands || [];
+          const nextScriptState: TerminalUserStateConfig = {
+            ...st,
+            scriptContext: {
+              ...st.scriptContext,
+              currentCommand: nextCommand,
+              tailCommands: rest,
+            },
+          };
+          return loadProgram(program, option, nextScriptState);
+        }
+        return loadProgram(program, option, st);
+      });
+
+      // Fork all effects BEFORE parseAsync — they're lazy, so nothing
+      // runs yet. parseAsync triggers commander, which calls the matching
+      // action, which resolves the corresponding effect.
+      // Use forkDaemon so non-matching fibers are auto-interrupted when
+      // the parent scope exits — no need for explicit Fiber.interrupt
+      // (which would deadlock on uninterruptible Effect.promise regions).
+      const fibers = yield* Effect.all(
+        effects.map((e) => Effect.forkDaemon(e)),
+      );
+
+      const args = input.split(/\s+/);
+
+      // Log the input immediately
+      yield* logSessionArgs(args, st);
+
+      // Dispatch to commander — this triggers the matching action
+      yield* Effect.promise(() => program.parseAsync(args, { from: "user" }));
+
+      // Race all fibers — the first one to resolve wins.
+      // Non-matching fibers are daemons and will be cleaned up when
+      // this gen block's scope exits.
+      const result = yield* Effect.raceAll(fibers.map((f) => Fiber.join(f)));
+
+      // --- Handle result ------------------------------------------------
+      if (result.result.type === CommandResultType.Back) {
+        return result.state;
+      }
+
+      if (result.result.type === CommandResultType.Exit) {
+        return yield* Effect.sync(() => {
+          process.exit(0);
+          // unreachable, but satisfies the type
+          return st;
+        });
+      }
+
+      if (result.result.type === CommandResultType.Timeout) {
+        console.log(chalk.red("Command timed out"));
+      }
+
+      if (result.result.type === CommandResultType.Error) {
+        console.log(chalk.red("Invalid command"));
+      }
+
+      const nextState = result.state;
+
+      if (
+        isScriptExecution &&
+        nextState.scriptContext?.exitAfterCompletion &&
+        !nextState.scriptContext?.currentCommand
+      ) {
+        console.log(chalk.green("Script execution completed successfully"));
+        return yield* Effect.sync(() => {
+          process.exit(0);
+          return st;
+        });
+      }
+
+      return yield* terminalApplication(nextState);
+    }).pipe(
+      Effect.catchAllDefect((defect) =>
+        Effect.gen(function* () {
+          console.log(chalk.red("An unhandled critical error occurred during running."));
+          console.log(chalk.red(defect));
+
+          if (st.scriptContext?.currentCommand) {
+            console.log(chalk.red("Script execution aborted due to error."));
+
+            if (st.scriptContext?.exitAfterCompletion) {
+              return yield* Effect.sync(() => {
+                process.exit(1);
+                return st;
+              });
+            }
+
+            const abortState = {
+              ...st,
+              scriptContext: {} as typeof st.scriptContext,
+            };
+            return yield* terminalApplication(abortState);
+          }
+
+          return yield* terminalApplication(st);
+        }),
+      ),
+    );
+
+  return terminalApplication;
+};
