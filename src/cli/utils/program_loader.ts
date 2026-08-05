@@ -177,7 +177,7 @@ export const registerTerminalApplication = (menu: Menu) => {
             }
 
             if (result.result.type === CommandResultType.Error) {
-                console.log(chalk.red("Command failed"));
+                console.log(chalk.red("Invalid command"));
             }
 
             const nextState = result.state;

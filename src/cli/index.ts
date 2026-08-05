@@ -150,8 +150,10 @@ const mainMenu: Menu = {
 export const terminalMain = registerTerminalApplication(mainMenu);
 
 export async function startMain(sessionPath: string, scriptFilename?: string) {
-  // Only show banner on initial load
-  console.log(chalk.green(figlet.textSync("Open Eth Terminal", { horizontalLayout: 'full' })));
+  // Only show banner on initial load, and only in interactive TTY mode.
+  if (Deno.stdin.isTerminal()) {
+    console.log(chalk.green(figlet.textSync("Open Eth Terminal", { horizontalLayout: 'full' })));
+  }
 
   const logLevel = logLevelFromEnv(process.env.LOG_LEVEL);
 
