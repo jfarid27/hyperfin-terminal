@@ -1,6 +1,6 @@
 import { Effect, Context, Layer, Schema } from "effect";
 import { ConfigError, HTTPError, ProgramError } from "src/cli/errors/index.ts";
-import { OptionSymbolType, OptionsChain, OptionContract } from "../types.ts";
+import { OptionSymbolType, OptionsChain, OptionContract } from "./types.ts";
 
 // ── Yahoo Finance API constants ──
 

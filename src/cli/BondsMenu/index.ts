@@ -3,7 +3,7 @@ import { Menu, MenuOption, TerminalUserStateConfig, TerminalUserStateConfigConte
 import { menuGlobals } from "../utils/menu_globals.ts";
 import { yieldsHandler } from "./actions/yields.ts";
 import { Effect } from "effect";
-import { BondsServiceLive } from "./services/index.ts";
+import { BondsServiceLive } from "../../services/BondsService/index.ts";
 
 const bondsMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
   {

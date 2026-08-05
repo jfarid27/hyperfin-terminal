@@ -1,6 +1,6 @@
 import { Effect } from "effect";
-import { YahooFinanceOptions } from "../services/YahooFinanceOptionsService.ts";
-import type { OptionContract } from "../types.ts";
+import { YahooFinanceOptions } from "../../../services/OptionsService/YahooFinanceOptionsService.ts";
+import type { OptionContract } from "../../../services/OptionsService/types.ts";
 import { DataSourceType, TerminalUserStateConfigContext } from "../../types.ts";
 import { CommandResultType } from "../../types.ts";
 import { showNumericLineChart } from "../../components/charting.ts";

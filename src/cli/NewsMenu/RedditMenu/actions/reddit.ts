@@ -1,8 +1,8 @@
 import { CommandResultType, TerminalUserStateConfigContext } from "../../../types.ts";
-import { RedditModel } from "../model/index.ts";
+import { RedditService } from "src/services/RedditService/types.ts";
 import chalk from "chalk";
 import { Effect } from "effect";
-import { NewsServiceLive } from "../services/index.ts";
+import { RedditServiceLive } from "src/services/RedditService/index.ts";
 
 /**
  * Return top posts from the given search term
@@ -10,7 +10,7 @@ import { NewsServiceLive } from "../services/index.ts";
 export const redditSearchTopHandler =
     (query: string, limit: number) => Effect.gen(function*() {
         const st = yield* TerminalUserStateConfigContext;
-        const reddit = yield* RedditModel;
+        const reddit = yield* RedditService;
 
         if (!query) {
             console.log(chalk.red("No query term supplied."))
@@ -34,7 +34,7 @@ export const redditSearchTopHandler =
             state: st,
         };
     }).pipe(
-      Effect.provide(NewsServiceLive)
+      Effect.provide(RedditServiceLive)
     );
 
 /**
@@ -43,7 +43,7 @@ export const redditSearchTopHandler =
 export const redditTopHandler = (subreddit: string | undefined, limit: number = 20) =>
   Effect.gen(function* () {
     const st = yield* TerminalUserStateConfigContext;
-    const reddit = yield* RedditModel;
+    const reddit = yield* RedditService;
 
     const _subreddit = subreddit ?? "ethereum";
 
@@ -63,5 +63,5 @@ export const redditTopHandler = (subreddit: string | undefined, limit: number = 
       state: st,
     };
   }).pipe(
-    Effect.provide(NewsServiceLive)
+    Effect.provide(RedditServiceLive)
   );

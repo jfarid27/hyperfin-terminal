@@ -8,7 +8,7 @@ import { showLineChart } from "../../components/charting.ts";
 import { pipe as pipeR, prop, map, sortBy } from "ramda";
 import { Effect, Option } from "effect";
 import { ConfigService } from "src/cli/services/ConfigService.ts";
-import { GovernmentServiceLive } from "../services/index.ts";
+import { GovernmentServiceLive } from "../../../services/GovernmentService/index.ts";
 
 /**
  * Processed FRED observation data point

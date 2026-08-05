@@ -1,5 +1,5 @@
-import { MassiveService } from "../services/MassiveService.ts";
-import type { SpotQuote } from "../services/AlphaVantageService.ts";
+import { MassiveService } from "src/services/MassiveService/index.ts";
+import type { SpotQuote } from "src/services/AlphaVantageService/index.ts";
 import { DataSourceType, TerminalUserStateConfigContext } from "../../types.ts";
 import { CommandResultType } from "../../types.ts";
 import { Effect } from "effect";

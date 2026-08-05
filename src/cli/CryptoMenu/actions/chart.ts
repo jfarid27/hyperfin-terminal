@@ -7,7 +7,7 @@ import {
 import { getLoadedToken } from "../../utils/index.ts";
 import { showLineChart } from "../../components/charting.ts";
 import { Effect } from 'effect';
-import { CryptoServiceLive } from "../services/index.ts";
+import { CryptoServiceLive } from "../../../services/CryptoService/index.ts";
 
 /**
  * Handler for the chart price command.

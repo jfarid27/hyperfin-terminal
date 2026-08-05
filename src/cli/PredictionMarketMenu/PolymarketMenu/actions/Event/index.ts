@@ -7,9 +7,9 @@ import {
     TerminalUserStateConfigContext
 } from "../../../../types.ts";
 import chalk from "chalk";
-import { PolymarketModel } from "../../model/index.ts";
+import { PolymarketModel } from "../../../../../services/PolymarketService/index.ts";
 import { processOutcomeData } from "../../utils.ts";
-import { PolymarketServiceLive } from "../../services/index.ts";
+import { PolymarketServiceLive } from "../../../../../services/PolymarketService/service.ts";
 
 /**
  * Pull relevant market data from the polymarket API response for given slug.

@@ -4,12 +4,12 @@ import {
     CommandResultType, TerminalUserStateConfigContext
 } from "src/cli/types.ts";
 import terminalKit from "terminal-kit";
-import { PolymarketModel } from "../../model/index.ts";
+import { PolymarketModel } from "../../../../../services/PolymarketService/index.ts";
 const { terminal } = terminalKit;
 import { showMultiLineChart, TimeSeriesData } from "src/cli/components/charting.ts";
 import chalk from "chalk";
 import { zip, pipe, props, map, prop } from "ramda";
-import { PolymarketServiceLive } from "../../services/index.ts";
+import { PolymarketServiceLive } from "../../../../../services/PolymarketService/service.ts";
 
 export const xPolymarketMarketData = props([
     "active",

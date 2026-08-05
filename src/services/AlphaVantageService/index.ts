@@ -3,7 +3,7 @@ import { FetchService } from "src/cli/services/FetchService.ts";
 import { ConfigError, HTTPError, ProgramError } from "src/cli/errors/index.ts";
 import { ApplicationLayerLive } from "src/cli/services/index.ts";
 import { ConfigService } from "src/cli/services/ConfigService.ts";
-import { StockSymbolType } from "../types.ts";
+import { StockSymbolType } from "../../cli/StocksMenu/types.ts";
 
 // ── Clean output types ──
 

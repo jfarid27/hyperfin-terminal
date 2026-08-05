@@ -1,4 +1,4 @@
-import { DataSourceType } from "../types.ts";
+import { DataSourceType } from "../../cli/types.ts";
 
 export interface CryptoSymbolType {
     name: string;

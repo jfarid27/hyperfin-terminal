@@ -1,7 +1,7 @@
 import chalk from "chalk";
-import { YahooFinanceBonds } from "../services/YahooFinanceBondsService.ts";
+import { YahooFinanceBonds } from "../../../services/BondsService/YahooFinanceBondsService.ts";
 import { ChartRenderer } from "../../StocksMenu/services/ChartRenderer.ts";
-import { BOND_TICKER_MAP, type YieldPoint } from "../types.ts";
+import { BOND_TICKER_MAP, type YieldPoint } from "../../../services/BondsService/types.ts";
 import { DataSourceType, TerminalUserStateConfigContext } from "../../types.ts";
 import { CommandResultType } from "../../types.ts";
 import { Effect } from "effect";

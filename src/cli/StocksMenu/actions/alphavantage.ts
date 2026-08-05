@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { AlphaVantageService, type SpotQuote, type ChartPoint } from "../services/AlphaVantageService.ts";
+import { AlphaVantageService, type SpotQuote, type ChartPoint } from "src/services/AlphaVantageService/index.ts";
 import { ChartRenderer } from "../services/ChartRenderer.ts";
 import { DataSourceType, TerminalUserStateConfigContext } from "../../types.ts";
 import { CommandResultType } from "../../types.ts";

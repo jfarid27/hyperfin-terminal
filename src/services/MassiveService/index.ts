@@ -3,8 +3,8 @@ import { FetchService } from "src/cli/services/FetchService.ts";
 import { ConfigError, HTTPError, ProgramError } from "src/cli/errors/index.ts";
 import { ApplicationLayerLive } from "src/cli/services/index.ts";
 import { ConfigService } from "src/cli/services/ConfigService.ts";
-import { StockSymbolType } from "../types.ts";
-import type { SpotQuote } from "./AlphaVantageService.ts";
+import { StockSymbolType } from "src/cli/StocksMenu/types.ts";
+import type { SpotQuote } from "src/services/AlphaVantageService/index.ts";
 
 const MASSIVE_API_BASE = "https://api.massive.com";
 

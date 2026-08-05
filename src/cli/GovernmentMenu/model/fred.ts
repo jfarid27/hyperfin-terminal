@@ -1,4 +1,4 @@
-import { FredSeriesType } from "../types.ts";
+import { FredSeriesType } from "../../../services/GovernmentService/types.ts";
 import { Effect, Context, Layer } from "effect";
 import { FetchService } from "src/cli/services/FetchService.ts";
 import { ConfigError, HTTPError, LocalProcessingError } from "src/cli/errors/index.ts";

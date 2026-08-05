@@ -6,13 +6,13 @@ import { Effect } from "effect";
 import { project, pipe, prop, reduce } from "ramda";
 import terminalKit from "terminal-kit";
 const { terminal } = terminalKit;
-import { PolymarketModel } from "../../model/index.ts";
+import { PolymarketModel } from "../../../../../services/PolymarketService/index.ts";
 import {
     CommandResultType
 } from "src/cli/types.ts";
 import { TerminalUserStateConfigContext } from "src/cli/types.ts";
 import chalk from "chalk";
-import { PolymarketServiceLive } from "../../services/index.ts";
+import { PolymarketServiceLive } from "../../../../../services/PolymarketService/service.ts";
 
 /**
  * Pick the title, size, currentValue, and slug from the response.

@@ -4,7 +4,7 @@ import { Schema, Either } from "effect";
 import {
   PreviousDayBarRaw,
   toSpotQuoteFromBars,
-} from "./MassiveService.ts";
+} from "./index.ts";
 
 const validPrevRaw = {
   ticker: "NVDA",

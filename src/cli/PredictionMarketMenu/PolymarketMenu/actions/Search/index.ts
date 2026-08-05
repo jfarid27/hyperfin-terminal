@@ -3,11 +3,11 @@ import {
     CommandResultType, TerminalUserStateConfigContext,
 } from "../../../../types.ts";
 import terminalKit from "terminal-kit";
-import { PolymarketModel } from "../../model/index.ts";
+import { PolymarketModel } from "../../../../../services/PolymarketService/index.ts";
 const { terminal } = terminalKit;
 import { pipe, map, filter } from "ramda";
 import { processOutcomeData } from "../../utils.ts";
-import { PolymarketServiceLive } from "../../services/index.ts";
+import { PolymarketServiceLive } from "../../../../../services/PolymarketService/service.ts";
 
 export const processEventsFromResponse = pipe(
     (r: any) => r.events,

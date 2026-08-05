@@ -1,13 +1,13 @@
 import { registerTerminalApplication } from "../utils/program_loader.ts";
 import { Menu, MenuOption, TerminalUserStateConfig, TerminalUserStateConfigContext, CommandResultType } from "src/cli/types.ts";
-import { OptionsDataSourceTypeSchema, OptionsDataSourceType } from "./types.ts";
+import { OptionsDataSourceTypeSchema, OptionsDataSourceType } from "../../services/OptionsService/types.ts";
 import { menuGlobals } from "../utils/menu_globals.ts";
 import { chainHandler } from "./actions/chain.ts";
 import { volcurveHandler } from "./actions/volcurve.ts";
 import { Effect, Schema } from "effect";
 import { lensPath, set, view } from "ramda";
 import { DataSourceType } from "src/cli/types.ts";
-import { OptionsServiceLive } from "./services/index.ts";
+import { OptionsServiceLive } from "../../services/OptionsService/index.ts";
 import chalk from "chalk";
 
 const tokenLens = lensPath(["loadedContext", "token", "symbol"]);

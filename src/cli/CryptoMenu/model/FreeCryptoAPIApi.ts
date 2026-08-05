@@ -1,4 +1,4 @@
-import { CryptoSymbolType } from "../types.ts";
+import { CryptoSymbolType } from "../../../services/CryptoService/types.ts";
 import { Effect, Context, Layer } from "effect";
 import { FetchService } from "src/cli/services/FetchService.ts";
 import { ConfigError, HTTPError, LocalProcessingError } from "src/cli/errors/index.ts";

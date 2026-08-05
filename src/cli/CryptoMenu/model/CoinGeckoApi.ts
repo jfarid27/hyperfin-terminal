@@ -1,5 +1,5 @@
 import { DataSourceType } from "../../types.ts";
-import { SpotPoint, ChartData, ChartPoint, CryptoSymbolType } from "../types.ts";
+import { SpotPoint, ChartData, ChartPoint, CryptoSymbolType } from "../../../services/CryptoService/types.ts";
 import { Effect, Context, Layer, Schema } from "effect";
 import { FetchService } from "src/cli/services/FetchService.ts";
 import { ConfigError, HTTPError, LocalProcessingError } from "src/cli/errors/index.ts";

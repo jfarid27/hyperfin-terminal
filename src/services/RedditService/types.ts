@@ -34,12 +34,12 @@ export interface RedditModelPort {
   search: (query: string, limit?: number) => Effect.Effect<RedditPost[], HTTPError>;
 }
 
-export class RedditModel extends Context.Tag("hyperfin.news.RedditModel")<
-  RedditModel,
+export class RedditService extends Context.Tag("hyperfin.news.RedditService")<
+  RedditService,
   RedditModelPort
 >() {}
 
-export const RedditModelLive = Layer.succeed(RedditModel, {
+export const RedditLayer = Layer.succeed(RedditService, {
   get: (subreddit: string, limit: number = 20) => {
     const url = `https://www.reddit.com/r/${subreddit}/hot/.rss?limit=${limit}`;
     const parser = new Parser();

@@ -1,6 +1,6 @@
 import chalk from "chalk";
-import { YahooFinanceOptions } from "../services/YahooFinanceOptionsService.ts";
-import type { OptionsChain, OptionContract } from "../types.ts";
+import { YahooFinanceOptions } from "../../../services/OptionsService/YahooFinanceOptionsService.ts";
+import type { OptionsChain, OptionContract } from "../../../services/OptionsService/types.ts";
 import { DataSourceType, TerminalUserStateConfigContext } from "../../types.ts";
 import { CommandResultType } from "../../types.ts";
 import { Effect } from "effect";

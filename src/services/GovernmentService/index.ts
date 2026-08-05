@@ -1,5 +1,5 @@
 import { Layer } from "effect";
-import { GovernmentModelLive } from "../model/index.ts";
+import { GovernmentModelLive } from "../../cli/GovernmentMenu/model/index.ts";
 import { ApplicationLayerLive } from "src/cli/services/index.ts";
 
 export const GovernmentServices = Layer.provide(GovernmentModelLive, ApplicationLayerLive);

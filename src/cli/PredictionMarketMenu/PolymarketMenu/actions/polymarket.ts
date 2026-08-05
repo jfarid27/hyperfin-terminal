@@ -11,13 +11,13 @@ import { project, pipe as pipeR, set, filter, toLower, lensProp, map,
 } from "ramda";
 import terminalKit from "terminal-kit";
 const { terminal } = terminalKit;
-import { PolymarketModel } from "../model/index.ts";
+import { PolymarketModel } from "../../../../services/PolymarketService/index.ts";
 import {CommandResultType, PredictionMarketsType } from "../../../types.ts";
 import { TerminalUserStateConfigContext } from "../../../types.ts";
 import chalk from "chalk";
 import { loadCSVPortfolio } from "../../../utils/loaders.ts";
 import { PolymarketPortfolio, PolymarketPosition, PortfolioAnalysisType } from "./types.ts";
-import { PolymarketServiceLive } from "../services/index.ts";
+import { PolymarketServiceLive } from "../../../../services/PolymarketService/service.ts";
 
 /**
  * Lens path for predictions markets data on the User State.
