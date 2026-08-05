@@ -11,7 +11,7 @@ const newsMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
         description: "Navigate to the reddit menu",
         action: () => Effect.gen(function*() {
             const st = yield* TerminalUserStateConfigContext;
-            const newState = yield* Effect.promise(async () => redditTerminal(st));
+            const newState = yield* redditTerminal(st);
             return {
                 result: { type: CommandResultType.Success },
                 state: newState,

@@ -10,7 +10,7 @@ import newsTerminal from "./NewsMenu/index.ts";
 import { executeScript } from "./utils/scripts.ts";
 import figlet from "figlet";
 import {
-  Menu, MenuOption, TerminalUserStateConfig,
+  type Menu, type MenuOption, type TerminalUserStateConfig,
   CommandResultType, EnvironmentType, TerminalUserStateConfigContext, DataSourceType,
   logLevelFromEnv,
 } from "./types.ts";
@@ -26,7 +26,7 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
         description: "Fetch crypto prices from various sources",
         action: () => Effect.gen(function*() {
             const st = yield* TerminalUserStateConfigContext;
-            const newState = yield* Effect.promise(async () => cryptoTerminal(st));
+            const newState = yield* cryptoTerminal(st);
             return {
                 result: { type: CommandResultType.Success },
                 state: newState,
@@ -39,7 +39,7 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
         description: "Fetch stock prices from various sources",
         action: () => Effect.gen(function*() {
             const st = yield* TerminalUserStateConfigContext;
-            const newState = yield* Effect.promise(async () => stocksTerminal(st));
+            const newState = yield* stocksTerminal(st);
             return {
                 result: { type: CommandResultType.Success },
                 state: newState,
@@ -52,7 +52,7 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
         description: "Fetch options chains from Yahoo Finance",
         action: () => Effect.gen(function*() {
             const st = yield* TerminalUserStateConfigContext;
-            const newState = yield* Effect.promise(async () => optionsTerminal(st));
+            const newState = yield* optionsTerminal(st);
             return {
                 result: { type: CommandResultType.Success },
                 state: newState,
@@ -65,7 +65,7 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
         description: "Fetch bond yields from Yahoo Finance",
         action: () => Effect.gen(function*() {
             const st = yield* TerminalUserStateConfigContext;
-            const newState = yield* Effect.promise(async () => bondsTerminal(st));
+            const newState = yield* bondsTerminal(st);
             return {
                 result: { type: CommandResultType.Success },
                 state: newState,
@@ -78,7 +78,7 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
         description: "Fetch news from various sources",
         action: () => Effect.gen(function*() {
             const st = yield* TerminalUserStateConfigContext;
-            const newState = yield* Effect.promise(async () => newsTerminal(st));
+            const newState = yield* newsTerminal(st);
             return {
                 result: { type: CommandResultType.Success },
                 state: newState,
@@ -91,7 +91,7 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
         description: "Fetch prediction markets prices from various sources",
         action: () => Effect.gen(function*() {
             const st = yield* TerminalUserStateConfigContext;
-            const newState = yield* Effect.promise(async () => predictionMarketsTerminal(st));
+            const newState = yield* predictionMarketsTerminal(st);
             return {
                 result: { type: CommandResultType.Success },
                 state: newState,
@@ -206,7 +206,7 @@ export async function startMain(sessionPath: string, scriptFilename?: string) {
   };
 
   try {
-    await terminalMain(state);
+    await Effect.runPromise(terminalMain(state));
   } catch (error) {
     console.error("Error in main terminal:", error);
     process.exit(1);
