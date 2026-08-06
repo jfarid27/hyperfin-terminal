@@ -2,18 +2,13 @@
 
 This document provides a visual tree of every terminal command and its associated submenu within the Open Eth Terminal application.
 
-## Application Entry Points
+## Application Entry Point
 
-The application has two entry points:
-
-- **`index.ts`** — Classic CLI mode (`deno task cli`). Uses `registerTerminalApplication` with commander-based command parsing.
-- **`terminal.ts`** — Bloomberg-style TUI mode (`deno task terminal`). Uses `HyperFinTerminal` with terminal-kit full-screen rendering.
-
-Both share the same menu infrastructure (sub-terminals, actions, models) from the `cli/` folder.
+- **`index.ts`** — CLI mode (`deno task cli`). Uses `registerTerminalApplication` with commander-based command parsing.
 
 ## Command Tree
 
-### Main Menu (CLI & TUI)
+### Main Menu
 
 - **`crypto`**: Fetch crypto prices from various sources
     - **`price [symbol]`**: Fetch current price for the given symbol
@@ -24,9 +19,17 @@ Both share the same menu infrastructure (sub-terminals, actions, models) from th
 - **`stocks`**: Fetch stock prices from various sources
     - **`chart [symbol]`**: Fetch chart data for the given symbol
     - **`spot [symbol]`**: Fetch spot prices for the given symbol
+    - **`source [datatypeSource]`**: Switch data source (AlphaVantage / Massive)
     - *Global Options*: `exit`, `back`, `showconfig` (dev only)
 
-- **`options`**: Fetch options data from various sources
+- **`options`**: Fetch options data from Yahoo Finance
+    - **`chain [symbol] [date]`**: Fetch options chain for the given symbol
+    - **`volcurve [symbol] [type] [date]`**: Plot implied volatility curve across strikes
+    - **`source [datatypeSource]`**: Switch data source
+    - *Global Options*: `exit`, `back`, `showconfig` (dev only)
+
+- **`bonds`**: Fetch bond yields from Yahoo Finance
+    - **`yields <code> [range]`**: Fetch bond yield chart. Codes: US2, US5, US10, US30. Range: 1mo-10y (default 1y)
     - *Global Options*: `exit`, `back`, `showconfig` (dev only)
 
 - **`news`**: Fetch news from various sources
@@ -56,8 +59,6 @@ Both share the same menu infrastructure (sub-terminals, actions, models) from th
     - **`fred [seriesId] [startDate] [endDate]`**: Fetch and chart FRED economic data series.
     - *Global Options*: `exit`, `back`, `showconfig` (dev only)
 
-- **`chat`** *(TUI only)*: Open XMTP chat — message other users on the XMTP network
-
 - **`script [filename]`**: Run a script from the scripts folder with a specified filename
 
 - **`keys [type] [value]`**: Set or get the API keys
@@ -68,32 +69,24 @@ Both share the same menu infrastructure (sub-terminals, actions, models) from th
 
 - **`showconfig`**: Show the current configuration (Development only)
 
-## TUI-Specific Features
-
-The Bloomberg-style TUI (`terminal.ts`) provides:
-
-- **Full-screen layout** with data area, command input line, and menu bar
-- **Number key shortcuts** for menu options (e.g., press `1` for crypto)
-- **Command typing** — type commands directly (e.g., `crypto`, `stocks spot AAPL`)
-- **Console output capture** — action output is displayed in the data area
-- **XMTP chat integration** — real-time messaging via the XMTP network
-- **Key bindings**: `↑↓` navigate, `Tab` switch panes, `Enter` send, `Esc` exit
-
 ## Architecture
 
 ```
-terminal/
-├── index.ts              — Entry point: startHyperFin(), menu options, state init
-├── HyperFinTerminal.ts   — Main TUI loop, keybinding dispatch, command execution
-├── MainPanel.ts          — Full-screen layout (data area, command input, menu bar)
-└── xmtp/
-    ├── client.ts         — XMTP chat client (connect, send, receive)
-    ├── ChatPanel.ts      — Chat UI (contacts pane, messages, input)
-    └── account.ts        — XMTP key generation and storage
+src/cli/
+├── index.ts              — Main menu definition, startMain()
+├── types.ts              — Core types (Menu, MenuOption, ActionHandler, etc.)
+├── errors/index.ts       — ProgramError tagged errors
+├── services/
+│   ├── ConfigService.ts  — Environment config (Context.Tag + Layer)
+│   ├── FetchService.ts   — HTTP fetch wrapper (Context.Tag + Layer)
+│   └── TerminalUserState.ts — State config + Context
+├── {Menu}/
+│   ├── index.ts          — Menu definition + registerTerminalApplication
+│   ├── types.ts
+│   ├── services/         — {Menu}ServiceLive Layer
+│   └── actions/          — Action handlers
+└── utils/
+    ├── program_loader.ts — Commander-based program loading + REPL loop
+    ├── menu_globals.ts   — Global menu options (exit, back, showconfig)
+    └── scripts.ts        — Script execution
 ```
-
-The terminal reuses all CLI infrastructure:
-- `cli/types.ts` — `Menu`, `MenuOption`, `ActionHandler`, `CommandState`, etc.
-- `cli/services/TerminalUserState.ts` — `TerminalUserStateConfig` and `TerminalUserStateConfigContext`
-- `cli/errors/index.ts` — `ProgramError` tagged errors
-- `cli/{Menu}/` — Sub-terminal menus (Crypto, Stocks, News, etc.)
