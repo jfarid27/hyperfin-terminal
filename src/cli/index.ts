@@ -8,6 +8,7 @@ import bondsTerminal from "./BondsMenu/index.ts";
 import { menuGlobalsTop } from "./utils/menu_globals.ts";
 import newsTerminal from "./NewsMenu/index.ts";
 import { executeScript } from "./utils/scripts.ts";
+import governmentTerminal from "./GovernmentMenu/index.ts";
 import figlet from "figlet";
 import {
   type Menu, type MenuOption, type TerminalUserStateConfig,
@@ -40,6 +41,19 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
         action: () => Effect.gen(function*() {
             const st = yield* TerminalUserStateConfigContext;
             const newState = yield* stocksTerminal(st);
+            return {
+                result: { type: CommandResultType.Success },
+                state: newState,
+            };
+        })
+    },
+    {
+        name: "government",
+        command: "government",
+        description: "Fetch government bond yields from Yahoo Finance",
+        action: () => Effect.gen(function*() {
+            const st = yield* TerminalUserStateConfigContext;
+            const newState = yield* governmentTerminal(st);
             return {
                 result: { type: CommandResultType.Success },
                 state: newState,
