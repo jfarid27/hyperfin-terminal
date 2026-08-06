@@ -19,7 +19,6 @@
   "main": "index.js",
   "scripts": {
     "cli": "npx tsx index.ts",
-    "terminal": "npx tsx terminal.ts",
     "test": "deno test --allow-env --allow-read --allow-net --allow-sys",
     "test:e2e": "deno test test/e2e/ --allow-all",
     "test:all": "deno test --allow-all",
@@ -30,7 +29,6 @@
     "@inquirer/prompts": "^8.5.2",
     "@observablehq/plot": "^0.6.17",
     "@types/terminal-kit": "^2.5.7",
-    "@xmtp/node-sdk": "^6.1.0",
     "chalk": "^5.6.2",
     "commander": "^14.0.3",
     "d3": "^7.9.0",

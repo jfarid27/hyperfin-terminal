@@ -37,10 +37,9 @@ structure of the application is as follows:
 ```bash
 OpenEthTerminal/
 ├── deno.json
-├── index.ts              -- Classic CLI entry point (deno task cli)
-├── terminal.ts           -- Bloomberg-style TUI entry point (deno task terminal)
+├── index.ts              -- CLI entry point (deno task cli)
 ├── cli/
-│   ├── index.ts          -- Main terminal menu (CLI mode)
+│   ├── index.ts          -- Main terminal menu
 │   ├── types.ts          -- Core types (Menu, MenuOption, ActionHandler, etc.)
 │   ├── errors/           -- ProgramError tagged errors
 │   ├── services/         -- ConfigService, FetchService, TerminalUserState
@@ -54,14 +53,6 @@ OpenEthTerminal/
 │       ├── program_loader.ts  -- Commander-based program loading
 │       ├── menu_globals.ts    -- Global menu options (exit, back, showconfig)
 │       └── scripts.ts         -- Script execution
-├── terminal/
-│   ├── index.ts          -- TUI entry point: startHyperFin(), menu options
-│   ├── HyperFinTerminal.ts -- Main TUI loop, keybinding dispatch
-│   ├── MainPanel.ts      -- Full-screen layout (data area, command input, menu bar)
-│   └── xmtp/
-│       ├── client.ts     -- XMTP chat client
-│       ├── ChatPanel.ts  -- Chat UI
-│       └── account.ts    -- XMTP key management
 ├── scripts/              -- OpenEthTerminal scripts folder
 │   ├── script1.txt
 │   └── script2.txt
@@ -91,7 +82,7 @@ When users call on this agent, follow this workflow:
     located in the main directory of the application. Since the application is able to run scripts from the command line, 
     you can use the `--oet-script` flag to run the script. Specifically you should run the script with the following command:
     ```bash
-    deno run start --oet-script scripts/<filename>.txt
+    deno task cli --oet-script scripts/<filename>.txt
     ```
 5.  **Feedback**: Once the script is completed, you may summarize the results of the script to the user.
     Explicitly ask the user if the output was what they were looking for or if they would like to modify it.

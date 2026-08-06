@@ -32,8 +32,7 @@ user to generate the appropriate code for the action.
 ```bash
 OpenEthTerminal/
 ├── deno.json
-├── index.ts                 -- Classic CLI entry (deno task cli)
-├── terminal.ts              -- Bloomberg-style TUI entry (deno task terminal)
+├── index.ts                 -- CLI entry (deno task cli)
 ├── cli/
 │   ├── index.ts             -- Main terminal menu
 │   ├── types.ts
@@ -47,11 +46,6 @@ OpenEthTerminal/
 │   │   └── actions/         -- Handlers that Effect.provide the menu Layer
 │   └── utils/
 │       └── program_loader.ts -- mapErrorsToCommandResults
-├── terminal/
-│   ├── index.ts             -- TUI entry: startHyperFin(), menu options
-│   ├── HyperFinTerminal.ts  -- Main TUI loop
-│   ├── MainPanel.ts         -- Full-screen layout
-│   └── xmtp/                -- XMTP chat integration
 ├── skills/
 └── README.md
 ```
