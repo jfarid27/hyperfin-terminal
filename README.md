@@ -50,22 +50,12 @@ Set up your environment variables:
 
 ### Deno
 ```bash
-deno run start 
+deno task cli
 ```
 
 To run a script directly from the command line:
 ```bash
-deno run start --oet-script scripts/<filename>.txt
-```
-
-### Node.js
-```bash
-npx tsx index.ts
-```
-
-To run a script directly from the command line:
-```bash
-npx tsx index.ts --oet-script scripts/<filename>.txt
+deno task cli --oet-script scripts/<filename>.txt
 ```
 
 ## Features
@@ -95,12 +85,7 @@ You can also run scripts directly from the command line using the `--oet-script`
 
 **Deno:**
 ```bash
-deno run start --oet-script scripts/<filename>.txt
-```
-
-**Node.js:**
-```bash
-npx tsx index.ts --oet-script scripts/<filename>.txt
+deno task cli --oet-script scripts/<filename>.txt
 ```
 
 #### Example Script
@@ -193,7 +178,7 @@ Run the application with the `dev:debug` script, then attach your favorite debug
 There is a vscode launch configuration for this called "Deno: Attach".
 
 ```bash
-deno run dev:debug
+deno task dev:debug
 ```
 
 ## License

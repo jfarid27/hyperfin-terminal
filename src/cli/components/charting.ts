@@ -1,8 +1,33 @@
 import * as Plot from "@observablehq/plot";
 import { JSDOM } from "npm:jsdom";
-import open from "npm:open";
 import { Effect } from "effect";
 import { LocalProcessingError } from "src/cli/errors/index.ts";
+
+/**
+ * Open a file with the platform's default viewer, without blocking.
+ *
+ * Deliberately uses `Deno.Command` rather than `npm:open`. The `open` package
+ * statically pulls in `is-wsl` / `is-docker`, which probe Deno *special paths*
+ * (`/proc/version`, `/proc/sys/fs/binfmt_misc/WSLInterop`, `/proc/self/cgroup`)
+ * at module load. Deno refuses to grant granular access to special paths, so a
+ * static `import open from "npm:open"` made *every* CLI launch fail with
+ * NotCapable unless the process ran with `--allow-all`.
+ */
+function launchViewer(path: string): void {
+  const [cmd, args] = Deno.build.os === "windows"
+    ? ["cmd", ["/c", "start", "", path]]
+    : Deno.build.os === "darwin"
+    ? ["open", [path]]
+    : ["xdg-open", [path]];
+
+  try {
+    // .unref() so the CLI isn't held open by the viewer, and so we don't wait
+    // on a viewer that stays in the foreground (some xdg-open handlers do).
+    new Deno.Command(cmd as string, { args: args as string[] }).spawn().unref();
+  } catch (err) {
+    console.error(`Could not launch a viewer for ${path}: ${err}`);
+  }
+}
 
 /**
  * Options for configuring a time series in a multi-line chart
@@ -51,7 +76,7 @@ export async function show(content: Element | string) {
 
       await Deno.writeTextFile(tempFile, svgString);
       console.log(`Saved chart to: ${tempFile}`);
-      await open(tempFile, { wait: false });
+      launchViewer(tempFile);
   } catch (err) {
       console.error(err);
   }

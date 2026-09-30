@@ -16,9 +16,8 @@
     "open-eth-terminal": "./index.ts"
   },
   "type": "module",
-  "main": "index.js",
   "scripts": {
-    "cli": "npx tsx index.ts",
+    "cli": "deno task cli",
     "test": "deno test --allow-env --allow-read --allow-net --allow-sys",
     "test:e2e": "deno test test/e2e/ --allow-all",
     "test:all": "deno test --allow-all",
