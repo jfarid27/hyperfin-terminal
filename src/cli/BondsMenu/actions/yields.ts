@@ -7,10 +7,12 @@ import { CommandResultType } from "../../types.ts";
 import { Effect } from "effect";
 
 /**
- * Parse a bond code like "US10" into its Yahoo ticker and label.
+ * Parse a bond code like "US10" into its Yahoo ticker, label, and tenor.
  * Returns null if the code is unknown.
  */
-const parseBondCode = (code: string): { ticker: string; label: string } | null => {
+const parseBondCode = (
+  code: string,
+): { ticker: string; label: string; tenor: string } | null => {
   const upper = code.toUpperCase();
   const entry = BOND_TICKER_MAP[upper];
   if (entry) return entry;
@@ -23,6 +25,13 @@ const parseBondCode = (code: string): { ticker: string; label: string } | null =
 
   return null;
 };
+
+/**
+ * Title shown on a bond yield chart, e.g. "Bond Yields - 10-Year - 2026-10-05".
+ * Tenure is the bond's term, and the date is the latest data point.
+ */
+export const bondYieldChartTitle = (tenant: string, latestDate: string): string =>
+  `Bond Yields - ${tenant} - ${latestDate}`;
 
 export const yieldsHandler = (bondCode: string, range?: string) =>
   Effect.gen(function* () {
@@ -77,7 +86,7 @@ export const yieldsHandler = (bondCode: string, range?: string) =>
       [...points] as unknown as Record<string, unknown>[],
       "date",
       "close",
-      `${parsed.label} Yield (${rangeStr})`,
+      bondYieldChartTitle(parsed.tenor, latest.date),
     );
 
     return { result: { type: CommandResultType.Success }, state: st };

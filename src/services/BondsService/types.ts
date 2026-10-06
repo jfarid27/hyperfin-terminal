@@ -28,11 +28,11 @@ export interface BondSymbolType {
  * short-term proxy for US2. US20 is omitted until a suitable data
  * source is available.
  */
-export const BOND_TICKER_MAP: Record<string, { ticker: string; label: string }> = {
-  US2:  { ticker: "^IRX",  label: "US 2-Year (13W proxy)" },
-  US5:  { ticker: "^FVX",  label: "US 5-Year" },
-  US10: { ticker: "^TNX",  label: "US 10-Year" },
-  US30: { ticker: "^TYX",  label: "US 30-Year" },
+export const BOND_TICKER_MAP: Record<string, { ticker: string; label: string; tenor: string }> = {
+  US2:  { ticker: "^IRX",  label: "US 2-Year (13W proxy)", tenor: "2-Year" },
+  US5:  { ticker: "^FVX",  label: "US 5-Year", tenor: "5-Year" },
+  US10: { ticker: "^TNX",  label: "US 10-Year", tenor: "10-Year" },
+  US30: { ticker: "^TYX",  label: "US 30-Year", tenor: "30-Year" },
 };
 
 /** A single yield data point from the chart API. */

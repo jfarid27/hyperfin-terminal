@@ -46,30 +46,105 @@ export interface TimeSeriesData {
 }
 
 /**
+ * A rendered chart together with the title that belongs on it.
+ *
+ * Observable Plot renders `title` as an `<h2>` *sibling* of the `<svg>` inside
+ * a `<figure>` wrapper — it is not part of the SVG. Serializing only the inner
+ * `<svg>` therefore silently drops the title from every saved chart, so the
+ * title has to be carried alongside the SVG and drawn into it.
+ */
+export interface RenderedChart {
+  /** The `<svg>` element to save. */
+  svg: Element;
+  /** The chart title, if one was requested. */
+  title?: string;
+}
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+const TITLE_FONT_SIZE = 16;
+const TITLE_BASELINE = 20;
+
+/** Vertical room (in user units) a chart title takes up on the canvas. */
+export const CHART_TITLE_HEIGHT = 28;
+
+/**
+ * Draw `title` as text at the top of `svg`, growing the canvas so the title
+ * sits above the plot instead of overlapping it.
+ */
+function drawSvgTitle(svg: Element, title: string, plotHeight: number): void {
+  const document = svg.ownerDocument;
+  if (!document) return;
+
+  const viewBox = svg.getAttribute("viewBox");
+  const [, , w, h] = (viewBox ?? "").split(/\s+/).map(Number);
+  const width = w > 0 ? w : Number(svg.getAttribute("width")) || 640;
+  const baseHeight = h > 0 ? h : plotHeight;
+
+  // Move the viewBox origin *up* by the height of the title band rather than
+  // stretching the canvas: the plot is drawn at 1:1 and simply starts lower,
+  // so gridlines, ticks, and axis labels keep their exact proportions.
+  const nextHeight = baseHeight + CHART_TITLE_HEIGHT;
+  const top = -CHART_TITLE_HEIGHT;
+  svg.setAttribute("viewBox", `0 ${top} ${width} ${nextHeight}`);
+  svg.setAttribute("height", String(nextHeight));
+  if (svg.getAttribute("width")) {
+    svg.setAttribute("width", String(width));
+  }
+
+  const text = document.createElementNS(SVG_NS, "text");
+  text.setAttribute("x", String(width / 2));
+  text.setAttribute("y", String(top + TITLE_BASELINE));
+  text.setAttribute("text-anchor", "middle");
+  text.setAttribute("fill", "white");
+  text.setAttribute("font-size", String(TITLE_FONT_SIZE));
+  text.setAttribute("font-family", "system-ui, sans-serif");
+  text.textContent = title;
+  svg.appendChild(text);
+}
+
+/** Resolve the `<svg>` element from a chart, unwrapping Plot's `<figure>`. */
+function toSvgElement(content: Element | RenderedChart): Element {
+  let element = "svg" in content ? content.svg : content;
+
+  // If the element is a wrapper (e.g. figure), extract the svg
+  if (element.tagName.toLowerCase() !== "svg") {
+    const nested = element.querySelector("svg");
+    if (nested) element = nested;
+  }
+
+  return element;
+}
+
+/**
+ * Serialize a chart to a standalone SVG string, drawing the chart's title into
+ * the SVG so it survives the trip to the viewer.
+ */
+export function serializeChart(content: Element | string | RenderedChart): string {
+  if (typeof content === "string") return content;
+
+  const title = "svg" in content ? content.title : undefined;
+  const element = toSvgElement(content);
+
+  if (title) {
+    drawSvgTitle(element, title, Number(element.getAttribute("height")) || 400);
+  }
+
+  if (!element.getAttribute("xmlns")) {
+    element.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns", "http://www.w3.org/2000/svg");
+  }
+  if (!element.getAttribute("xmlns:xlink")) {
+    element.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:xlink", "http://www.w3.org/1999/xlink");
+  }
+
+  return element.outerHTML;
+}
+
+/**
  * A reusable function to display an Observable Plot or SVG string
  * in the system's default viewer.
  */
-export async function show(content: Element | string) {
-  let svgString = "";
-  if (typeof content === "string") {
-    svgString = content;
-  } else {
-    let element = content;
-
-    // If the element is a wrapper (e.g. figure), extract the svg
-    if (element.tagName.toLowerCase() !== "svg") {
-        const nested = element.querySelector("svg");
-        if (nested) element = nested;
-    }
-
-    if (!element.getAttribute("xmlns")) {
-      element.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns", "http://www.w3.org/2000/svg");
-    }
-    if (!element.getAttribute("xmlns:xlink")) {
-      element.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:xlink", "http://www.w3.org/1999/xlink");
-    }
-    svgString = element.outerHTML;
-  }
+export async function show(content: Element | string | RenderedChart) {
+  const svgString = serializeChart(content);
 
   try {
       const tempFile = await Deno.makeTempFile({ dir: "./tmp", suffix: ".svg" });
@@ -143,7 +218,7 @@ export function showNumericLineChart(
     }
 
     return Effect.tryPromise({
-      try: () => show(plot),
+      try: () => show({ svg: plot, title }),
       catch: () => new LocalProcessingError({ message: "Failed to show plot." })
     });
 }
@@ -201,7 +276,7 @@ export function showLineChart(
     }
 
     return Effect.tryPromise({
-      try: () => show(plot),
+      try: () => show({ svg: plot, title }),
       catch: () => new LocalProcessingError({ message: "Failed to show plot." })
     });
 }
@@ -279,7 +354,7 @@ export function showMultiLineChart(
     }
 
   return Effect.tryPromise({
-    try: () => show(plot),
+    try: () => show({ svg: plot, title }),
     catch: () => new LocalProcessingError({ message: "Failed to show plot." })
   });
 }
