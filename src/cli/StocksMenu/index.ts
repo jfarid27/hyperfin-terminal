@@ -4,6 +4,8 @@ import { StocksDataSourceTypeSchema, StocksDataSourceType } from "./types.ts";
 import { menuGlobals } from "../utils/menu_globals.ts";
 import { chartPriceHandler, spotPriceHandler as alphaVantageSpotPriceHandler, searchSymbolsHandler } from "./actions/alphavantage.ts";
 import { spotPriceHandler as massiveSpotPriceHandler } from "./actions/Massive.ts";
+import { bollingerHandler, fibonacciHandler } from "./actions/technicals.ts";
+import { technicalsTerminal } from "./TechnicalsMenu/index.ts";
 import { Effect, Schema } from "effect";
 import { lensPath, set, view } from "ramda";
 import { DataSourceType } from "src/cli/types.ts";
@@ -12,7 +14,8 @@ import chalk from "chalk";
 
 const tokenLens = lensPath(["loadedContext", "token", "symbol"]);
 const datasourceTypeLens = lensPath(["loadedContext", "stocks", "datasource"]);
-const getLoadedToken = view(tokenLens);
+const getLoadedToken = (st: TerminalUserStateConfig): string | undefined =>
+  (st.loadedContext as { token?: { symbol?: string } }).token?.symbol;
 
 const spotHandler = (symbolStr: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
@@ -41,6 +44,16 @@ const chartHandler = (symbolStr: string) => Effect.gen(function* () {
 
   return yield* chartPriceHandler(symbol);
 }).pipe(Effect.provide(StocksServiceLive));
+
+/**
+ * Enter the technicals submenu, which lists one option per indicator
+ * (bbands, fibonacci).
+ */
+const technicalsHandler = () => Effect.gen(function* () {
+  const st = yield* TerminalUserStateConfigContext;
+  const newState = yield* technicalsTerminal(st);
+  return { result: { type: CommandResultType.Success }, state: newState };
+});
 
 /**
  * Search AlphaVantage for tickers matching a term. Search is a
@@ -87,6 +100,12 @@ const stocksMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
     command: "chart [symbol]",
     description: "Fetch chart data for the given symbol",
     action: chartHandler,
+  },
+  {
+    name: "technicals",
+    command: "technicals",
+    description: "Technical analysis indicators: bbands, fibonacci",
+    action: technicalsHandler,
   },
   {
     name: "spot",

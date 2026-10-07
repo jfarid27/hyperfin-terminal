@@ -59,7 +59,11 @@ export interface CoinGeckoModelPort {
     get: (symbol: CryptoSymbolType) => Effect.Effect<SpotPoint, ConfigError | HTTPError | LocalProcessingError>;
   };
   chart: {
-    get: (symbol: CryptoSymbolType) => Effect.Effect<ChartData, ConfigError | HTTPError | LocalProcessingError>;
+    /**
+     * Fetch a daily price series. `days` defaults to "14"; technical indicators
+     * need a longer window than the plain chart to fill their lookback.
+     */
+    get: (symbol: CryptoSymbolType, days?: string) => Effect.Effect<ChartData, ConfigError | HTTPError | LocalProcessingError>;
   };
 }
 
@@ -91,7 +95,7 @@ export const CoinGeckoModelLive = Layer.effect(
           }),
       },
       chart: {
-        get: (symbol: CryptoSymbolType) =>
+        get: (symbol: CryptoSymbolType, days: string = "14") =>
           Effect.gen(function* () {
             if (symbol._type !== DataSourceType.CoinGecko) {
               return yield* new ConfigError({ message: "Invalid data source type for CoinGecko." });
@@ -99,7 +103,7 @@ export const CoinGeckoModelLive = Layer.effect(
             const COINGECKO_CHART_API = `https://api.coingecko.com/api/v3/coins/${symbol.id}/market_chart`;
             const params = new URLSearchParams({
               vs_currency: "usd",
-              days: "14",
+              days,
               interval: "daily",
             });
             const res = yield* fs.fetchJson(COINGECKO_CHART_API, params);

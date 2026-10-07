@@ -81,6 +81,7 @@ const spyChart = (calls: { data: Record<string, unknown>[]; title?: string }[]) 
       calls.push({ data, title });
       return Effect.void;
     },
+    renderTechnical: (_data, _x, _y, _overlays, _title) => Effect.void,
   });
 
 /**
@@ -90,6 +91,7 @@ const spyChart = (calls: { data: Record<string, unknown>[]; title?: string }[]) 
  */
 const noopChart = Layer.succeed(ChartRenderer, {
   render: () => Effect.void,
+  renderTechnical: () => Effect.void,
 });
 
 const mockState = (overrides?: Partial<TerminalUserStateConfig>) =>

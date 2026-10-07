@@ -28,6 +28,7 @@ const mockChartRenderer = Layer.succeed(ChartRenderer, {
     renderedTitle = title;
     return Effect.succeed(undefined);
   },
+  renderTechnical: (_data, _x, _y, _overlays, _title) => Effect.void,
 });
 
 const baseState: TerminalUserStateConfig = {

@@ -16,6 +16,13 @@ All data comes from AlphaVantage's free tier APIs. Requires `ALPHAVANTAGE_API_KE
   - Fetches the daily time series (compact, ~100 data points) and renders a line chart.
   - Falls back to the loaded token symbol if no argument is given.
 
+- **technicals** `technicals [technicalType] [symbol] [arg1] [arg2]`
+  - Charts a technical indicator over the price series.
+    - `bbands` — Bollinger Bands. `arg1` = period (default 20), `arg2` = standard deviations (default 2).
+    - `fibonacci` — Fibonacci retracement levels over the latest swing. `arg1` = swing lookback in bars (default: the whole series).
+  - `symbol` is optional and falls back to the loaded token, e.g. `technicals bbands NVDA 20 2`.
+  - Branches on the active `source`: AlphaVantage uses its daily time series, Massive uses `/v2/aggs` daily bars (a year of history).
+
 - **search** `search [term...]`
   - Searches AlphaVantage (`SYMBOL_SEARCH`) for tickers matching a free-text term and prints a table of the matching symbols with their name, instrument type, exchange region, currency, and match score.
   - Accepts multi-word terms (e.g. `search tencent holdings`).

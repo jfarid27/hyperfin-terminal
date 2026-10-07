@@ -65,6 +65,7 @@ const mockAlphaVantage = Layer.succeed(AlphaVantageService, {
 
 const mockChartRenderer = Layer.succeed(ChartRenderer, {
   render: (_data, _x, _y, _title) => Effect.void,
+  renderTechnical: (_data, _x, _y, _overlays, _title) => Effect.void,
 });
 
 const mockState = (overrides?: Partial<TerminalUserStateConfig>) =>
