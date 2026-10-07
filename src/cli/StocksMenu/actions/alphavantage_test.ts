@@ -1,8 +1,8 @@
 import { describe, it } from "jsr:@std/testing/bdd";
 import { expect } from "jsr:@std/expect";
 import { Effect, Layer } from "effect";
-import { spotPriceHandler, chartPriceHandler } from "./alphavantage.ts";
-import { AlphaVantageService, type SpotQuote, type ChartPoint } from "src/services/AlphaVantageService/index.ts";
+import { spotPriceHandler, chartPriceHandler, searchSymbolsHandler } from "./alphavantage.ts";
+import { AlphaVantageService, type SpotQuote, type ChartPoint, type SymbolMatch } from "src/services/AlphaVantageService/index.ts";
 import { ChartRenderer } from "../services/ChartRenderer.ts";
 import { TerminalUserStateConfigContext } from "../../types.ts";
 import { CommandResultType, DataSourceType, EnvironmentType, LogLevel } from "../../types.ts";
@@ -30,6 +30,11 @@ const mockChartPoints: ChartPoint[] = [
   { date: "2026-07-31", open: 198.4405, high: 202.0, low: 194.95, close: 200.75, volume: 139961152, timestamp: new Date("2026-07-31").getTime() },
 ];
 
+const mockSymbolMatches: SymbolMatch[] = [
+  { symbol: "TCEHY", name: "Tencent Holdings Ltd", type: "Equity", region: "United States", currency: "USD", matchScore: 0.5185 },
+  { symbol: "NNND.FRK", name: "Tencent Holdings Ltd", type: "Equity", region: "Frankfurt", currency: "EUR", matchScore: 0.5185 },
+];
+
 const baseState: TerminalUserStateConfig = {
   environment: EnvironmentType.Development,
   logLevel: LogLevel.None,
@@ -55,6 +60,7 @@ const baseState: TerminalUserStateConfig = {
 const mockAlphaVantage = Layer.succeed(AlphaVantageService, {
   getSpot: (_symbol) => Effect.succeed(mockSpotQuote),
   getChart: (_symbol) => Effect.succeed(mockChartPoints),
+  searchSymbols: (_query) => Effect.succeed(mockSymbolMatches),
 });
 
 const mockChartRenderer = Layer.succeed(ChartRenderer, {
@@ -110,6 +116,7 @@ describe("spotPriceHandler", () => {
     const failingMock = Layer.succeed(AlphaVantageService, {
       getSpot: (_symbol) => Effect.fail(new HTTPError({ message: "API down" })),
       getChart: (_symbol) => Effect.fail(new HTTPError({ message: "API down" })),
+      searchSymbols: (_query) => Effect.fail(new HTTPError({ message: "API down" })),
     });
 
     const program = spotPriceHandler("NVDA").pipe(
@@ -167,11 +174,87 @@ describe("chartPriceHandler", () => {
     const failingMock = Layer.succeed(AlphaVantageService, {
       getSpot: (_symbol) => Effect.fail(new HTTPError({ message: "API down" })),
       getChart: (_symbol) => Effect.fail(new HTTPError({ message: "API down" })),
+      searchSymbols: (_query) => Effect.fail(new HTTPError({ message: "API down" })),
     });
 
     const program = chartPriceHandler("NVDA").pipe(
       Effect.provide(failingMock),
       Effect.provide(mockChartRenderer),
+      Effect.provide(mockState()),
+    );
+
+    await expect(Effect.runPromise(program)).rejects.toThrow();
+  });
+});
+
+describe("searchSymbolsHandler", () => {
+  it("returns success and lists matches for a term", async () => {
+    const program = searchSymbolsHandler("tencent").pipe(
+      Effect.provide(mockAlphaVantage),
+      Effect.provide(mockState()),
+    );
+
+    const result = await Effect.runPromise(program);
+    expect(result.result.type).toBe(CommandResultType.Success);
+  });
+
+  it("passes the full multi-word term to the service", async () => {
+    const seen: string[] = [];
+    const spy = Layer.succeed(AlphaVantageService, {
+      getSpot: (_symbol) => Effect.succeed(mockSpotQuote),
+      getChart: (_symbol) => Effect.succeed(mockChartPoints),
+      searchSymbols: (query) => {
+        seen.push(query);
+        return Effect.succeed(mockSymbolMatches);
+      },
+    });
+
+    await Effect.runPromise(
+      searchSymbolsHandler("tencent", ["holdings"]).pipe(
+        Effect.provide(spy),
+        Effect.provide(mockState()),
+      ),
+    );
+
+    expect(seen[0], "Multi-word terms should be rejoined before the API call").toBe("tencent holdings");
+  });
+
+  it("returns error when no search term is provided", async () => {
+    const program = searchSymbolsHandler("").pipe(
+      Effect.provide(mockAlphaVantage),
+      Effect.provide(mockState()),
+    );
+
+    const result = await Effect.runPromise(program);
+    expect(result.result.type).toBe(CommandResultType.Error);
+  });
+
+  it("succeeds with an empty list when nothing matches", async () => {
+    const emptyMock = Layer.succeed(AlphaVantageService, {
+      getSpot: (_symbol) => Effect.succeed(mockSpotQuote),
+      getChart: (_symbol) => Effect.succeed(mockChartPoints),
+      searchSymbols: (_query) => Effect.succeed([]),
+    });
+
+    const result = await Effect.runPromise(
+      searchSymbolsHandler("zzzzzz").pipe(
+        Effect.provide(emptyMock),
+        Effect.provide(mockState()),
+      ),
+    );
+
+    expect(result.result.type).toBe(CommandResultType.Success);
+  });
+
+  it("propagates service errors as ProgramError", async () => {
+    const failingMock = Layer.succeed(AlphaVantageService, {
+      getSpot: (_symbol) => Effect.fail(new HTTPError({ message: "API down" })),
+      getChart: (_symbol) => Effect.fail(new HTTPError({ message: "API down" })),
+      searchSymbols: (_query) => Effect.fail(new HTTPError({ message: "rate limited" })),
+    });
+
+    const program = searchSymbolsHandler("tencent").pipe(
+      Effect.provide(failingMock),
       Effect.provide(mockState()),
     );
 

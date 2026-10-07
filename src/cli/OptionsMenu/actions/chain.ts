@@ -5,6 +5,7 @@ import { DataSourceType, TerminalUserStateConfigContext } from "../../types.ts";
 import { CommandResultType } from "../../types.ts";
 import { Effect } from "effect";
 import terminalKit from "terminal-kit";
+import { greenCell, redCell } from "../../utils/table_markup.ts";
 const { terminal } = terminalKit;
 
 const getLoadedToken = (st: any): string | undefined =>
@@ -12,7 +13,7 @@ const getLoadedToken = (st: any): string | undefined =>
 
 const toTableRow = (c: OptionContract) => [
   c.contractSymbol.slice(-15),
-  c.inTheMoney ? chalk.green("ITM") : chalk.red("OTM"),
+  c.inTheMoney ? greenCell("ITM") : redCell("OTM"),
   c.strike.toFixed(1),
   c.lastPrice.toFixed(2),
   c.bid.toFixed(2),

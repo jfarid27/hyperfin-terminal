@@ -4,8 +4,10 @@ import { Effect, Schema, Either } from "effect";
 import {
   GlobalQuoteRaw,
   TimeSeriesDailyRaw,
+  SymbolSearchRaw,
   toSpotQuote,
   toChartPoints,
+  toSymbolMatches,
 } from "./index.ts";
 
 // ── Real API response fixtures (from curl against NVDA, 2026-08-02) ──
@@ -219,5 +221,101 @@ describe("toChartPoints", () => {
     expect(points[0].close).toBe(190.01);
     expect(points[1].close).toBe(195.04);
     expect(points[2].close).toBe(200.75);
+  });
+});
+
+// ── SYMBOL_SEARCH fixtures (from curl against "tencent", 2026-10-07) ──
+
+const validSearchRaw = {
+  bestMatches: [
+    {
+      "1. symbol": "NNND.FRK",
+      "2. name": "Tencent Holdings Ltd",
+      "3. type": "Equity",
+      "4. region": "Frankfurt",
+      "5. marketOpen": "08:00",
+      "6. marketClose": "20:00",
+      "7. timezone": "UTC+02",
+      "8. currency": "EUR",
+      "9. matchScore": "0.5185",
+    },
+    {
+      "1. symbol": "TCEHY",
+      "2. name": "Tencent Holdings Ltd",
+      "3. type": "Equity",
+      "4. region": "United States",
+      "5. marketOpen": "09:30",
+      "6. marketClose": "16:00",
+      "7. timezone": "UTC-04",
+      "8. currency": "USD",
+      "9. matchScore": "0.5185",
+    },
+  ],
+};
+
+// A rate-limited / notice response: no bestMatches, just a message.
+const noticeSearchRaw = {
+  Information: "We have detected your API key as ... and our standard API rate limit is 25 requests per day.",
+};
+
+describe("SymbolSearchRaw schema", () => {
+  it("validates a real AlphaVantage SYMBOL_SEARCH response", () => {
+    const result = Schema.decodeUnknownEither(SymbolSearchRaw)(validSearchRaw);
+    expect(Either.isRight(result), "valid search response should decode").toBe(true);
+  });
+
+  it("accepts an empty bestMatches list", () => {
+    const result = Schema.decodeUnknownEither(SymbolSearchRaw)({ bestMatches: [] });
+    expect(Either.isRight(result), "empty results should decode").toBe(true);
+  });
+
+  it("defaults bestMatches to [] when the field is absent", () => {
+    const result = Schema.decodeUnknownEither(SymbolSearchRaw)(noticeSearchRaw);
+    expect(Either.isRight(result), "notice response should decode").toBe(true);
+    if (Either.isRight(result)) {
+      expect(result.right.bestMatches.length).toBe(0);
+      expect(result.right.Information).toBeDefined();
+    }
+  });
+});
+
+describe("toSymbolMatches", () => {
+  it("transforms a raw response into clean matches", () => {
+    const decoded = Schema.decodeUnknownSync(SymbolSearchRaw)(validSearchRaw);
+    const matches = toSymbolMatches(decoded);
+
+    expect(matches.length).toBe(2);
+    const tcehy = matches.find((m) => m.symbol === "TCEHY")!;
+    expect(tcehy.name).toBe("Tencent Holdings Ltd");
+    expect(tcehy.type).toBe("Equity");
+    expect(tcehy.region).toBe("United States");
+    expect(tcehy.currency).toBe("USD");
+    expect(tcehy.matchScore).toBe(0.5185);
+  });
+
+  it("sorts matches by descending match score", () => {
+    const decoded = Schema.decodeUnknownSync(SymbolSearchRaw)({
+      bestMatches: [
+        { ...validSearchRaw.bestMatches[0], "9. matchScore": "0.2000" },
+        { ...validSearchRaw.bestMatches[1], "9. matchScore": "0.9000" },
+      ],
+    });
+    const matches = toSymbolMatches(decoded);
+
+    expect(matches[0].symbol).toBe("TCEHY");
+    expect(matches[0].matchScore).toBe(0.9);
+    expect(matches[1].matchScore).toBe(0.2);
+  });
+
+  it("returns an empty list for a no-match response", () => {
+    const decoded = Schema.decodeUnknownSync(SymbolSearchRaw)({ bestMatches: [] });
+    expect(toSymbolMatches(decoded).length).toBe(0);
+  });
+
+  it("converts matchScore from string to number", () => {
+    const decoded = Schema.decodeUnknownSync(SymbolSearchRaw)(validSearchRaw);
+    for (const m of toSymbolMatches(decoded)) {
+      expect(typeof m.matchScore).toBe("number");
+    }
   });
 });

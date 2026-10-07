@@ -16,6 +16,11 @@ All data comes from AlphaVantage's free tier APIs. Requires `ALPHAVANTAGE_API_KE
   - Fetches the daily time series (compact, ~100 data points) and renders a line chart.
   - Falls back to the loaded token symbol if no argument is given.
 
+- **search** `search [term...]`
+  - Searches AlphaVantage (`SYMBOL_SEARCH`) for tickers matching a free-text term and prints a table of the matching symbols with their name, instrument type, exchange region, currency, and match score.
+  - Accepts multi-word terms (e.g. `search tencent holdings`).
+  - Search is a symbol-discovery tool offered only by AlphaVantage, so it does not branch on the active `source`.
+
 ## Architecture
 
 ```

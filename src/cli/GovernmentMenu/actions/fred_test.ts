@@ -1,6 +1,6 @@
 import { describe, it } from "jsr:@std/testing/bdd";
 import { expect } from "jsr:@std/expect";
-import { processFredData } from "./fred.ts";
+import { processFredData, stripHtml, toSeriesSummaries } from "./fred.ts";
 
 describe("FRED Data Processor", () => {
     describe("processFredData", () => {
@@ -118,5 +118,80 @@ describe("FRED Data Processor", () => {
                 "Later dates should have larger timestamps"
             ).toBeGreaterThan(processed[0].timestamp);
         });
+    });
+});
+
+// ── FRED series search fixtures (from curl against "treasury yield", 2026-10-07) ──
+
+const searchRaw = {
+    realtime_start: "2026-10-07",
+    realtime_end: "2026-10-07",
+    count: 632,
+    seriess: [
+        {
+            id: "DGS10",
+            title: "Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity",
+            observation_start: "1962-01-02",
+            observation_end: "2026-10-05",
+            frequency: "Daily",
+            units: "Percent",
+            notes: "H.15 Statistical Release (https://www.federalreserve.gov/releases/h15/current/h15.pdf) notes<p>For questions on the data, please contact the data source.</p>",
+        },
+        {
+            id: "GS10",
+            title: "Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity",
+            observation_start: "1953-04-01",
+            observation_end: "2026-09-01",
+            frequency: "Monthly",
+            units: "Percent",
+            notes: "",
+        },
+    ],
+};
+
+describe("stripHtml", () => {
+    it("removes tags and collapses whitespace", () => {
+        expect(stripHtml("<p>Hello</p>  <b>world</b>"))
+            .toBe("Hello world");
+    });
+
+    it("decodes common entities", () => {
+        expect(stripHtml("A &amp; B &lt;x&gt; &quot;q&quot; &#39;s&#39;"))
+            .toBe('A & B <x> "q" \'s\'');
+    });
+
+    it("returns an empty string for empty input", () => {
+        expect(stripHtml("")).toBe("");
+    });
+});
+
+describe("toSeriesSummaries", () => {
+    it("maps a raw FRED series/search response into summaries", () => {
+        const summaries = toSeriesSummaries(searchRaw);
+
+        expect(summaries.length).toBe(2);
+        expect(summaries[0].id).toBe("DGS10");
+        expect(summaries[0].title)
+            .toBe("Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity");
+        expect(summaries[0].frequency).toBe("Daily");
+        expect(summaries[0].units).toBe("Percent");
+        expect(summaries[0].observationStart).toBe("1962-01-02");
+        expect(summaries[0].observationEnd).toBe("2026-10-05");
+    });
+
+    it("strips HTML from the notes field into a plain description", () => {
+        const summaries = toSeriesSummaries(searchRaw);
+        expect(summaries[0].description.includes("<p>"),
+            "HTML tags must not survive into the description"
+        ).toBe(false);
+        expect(summaries[0].description.includes("H.15 Statistical Release")).toBe(true);
+    });
+
+    it("returns an empty list when there are no matches", () => {
+        expect(toSeriesSummaries({ count: 0, seriess: [] }).length).toBe(0);
+    });
+
+    it("survives a response missing the seriess key", () => {
+        expect(toSeriesSummaries({}).length).toBe(0);
     });
 });
