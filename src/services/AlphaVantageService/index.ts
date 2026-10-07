@@ -32,6 +32,19 @@ export interface ChartPoint {
   readonly timestamp: number;
 }
 
+/** A ticker returned by an AlphaVantage symbol search, cleaned up. */
+export interface SymbolMatch {
+  readonly symbol: string;
+  readonly name: string;
+  /** Instrument type, e.g. "Equity", "ETF". */
+  readonly type: string;
+  /** Exchange region, e.g. "United States". */
+  readonly region: string;
+  readonly currency: string;
+  /** AlphaVantage relevance score (0–1); higher is a closer match. */
+  readonly matchScore: number;
+}
+
 // ── Raw response schemas (match AlphaVantage's exact JSON shape) ──
 
 export const GlobalQuoteRaw = Schema.Struct({
@@ -63,6 +76,31 @@ export const TimeSeriesDailyRaw = Schema.Struct({
     "3. Last Refreshed": Schema.String,
   }),
   "Time Series (Daily)": Schema.Record({ key: Schema.String, value: DailyEntryRaw }),
+});
+
+const SymbolMatchRaw = Schema.Struct({
+  "1. symbol": Schema.String,
+  "2. name": Schema.String,
+  "3. type": Schema.String,
+  "4. region": Schema.String,
+  "8. currency": Schema.String,
+  "9. matchScore": Schema.String,
+});
+
+/**
+ * Shape of a SYMBOL_SEARCH response.
+ *
+ * A successful search always carries `bestMatches` (empty array when nothing
+ * matched). When the free-tier limit is hit or the request is malformed,
+ * AlphaVantage instead returns a bare `Information`/`Note` string with no
+ * `bestMatches` — that must surface as an error rather than an empty result.
+ */
+export const SymbolSearchRaw = Schema.Struct({
+  bestMatches: Schema.optionalWith(Schema.Array(SymbolMatchRaw), {
+    default: () => [],
+  }),
+  Information: Schema.optional(Schema.String),
+  Note: Schema.optional(Schema.String),
 });
 
 // ── Transformations: raw → clean ──
@@ -98,11 +136,24 @@ export const toChartPoints = (raw: Schema.Schema.Type<typeof TimeSeriesDailyRaw>
     .sort((a, b) => a.timestamp - b.timestamp);
 };
 
+export const toSymbolMatches = (
+  raw: Schema.Schema.Type<typeof SymbolSearchRaw>,
+): SymbolMatch[] =>
+  raw.bestMatches.map((m) => ({
+    symbol: m["1. symbol"],
+    name: m["2. name"],
+    type: m["3. type"],
+    region: m["4. region"],
+    currency: m["8. currency"],
+    matchScore: Number(m["9. matchScore"]),
+  })).sort((a, b) => b.matchScore - a.matchScore);
+
 // ── Service port ──
 
 export interface AlphaVantageServicePort {
   readonly getChart: (symbol: StockSymbolType) => Effect.Effect<ChartPoint[], ProgramError>;
   readonly getSpot: (symbol: StockSymbolType) => Effect.Effect<SpotQuote, ProgramError>;
+  readonly searchSymbols: (query: string) => Effect.Effect<SymbolMatch[], ProgramError>;
 }
 
 export class AlphaVantageService extends Context.Tag("hyperfin.stocks.services.AlphaVantage")<
@@ -165,6 +216,31 @@ export const AlphaVantageServiceLive = Layer.effect(
             ),
           );
           return toChartPoints(validated);
+        }).pipe(Effect.delay("1 seconds")),
+
+      searchSymbols: (query: string) =>
+        Effect.gen(function* () {
+          const params = new URLSearchParams({
+            function: "SYMBOL_SEARCH",
+            keywords: query,
+            apikey: apiKey
+          });
+          const raw = yield* fs.fetchJson("https://www.alphavantage.co/query", params);
+          const validated = yield* Schema.decodeUnknown(SymbolSearchRaw)(raw).pipe(
+            Effect.catchTag("ParseError", (e) =>
+              Effect.fail(
+                new HTTPError({ message: `Invalid AlphaVantage symbol search response shape: ${e.message}` }),
+              ),
+            ),
+          );
+          // A rate-limit/notice response arrives as a bare Information/Note
+          // string with no `bestMatches`, which decodes to an empty list —
+          // surface it as an error so it isn't mistaken for "no results".
+          const notice = validated.Information ?? validated.Note;
+          if (notice !== undefined && validated.bestMatches.length === 0) {
+            return yield* new HTTPError({ message: `AlphaVantage symbol search unavailable: ${notice}` });
+          }
+          return toSymbolMatches(validated);
         }).pipe(Effect.delay("1 seconds")),
     } satisfies AlphaVantageServicePort;
   }),

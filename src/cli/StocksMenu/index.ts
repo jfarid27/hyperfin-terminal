@@ -2,7 +2,7 @@ import { registerTerminalApplication } from "../utils/program_loader.ts";
 import { Menu, MenuOption, TerminalUserStateConfig, TerminalUserStateConfigContext, CommandResultType } from "src/cli/types.ts";
 import { StocksDataSourceTypeSchema, StocksDataSourceType } from "./types.ts";
 import { menuGlobals } from "../utils/menu_globals.ts";
-import { chartPriceHandler, spotPriceHandler as alphaVantageSpotPriceHandler } from "./actions/alphavantage.ts";
+import { chartPriceHandler, spotPriceHandler as alphaVantageSpotPriceHandler, searchSymbolsHandler } from "./actions/alphavantage.ts";
 import { spotPriceHandler as massiveSpotPriceHandler } from "./actions/Massive.ts";
 import { Effect, Schema } from "effect";
 import { lensPath, set, view } from "ramda";
@@ -41,6 +41,17 @@ const chartHandler = (symbolStr: string) => Effect.gen(function* () {
 
   return yield* chartPriceHandler(symbol);
 }).pipe(Effect.provide(StocksServiceLive));
+
+/**
+ * Search AlphaVantage for tickers matching a term. Search is a
+ * symbol-discovery tool and is only offered by AlphaVantage, so it does not
+ * branch on the loaded datasource.
+ */
+const searchHandler = (term: string | string[], extraTerms: string[] = []) =>
+  Effect.gen(function* () {
+    const st = yield* TerminalUserStateConfigContext;
+    return yield* searchSymbolsHandler(term, extraTerms);
+  }).pipe(Effect.provide(StocksServiceLive));
 
 /**
  * Switch the datasource for actions in the stocks menu using available
@@ -82,6 +93,12 @@ const stocksMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
     command: "spot [symbol]",
     description: "Fetch spot price for the given symbol",
     action: spotHandler,
+  },
+  {
+    name: "search",
+    command: "search [term...]",
+    description: "Search AlphaVantage for tickers matching a term (symbol, name, type, region)",
+    action: searchHandler,
   },
   {
     name: "source",
