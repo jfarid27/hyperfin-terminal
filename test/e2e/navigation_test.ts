@@ -52,3 +52,15 @@ Deno.test("NAV: Can navigate to News menu and back", async () => {
   assert(hasNewsContent, `Expected news content in output: ${output.substring(0, 1000)}`);
   assert(code === 0, `Expected clean exit, got code ${code}`);
 });
+
+Deno.test("NAV: Can navigate to Forex menu and back", async () => {
+  const { output, code } = await runScriptWithTimeout("test_nav_forex.txt");
+
+  const hasForexContent =
+    output.toLowerCase().includes("forex") ||
+    output.toLowerCase().includes("exchange rate") ||
+    output.toLowerCase().includes("eur");
+
+  assert(hasForexContent, `Expected forex content in output: ${output.substring(0, 1000)}`);
+  assert(code === 0, `Expected clean exit, got code ${code}`);
+});

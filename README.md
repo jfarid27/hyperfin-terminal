@@ -107,6 +107,10 @@ back
 government
 fred GNPCA 2020-01-01 2024-12-31
 back
+forex
+spot EUR USD
+chart EUR USD 2026-01-01 2026-06-30
+back
 ```
 
 ### Government Economic Data
@@ -128,6 +132,23 @@ To use the FRED features:
 The chart will display the series data with the official series title from FRED.
 
 You can find series IDs by browsing [FRED](https://fred.stlouisfed.org/).
+
+### Foreign Exchange (Forex)
+
+The Forex menu provides spot exchange rates and daily FX charts from the AlphaVantage API.
+
+To use:
+1. Set your AlphaVantage API key in the `.env` file (`ALPHAVANTAGE_API_KEY`) or use the `keys` command: `keys alphavantage your_api_key_here`
+2. Navigate to the forex menu: `forex`
+3. Fetch a spot rate for a pair: `spot EUR USD`
+4. Chart the daily close for a pair (dates are optional, `YYYY-MM-DD`):
+   ```
+   chart EUR USD                       # trailing 1 year
+   chart EUR USD 2026-01-01            # from 2026-01-01 through today
+   chart EUR USD 2026-01-01 2026-06-30 # exactly this range
+   ```
+
+The chart title labels the pair and the resolved range, e.g. `EUR/USD FX - 2025-10-07 to 2026-10-07`.
 
 ### Options Chains
 

@@ -9,6 +9,7 @@ import { menuGlobalsTop } from "./utils/menu_globals.ts";
 import newsTerminal from "./NewsMenu/index.ts";
 import { executeScript } from "./utils/scripts.ts";
 import governmentTerminal from "./GovernmentMenu/index.ts";
+import forexTerminal from "./ForexMenu/index.ts";
 import figlet from "figlet";
 import {
   type Menu, type MenuOption, type TerminalUserStateConfig,
@@ -67,6 +68,19 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
         action: () => Effect.gen(function*() {
             const st = yield* TerminalUserStateConfigContext;
             const newState = yield* optionsTerminal(st);
+            return {
+                result: { type: CommandResultType.Success },
+                state: newState,
+            };
+        })
+    },
+    {
+        name: "forex",
+        command: "forex",
+        description: "Fetch foreign exchange rates and charts",
+        action: () => Effect.gen(function*() {
+            const st = yield* TerminalUserStateConfigContext;
+            const newState = yield* forexTerminal(st);
             return {
                 result: { type: CommandResultType.Success },
                 state: newState,
