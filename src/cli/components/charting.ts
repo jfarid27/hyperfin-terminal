@@ -64,21 +64,98 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const TITLE_FONT_SIZE = 16;
 const TITLE_BASELINE = 20;
 
+/** Marks nodes injected by `serializeChart` so re-serializing stays idempotent. */
+const INJECTED_ATTR = "data-chart-injected";
+
+/**
+ * Attributes recording the viewBox/height a chart had *before* the title band
+ * was carved out, so re-serializing the same element restores the geometry
+ * instead of carving out another band.
+ */
+const ORIGINAL_VIEWBOX_ATTR = "data-chart-original-viewbox";
+const ORIGINAL_HEIGHT_ATTR = "data-chart-original-height";
+
 /** Vertical room (in user units) a chart title takes up on the canvas. */
 export const CHART_TITLE_HEIGHT = 28;
+
+/** The viewBox of `svg` in user units, falling back to its width/height. */
+function readViewBox(
+  svg: Element,
+): { x: number; y: number; width: number; height: number } {
+  const parts = (svg.getAttribute("viewBox") ?? "").trim().split(/\s+/)
+    .map(Number);
+  if (parts.length === 4 && parts.every((n) => Number.isFinite(n))) {
+    return { x: parts[0], y: parts[1], width: parts[2], height: parts[3] };
+  }
+  return {
+    x: 0,
+    y: 0,
+    width: Number(svg.getAttribute("width")) || 640,
+    height: Number(svg.getAttribute("height")) || 400,
+  };
+}
+
+/**
+ * Paint a black rect across the chart's entire viewBox.
+ *
+ * A `width="100%" height="100%"` rect is sized to the *viewport*, whose origin
+ * sits at the viewBox's top edge. Once the viewBox is shifted up to make room
+ * for a title, that rect no longer reaches the title band, so the band shows
+ * through as the viewer's default (usually white) background — exactly the
+ * "title has no background" bug. Sizing the rect in the viewBox's own user
+ * units keeps the whole canvas black regardless of how the viewer treats the
+ * root `<svg>` CSS background.
+ */
+function paintCanvasBackground(svg: Element): void {
+  const document = svg.ownerDocument;
+  if (!document) return;
+
+  const { x, y, width, height } = readViewBox(svg);
+  const bg = document.createElementNS(SVG_NS, "rect");
+  bg.setAttribute(INJECTED_ATTR, "");
+  bg.setAttribute("x", String(x));
+  bg.setAttribute("y", String(y));
+  bg.setAttribute("width", String(width));
+  bg.setAttribute("height", String(height));
+  bg.setAttribute("fill", "black");
+  svg.insertBefore(bg, svg.firstChild);
+}
+
+/**
+ * Undo the mutations `serializeChart` made on a previous pass: drop injected
+ * nodes and restore the pre-title viewBox/height, so serializing the same
+ * element repeatedly is idempotent.
+ */
+function resetInjected(svg: Element): void {
+  for (const node of [...svg.querySelectorAll(`[${INJECTED_ATTR}]`)]) {
+    node.remove();
+  }
+
+  const originalViewBox = svg.getAttribute(ORIGINAL_VIEWBOX_ATTR);
+  if (originalViewBox !== null) {
+    svg.setAttribute("viewBox", originalViewBox);
+    svg.removeAttribute(ORIGINAL_VIEWBOX_ATTR);
+    const originalHeight = svg.getAttribute(ORIGINAL_HEIGHT_ATTR);
+    if (originalHeight !== null) svg.setAttribute("height", originalHeight);
+    svg.removeAttribute(ORIGINAL_HEIGHT_ATTR);
+  }
+}
 
 /**
  * Draw `title` as text at the top of `svg`, growing the canvas so the title
  * sits above the plot instead of overlapping it.
  */
-function drawSvgTitle(svg: Element, title: string, plotHeight: number): void {
+function drawSvgTitle(svg: Element, title: string): void {
   const document = svg.ownerDocument;
   if (!document) return;
 
-  const viewBox = svg.getAttribute("viewBox");
-  const [, , w, h] = (viewBox ?? "").split(/\s+/).map(Number);
-  const width = w > 0 ? w : Number(svg.getAttribute("width")) || 640;
-  const baseHeight = h > 0 ? h : plotHeight;
+  const { width, height } = readViewBox(svg);
+  const baseHeight = height > 0 ? height : 400;
+
+  // Remember the pre-title geometry so a second serializeChart call can undo
+  // the shift below instead of carving out a second title band.
+  svg.setAttribute(ORIGINAL_VIEWBOX_ATTR, `${0} ${0} ${width} ${baseHeight}`);
+  svg.setAttribute(ORIGINAL_HEIGHT_ATTR, String(baseHeight));
 
   // Move the viewBox origin *up* by the height of the title band rather than
   // stretching the canvas: the plot is drawn at 1:1 and simply starts lower,
@@ -92,6 +169,7 @@ function drawSvgTitle(svg: Element, title: string, plotHeight: number): void {
   }
 
   const text = document.createElementNS(SVG_NS, "text");
+  text.setAttribute(INJECTED_ATTR, "");
   text.setAttribute("x", String(width / 2));
   text.setAttribute("y", String(top + TITLE_BASELINE));
   text.setAttribute("text-anchor", "middle");
@@ -117,7 +195,8 @@ function toSvgElement(content: Element | RenderedChart): Element {
 
 /**
  * Serialize a chart to a standalone SVG string, drawing the chart's title into
- * the SVG so it survives the trip to the viewer.
+ * the SVG so it survives the trip to the viewer, and painting a black
+ * background across the whole canvas (title band included).
  */
 export function serializeChart(content: Element | string | RenderedChart): string {
   if (typeof content === "string") return content;
@@ -125,9 +204,17 @@ export function serializeChart(content: Element | string | RenderedChart): strin
   const title = "svg" in content ? content.title : undefined;
   const element = toSvgElement(content);
 
+  // serializeChart mutates its input, so undo anything a previous call left
+  // behind first — otherwise the title band and background would stack.
+  resetInjected(element);
+
+  // Grow the canvas for the title *before* painting the background: the
+  // background must be measured against the final viewBox so it also covers
+  // the title band that the viewBox shift opens up at the top.
   if (title) {
-    drawSvgTitle(element, title, Number(element.getAttribute("height")) || 400);
+    drawSvgTitle(element, title);
   }
+  paintCanvasBackground(element);
 
   if (!element.getAttribute("xmlns")) {
     element.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns", "http://www.w3.org/2000/svg");
@@ -203,20 +290,6 @@ export function showNumericLineChart(
         ]
     });
 
-    const svg = plot.tagName.toLowerCase() === "svg" ? plot : plot.querySelector("svg");
-    if (svg) {
-        svg.setAttribute("style", "background-color: black; color: white;");
-        const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        bg.setAttribute("width", "100%");
-        bg.setAttribute("height", "100%");
-        bg.setAttribute("fill", "black");
-        if (svg.firstChild) {
-            svg.insertBefore(bg, svg.firstChild);
-        } else {
-            svg.appendChild(bg);
-        }
-    }
-
     return Effect.tryPromise({
       try: () => show({ svg: plot, title }),
       catch: () => new LocalProcessingError({ message: "Failed to show plot." })
@@ -255,25 +328,6 @@ export function showLineChart(
             lineChart(data, x, y)
         ]
     });
-
-    // Ensure the SVG element itself has the background style,
-    // so it persists when 'show' extracts it from the figure wrapper.
-    const svg = plot.tagName.toLowerCase() === "svg" ? plot : plot.querySelector("svg");
-    if (svg) {
-        svg.setAttribute("style", "background-color: black; color: white;");
-
-        // Explicitly format the background with a rect, as some viewers ignore the style attribute
-        const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        bg.setAttribute("width", "100%");
-        bg.setAttribute("height", "100%");
-        bg.setAttribute("fill", "black");
-
-        if (svg.firstChild) {
-            svg.insertBefore(bg, svg.firstChild);
-        } else {
-            svg.appendChild(bg);
-        }
-    }
 
     return Effect.tryPromise({
       try: () => show({ svg: plot, title }),
@@ -333,25 +387,6 @@ export function showMultiLineChart(
         y: { label: yLabel },
         marks: lineMarks
     });
-
-    // Ensure the SVG element itself has the background style,
-    // so it persists when 'show' extracts it from the figure wrapper.
-    const svg = plot && plot.tagName && plot.tagName.toLowerCase() === "svg" ? plot : plot.querySelector("svg");
-    if (svg) {
-        svg.setAttribute("style", "background-color: black; color: white;");
-
-        // Explicitly format the background with a rect, as some viewers ignore the style attribute
-        const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        bg.setAttribute("width", "100%");
-        bg.setAttribute("height", "100%");
-        bg.setAttribute("fill", "black");
-
-        if (svg.firstChild) {
-            svg.insertBefore(bg, svg.firstChild);
-        } else {
-            svg.appendChild(bg);
-        }
-    }
 
   return Effect.tryPromise({
     try: () => show({ svg: plot, title }),
