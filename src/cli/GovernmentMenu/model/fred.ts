@@ -14,6 +14,12 @@ export interface FredModelPort {
     series: FredSeriesType,
     apiKey: string,
   ) => Effect.Effect<unknown, ConfigError | HTTPError | LocalProcessingError>;
+  /** Search FRED series by free-text term. */
+  search: (
+    query: string,
+    apiKey: string,
+    limit?: number,
+  ) => Effect.Effect<unknown, ConfigError | HTTPError | LocalProcessingError>;
 }
 
 export class FredModel extends Context.Tag("hyperfin.government.FredModel")<
@@ -52,6 +58,22 @@ export const FredModelLive = Layer.effect(
           });
           return yield* fs.fetchJson(
             "https://api.stlouisfed.org/fred/series/observations",
+            params,
+          );
+        }),
+      search: (query: string, apiKey: string, limit: number = 20) =>
+        Effect.gen(function* () {
+          if (!apiKey) {
+            return yield* new ConfigError({ message: "Missing FRED API Key." });
+          }
+          const params = new URLSearchParams({
+            search_text: query,
+            api_key: apiKey,
+            file_type: "json",
+            limit: String(limit),
+          });
+          return yield* fs.fetchJson(
+            "https://api.stlouisfed.org/fred/series/search",
             params,
           );
         }),
