@@ -393,3 +393,54 @@ export function showMultiLineChart(
     catch: () => new LocalProcessingError({ message: "Failed to show plot." })
   });
 }
+
+/**
+ * Display a price series with technical overlays drawn over it.
+ *
+ * `overlays` are pre-built Plot marks, so this renderer stays generic: the
+ * caller decides which indicators to draw and how they are computed (see
+ * `src/technicals/`). The price line is added last so it stays legible on top
+ * of the envelopes and levels.
+ *
+ * @param data The price series to plot.
+ * @param x The x axis field, read as a millisecond timestamp.
+ * @param y The y axis field (e.g. `close`).
+ * @param overlays Technical marks to draw beneath the price line.
+ * @param xLabel The x axis label.
+ * @param yLabel The y axis label.
+ * @param title The title of the chart.
+ */
+export function showTechnicalChart(
+    data: Record<string, any>[],
+    x: string,
+    y: string,
+    overlays: Plot.Markish[] = [],
+    xLabel: string = "Date",
+    yLabel: string = "Price",
+    title: string = "Chart"
+): Effect.Effect<void, LocalProcessingError> {
+    // specific setup for jsdom to match what Plot expects
+    const jsdom = new JSDOM("");
+    const document = jsdom.window.document;
+
+    const plot = Plot.plot({
+        document: document,
+        title,
+        style: {
+            background: "black",
+            color: "white",
+        },
+        grid: true,
+        x: { label: xLabel, ticks: 5, type: "time" },
+        y: { label: yLabel },
+        marks: [
+            ...overlays,
+            lineChart(data, x, y)
+        ]
+    });
+
+    return Effect.tryPromise({
+      try: () => show({ svg: plot, title }),
+      catch: () => new LocalProcessingError({ message: "Failed to show plot." })
+    });
+}

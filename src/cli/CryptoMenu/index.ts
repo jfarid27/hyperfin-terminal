@@ -5,14 +5,28 @@ import {
     TerminalUserStateConfig,
     CommandResultType,
     DataSourceType,
-    TerminalUserStateConfigContext
+    TerminalUserStateConfigContext,
 } from "../types.ts";
 import { menuGlobals } from "../utils/menu_globals.ts";
 import { spotPriceHandler } from "./actions/spot.ts";
 import { chartPriceHandler } from "./actions/chart.ts";
+import { technicalsTerminal } from "./TechnicalsMenu/index.ts";
 import chalk from "chalk";
 import { lensPath, set, includes} from "ramda";
 import { Effect } from 'effect';
+
+/**
+ * Enter the technicals submenu, which lists one option per indicator
+ * (bbands, fibonacci).
+ */
+const technicalsHandler = () => Effect.gen(function* () {
+    const st = yield* TerminalUserStateConfigContext;
+    const newState = yield* technicalsTerminal(st);
+    return {
+        result: { type: CommandResultType.Success },
+        state: newState,
+    };
+});
 
 const cryptoMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
     {
@@ -26,6 +40,12 @@ const cryptoMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
         command: "chart [symbol]",
         description: "Fetch chart for the given symbol",
         action: chartPriceHandler,
+    },
+    {
+        name: "technicals",
+        command: "technicals",
+        description: "Technical analysis indicators: bbands, fibonacci",
+        action: technicalsHandler,
     },
     {
         name: "set",
