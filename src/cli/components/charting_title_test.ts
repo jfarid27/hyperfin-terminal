@@ -118,4 +118,70 @@ describe("Chart title serialization", () => {
       "xmlns should be ensured"
     ).toBe(true);
   });
+
+  describe("canvas background", () => {
+    /** The black background rect, if any. */
+    const backgroundRect = (svg: string): string | undefined =>
+      svg.match(/<rect[^>]*fill="black"[^>]*>/)?.[0];
+
+    /** The (x, y, width, height) of the background rect, in user units. */
+    const backgroundBox = (svg: string): number[] => {
+      const rect = backgroundRect(svg);
+      if (!rect) throw new Error("No black background rect was serialized");
+      const num = (attr: string, fallback = 0) =>
+        Number(rect.match(new RegExp(`${attr}="([-\\d.]+)"`))?.[1] ?? fallback);
+      return [num("x"), num("y"), num("width"), num("height")];
+    };
+
+    it("covers the title band, not just the plot area", () => {
+      // The viewBox is shifted up by CHART_TITLE_HEIGHT to make room for the
+      // title, so a background sized to the *viewport* (width="100%") would
+      // leave the title band unpainted — the "title has no background" bug.
+      const title = "Bond Yields - 10-Year - 2026-10-05";
+      const { plot } = renderPlot(title);
+
+      const svg = serializeChart({ svg: plot, title });
+
+      const [x, y, width, height] = backgroundBox(svg);
+      expect(x, "Background should start at the left viewBox edge").toBe(0);
+      expect(y,
+        "Background should start at the top of the title band"
+      ).toBe(-CHART_TITLE_HEIGHT);
+      expect(height,
+        `Background should span the plot plus the title band (+${CHART_TITLE_HEIGHT})`
+      ).toBeGreaterThan(CHART_TITLE_HEIGHT);
+      expect(width, "Background should span the full plot width").toBe(640);
+
+      // Every corner of the shifted viewBox must be inside the background.
+      const viewBox = svg.match(/ viewBox="([^"]+)"/)![1].split(/\s+/).map(Number);
+      expect(y, "Top edge of the viewBox is covered").toBeLessThanOrEqual(viewBox[1]);
+      expect(y + height,
+        "Bottom edge of the viewBox is covered"
+      ).toBeGreaterThanOrEqual(viewBox[1] + viewBox[3]);
+    });
+
+    it("sizes the background in user units, not viewport percentages", () => {
+      const { plot } = renderPlot("ignored");
+      const svg = serializeChart({ svg: plot });
+
+      const rect = backgroundRect(svg);
+      expect(rect, "A background rect should be painted").toBeTruthy();
+      expect(rect!.includes("%"),
+        "Percentage sizing is relative to the viewport and would miss the title band"
+      ).toBe(false);
+    });
+
+    it("is idempotent when the same chart is serialized twice", () => {
+      const title = "Bond Yields - 10-Year - 2026-10-05";
+      const { plot } = renderPlot(title);
+
+      serializeChart({ svg: plot, title });
+      const svg = serializeChart({ svg: plot, title });
+
+      const rects = (svg.match(/<rect[^>]*fill="black"[^>]*>/g) ?? []).length;
+      const titles = (svg.match(new RegExp(`>${title}</text>`, "g")) ?? []).length;
+      expect(rects, "Background should not stack on re-serialization").toBe(1);
+      expect(titles, "Title should not stack on re-serialization").toBe(1);
+    });
+  });
 });
