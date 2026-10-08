@@ -1,0 +1,6 @@
+{
+  "name": "good-package",
+  "description": "A valid fixture package",
+  "command": "good",
+  "entry": "index.ts"
+}

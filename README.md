@@ -113,6 +113,52 @@ chart EUR USD 2026-01-01 2026-06-30
 back
 ```
 
+### Hyperfin Packages (Custom Menu Entrypoints)
+
+The `hyperfin-packages/` folder lets users extend the terminal with their
+own top-level menus, without patching the project. Any directory dropped
+in there that declares a `hyperfin-package.json` (or a `package.json`
+with an `entry` field) is registered as a Main Menu option at startup.
+
+```json
+// hyperfin-packages/my-menu/hyperfin-package.json
+{
+  "name": "my-menu",
+  "description": "What my menu does",
+  "command": "mymenu",
+  "entry": "index.ts"
+}
+```
+
+The referenced `entry` module must export a `Menu` — either
+`export const menu = registerTerminalApplication(myMenu)` or as the
+default export. The package then behaves exactly like a built-in menu:
+custom actions, submenus, tables and charts are all available.
+
+Install a package by dropping a directory in (a plain `git clone` works):
+
+```bash
+git clone https://github.com/you/hyperfin-my-menu.git hyperfin-packages/my-menu
+```
+
+This folder is **not** a submodule directory. It does not collide with the
+project's own `.gitmodules`: locally installed packages are ignored by git
+(`/hyperfin-packages/*` in `.gitignore`, with the README and the bundled
+`example-package/` tracked), so they stay out of version control and out
+of the project's module list.
+
+Notes:
+- A package may not claim a built-in command; a collision is reported at
+  startup and the package is skipped.
+- Package entries are imported at startup; a package that throws is
+  skipped with a message and never blocks startup.
+- `entry` is resolved inside the package directory only — absolute paths
+  and `..` traversal are rejected.
+
+See [hyperfin-packages/README.md](hyperfin-packages/README.md) for the full
+manifest reference, an install-from-git guide, and a complete working
+example (`hyperfin-packages/example-package/`).
+
 ### Government Economic Data
 
 The Government menu provides access to economic data from the Federal Reserve Economic Data (FRED) API.

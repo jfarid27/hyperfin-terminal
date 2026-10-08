@@ -9,6 +9,13 @@ reference
 # XMTP / HyperFin config (contains private keys)
 /config/*
 
+# Locally installed hyperfin-packages are user extensions: keep the folder
+# and its documentation/example in the repo, ignore everything users drop in.
+/hyperfin-packages/*
+!/hyperfin-packages/README.md
+!/hyperfin-packages/example-package/
+!/hyperfin-packages/example-package/*
+
 # Test coverage output
 coverage/
 coverage.lcov
