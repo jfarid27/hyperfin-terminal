@@ -17,11 +17,13 @@ import {
   logLevelFromEnv,
 } from "./types.ts";
 import { registerTerminalApplication } from "./utils/program_loader.ts";
+import { preparePackages, reportPackages } from "./packages/index.ts";
+import { packageMenuOptions } from "./packages/menu.ts";
 import { Effect } from "effect";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
+const builtinMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
     {
         name: "crypto",
         command: "crypto",
@@ -168,6 +170,27 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
     ...menuGlobalsTop(state),
 ]);
 
+/**
+ * Menu options contributed by packages under the `hyperfin-packages`
+ * folder. Populated once by {@link startMain} before the menu loop starts;
+ * the main menu's options closure reads this shared reference so
+ * `terminalMain` stays a plain `registerTerminalApplication` factory and
+ * script runners (which call it directly) still work.
+ */
+let packageOptions: MenuOption[] = [];
+
+/**
+ * Command tokens a package may not claim: every built-in top-level command
+ * (including the globals). A colliding package is skipped at discovery.
+ */
+const reservedCommands = (state: TerminalUserStateConfig): string[] =>
+    builtinMenuOptions(state).map((option) => option.command.split(/\s+/)[0]);
+
+const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
+    ...builtinMenuOptions(state),
+    ...packageOptions,
+];
+
 const mainMenu: Menu = {
     name: "Main Menu",
     description: "Main Menu",
@@ -232,6 +255,15 @@ export async function startMain(sessionPath: string, scriptFilename?: string) {
     },
     scriptContext,
   };
+
+  // Discover and register package menus under `hyperfin-packages/`.
+  // Discovery reads manifests only; entries are imported lazily on first
+  // use, so a broken package can never prevent the terminal from starting.
+  const { discovery, loaded, notes } = await preparePackages(
+    reservedCommands(state),
+  );
+  packageOptions = packageMenuOptions(loaded.packages, discovery.root);
+  reportPackages(discovery, loaded, notes);
 
   try {
     await Effect.runPromise(terminalMain(state));
