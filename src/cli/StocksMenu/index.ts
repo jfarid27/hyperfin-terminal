@@ -4,12 +4,17 @@ import { StocksDataSourceTypeSchema, StocksDataSourceType } from "./types.ts";
 import { menuGlobals } from "../utils/menu_globals.ts";
 import { chartPriceHandler, spotPriceHandler as alphaVantageSpotPriceHandler, searchSymbolsHandler } from "./actions/alphavantage.ts";
 import { spotPriceHandler as massiveSpotPriceHandler } from "./actions/Massive.ts";
+import {
+  chartPriceHandler as alpacaChartPriceHandler,
+  spotPriceHandler as alpacaSpotPriceHandler,
+} from "./actions/alpaca.ts";
 import { bollingerHandler, fibonacciHandler } from "./actions/technicals.ts";
 import { technicalsTerminal } from "./TechnicalsMenu/index.ts";
 import { Effect, Schema } from "effect";
 import { lensPath, set, view } from "ramda";
 import { DataSourceType } from "src/cli/types.ts";
 import { StocksServiceLive } from "./services/index.ts";
+import { catchAlpaca } from "../utils/alpaca_errors.ts";
 import chalk from "chalk";
 
 const tokenLens = lensPath(["loadedContext", "token", "symbol"]);
@@ -30,6 +35,9 @@ const spotHandler = (symbolStr: string) => Effect.gen(function* () {
   if (datasource === DataSourceType.Massive) {
     return yield* massiveSpotPriceHandler(symbol);
   }
+  if (datasource === DataSourceType.Alpaca) {
+    return yield* catchAlpaca(alpacaSpotPriceHandler(symbol), "Alpaca spot request failed.");
+  }
 
   return yield* alphaVantageSpotPriceHandler(symbol);
 }).pipe(Effect.provide(StocksServiceLive));
@@ -40,6 +48,12 @@ const chartHandler = (symbolStr: string) => Effect.gen(function* () {
   if (!symbol) {
     console.log("No symbol provided");
     return { result: { type: CommandResultType.Error }, state: st };
+  }
+
+  const datasource = st.loadedContext.stocks.datasource;
+  yield* Effect.logInfo(`Fetching data from ${datasource}`);
+  if (datasource === DataSourceType.Alpaca) {
+    return yield* catchAlpaca(alpacaChartPriceHandler(symbol), "Alpaca chart request failed.");
   }
 
   return yield* chartPriceHandler(symbol);
@@ -122,7 +136,7 @@ const stocksMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
   {
     name: "source",
     command: "source [datatypeSource]",
-    description: "Switch the source of data between various available types.",
+    description: "Switch the source of data between: alphavantage, massive, alpaca.",
     action: datasourceSwapHandler
   },
   ...menuGlobals(state),

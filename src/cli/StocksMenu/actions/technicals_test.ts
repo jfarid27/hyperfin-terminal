@@ -44,6 +44,7 @@ const baseState: TerminalUserStateConfig = {
     fred: undefined,
     massive: undefined,
     yahoofinance: undefined,
+    alpaca: undefined,
   },
   loadedContext: {
     stocks: { datasource: DataSourceType.AlphaVantage },
@@ -70,6 +71,8 @@ const mockConfig = (massiveKey: string | undefined) =>
     BLOCKCHAINCOM_API_KEY: Option.none(),
     FREECRYPTOAPI_API_KEY: Option.none(),
     FRED_API_KEY: Option.none(),
+    ALPACA_API_KEY: Option.none(),
+    ALPACA_API_SECRET: Option.none(),
   });
 
 const mockFetch = (response: unknown) =>

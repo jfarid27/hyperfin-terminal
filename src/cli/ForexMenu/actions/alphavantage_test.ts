@@ -54,6 +54,7 @@ const baseState: TerminalUserStateConfig = {
     fred: undefined,
     massive: undefined,
     yahoofinance: undefined,
+    alpaca: undefined,
   },
   loadedContext: {
     stocks: { datasource: DataSourceType.AlphaVantage },

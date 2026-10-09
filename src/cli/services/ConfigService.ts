@@ -11,14 +11,22 @@ export class ConfigService extends Context.Tag("hyperfin.service.ConfigService")
   FREECRYPTOAPI_API_KEY: Option.Option<string>,
   FRED_API_KEY: Option.Option<string>,
   MASSIVE_API_KEY: Option.Option<string>,
+  ALPACA_API_KEY: Option.Option<string>,
+  ALPACA_API_SECRET: Option.Option<string>
 }> () { }
 
-export const ConfigServiceLive = Layer.effect(ConfigService, Effect.sync(() => ({
+const liftNullish = (y:unknown) => y ? Option.some(String(y)) : Option.none();
+
+const makeConfig = () => Effect.sync(() => ({
   ENVIRONMENT: process.env.ENVIRONMENT === "development" ? EnvironmentType.Development : EnvironmentType.Production,
-  COINGECKO_API_KEY: process.env.COINGECKO_API_KEY ? Option.some(process.env.COINGECKO_API_KEY) : Option.none(),
-  ALPHAVANTAGE_API_KEY: process.env.ALPHAVANTAGE_API_KEY ? Option.some(process.env.ALPHAVANTAGE_API_KEY) : Option.none(),
-  BLOCKCHAINCOM_API_KEY: process.env.BLOCKCHAINCOM_API_KEY ? Option.some(process.env.BLOCKCHAINCOM_API_KEY) : Option.none(),
-  FREECRYPTOAPI_API_KEY: process.env.FREECRYPTOAPI_API_KEY ? Option.some(process.env.FREECRYPTOAPI_API_KEY) : Option.none(),
-  FRED_API_KEY: process.env.FRED_API_KEY ? Option.some(process.env.FRED_API_KEY) : Option.none(),
-  MASSIVE_API_KEY: process.env.MASSIVE_API_KEY ? Option.some(process.env.MASSIVE_API_KEY) : Option.none(),
-})));
+  COINGECKO_API_KEY: liftNullish(process.env.COINGECKO_API_KEY),
+  ALPHAVANTAGE_API_KEY: liftNullish(process.env.ALPHAVANTAGE_API_KEY),
+  BLOCKCHAINCOM_API_KEY: liftNullish(process.env.BLOCKCHAINCOM_API_KEY),
+  FREECRYPTOAPI_API_KEY: liftNullish(process.env.FREECRYPTOAPI_API_KEY),
+  FRED_API_KEY: liftNullish(process.env.FRED_API_KEY),
+  MASSIVE_API_KEY: liftNullish(process.env.MASSIVE_API_KEY),
+  ALPACA_API_KEY: liftNullish(process.env.ALPACA_API_KEY),
+  ALPACA_API_SECRET: liftNullish(process.env.ALPACA_API_SECRET),
+}));
+
+export const ConfigServiceLive = Layer.effect(ConfigService, makeConfig());

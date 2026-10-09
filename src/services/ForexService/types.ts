@@ -1,4 +1,15 @@
 import { DataSourceType } from "../../cli/types.ts";
+import { Schema } from "effect";
+
+/**
+ * Data sources the Forex menu can chart/quote: AlphaVantage and Alpaca.
+ */
+export const ForexDataSourceTypeSchema = Schema.Literal(
+  DataSourceType.AlphaVantage,
+  DataSourceType.Alpaca,
+);
+
+export type ForexDataSourceType = typeof ForexDataSourceTypeSchema.Type;
 
 /**
  * A currency pair, e.g. from=EUR, to=USD.
