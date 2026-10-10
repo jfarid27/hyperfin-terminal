@@ -1,10 +1,23 @@
 # Stocks Menu
 
-Real-time stock data powered by [AlphaVantage](https://www.alphavantage.co/).
+Real-time stock data with a swappable data source
+([AlphaVantage](https://www.alphavantage.co/), [Massive](https://massive.com/), or
+[Alpaca](https://docs.alpaca.markets/us/docs/about-market-data-api)).
 
-## Data Source
+## Data Sources
 
-All data comes from AlphaVantage's free tier APIs. Requires `ALPHAVANTAGE_API_KEY` set in `.env`.
+The active source is held in `loadedContext.stocks.datasource` and chosen with the
+`source` command.
+
+| Source | Key (`.env`) | Spot | Chart | Notes |
+|--------|--------------|------|-------|-------|
+| `alphavantage` (default) | `ALPHAVANTAGE_API_KEY` | `GLOBAL_QUOTE` | `TIME_SERIES_DAILY` (compact, ~100 pts) | symbol search available |
+| `massive` | `MASSIVE_API_KEY` | `/v2/aggs` daily bars | — | spot only |
+| `alpaca` | `ALPACA_API_KEY` + `ALPACA_API_SECRET` | snapshot (IEX feed) | `/v2/stocks/{symbol}/bars` (1Day, trailing year) | see below |
+
+Alpaca auth is a key/secret header pair, not a single API key, and the free plan
+serves the IEX feed. Missing credentials fail with a `ConfigError`; an account
+without the right entitlement fails with Alpaca's own 403 message.
 
 ## Commands
 
@@ -13,7 +26,8 @@ All data comes from AlphaVantage's free tier APIs. Requires `ALPHAVANTAGE_API_KE
   - Falls back to the loaded token symbol if no argument is given.
 
 - **chart** `chart [symbol]`
-  - Fetches the daily time series (compact, ~100 data points) and renders a line chart.
+  - Renders a daily-close line chart (AlphaVantage compact series, or a trailing
+    year of daily bars for Alpaca).
   - Falls back to the loaded token symbol if no argument is given.
 
 - **technicals** `technicals [technicalType] [symbol] [arg1] [arg2]`
@@ -28,28 +42,34 @@ All data comes from AlphaVantage's free tier APIs. Requires `ALPHAVANTAGE_API_KE
   - Accepts multi-word terms (e.g. `search tencent holdings`).
   - Search is a symbol-discovery tool offered only by AlphaVantage, so it does not branch on the active `source`.
 
+- **source** `source [datatypeSource]`
+  - Switches the active source: `alphavantage`, `massive`, or `alpaca`.
+
 ## Architecture
 
 ```
 StocksMenu/
 ├── actions/
 │   ├── alphavantage.ts          # spotPriceHandler, chartPriceHandler
-│   └── alphavantage_test.ts     # Action-level tests (mocked services)
+│   ├── Massive.ts               # spotPriceHandler (Massive)
+│   ├── alpaca.ts                # spotPriceHandler, chartPriceHandler (Alpaca)
+│   └── *_test.ts                # Action-level tests (mocked services)
 ├── services/
-│   ├── AlphaVantageService.ts   # Effect Schema validation, raw→clean transforms
-│   ├── AlphaVantageService_test.ts  # Schema + transform unit tests
 │   ├── ChartRenderer.ts         # Injectable chart rendering (Effect service)
-│   ├── index.ts                 # StocksServiceLive layer
-├── types.ts                     # StockSymbolType
-├── index.ts                     # Menu registration, wires handlers to StocksServiceLive
+│   └── index.ts                 # StocksServiceLive layer (AV + Massive + Alpaca + renderer)
+├── types.ts                     # StocksDataSourceTypeSchema, StockSymbolType
+├── index.ts                     # Menu registration + per-source dispatch
 └── README.md
 ```
+
+The Alpaca data service itself lives in `src/services/AlpacaService/` alongside the
+other data services, with its own `index.test.ts`.
 
 ## Testing
 
 ```bash
-deno test --allow-env --allow-read --allow-net --allow-sys --allow-run cli/StocksMenu/
+deno test --allow-all src/cli/StocksMenu/ src/services/AlpacaService/
 ```
 
 - **Service tests**: Validate Effect Schemas against real API response fixtures and test `catchTag(ParseError → HTTPError)`.
-- **Action tests**: Mock `AlphaVantageService`, `ChartRenderer`, and `TerminalUserStateConfigContext` — zero network calls, CI-safe.
+- **Action tests**: Mock `AlphaVantageService`/`AlpacaService`, `ChartRenderer`, and `TerminalUserStateConfigContext` — zero network calls, CI-safe.

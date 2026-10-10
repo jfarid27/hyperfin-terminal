@@ -1,14 +1,27 @@
 # Forex Menu
 
-Foreign exchange rates and charts powered by [AlphaVantage](https://www.alphavantage.co/).
+Foreign exchange rates and charts with a swappable source
+([AlphaVantage](https://www.alphavantage.co/) or
+[Alpaca](https://docs.alpaca.markets/us/docs/about-market-data-api)).
 
-## Data Source
+## Data Sources
 
-All data comes from AlphaVantage's free tier forex APIs. Requires
-`ALPHAVANTAGE_API_KEY` set in `.env` (or via `keys alphavantage <api_key>`).
+The active source is held in `loadedContext.forex.datasource` and chosen with the
+`source` command.
 
-- **Spot** uses [`CURRENCY_EXCHANGE_RATE`](https://www.alphavantage.co/documentation/#currency-exchange) — realtime bid/ask/rate for a pair.
-- **Chart** uses [`FX_DAILY`](https://www.alphavantage.co/documentation/#fx-daily) — daily OHLC history, fetched with `outputsize=full` and narrowed to the requested range locally.
+| Source | Key (`.env`) | Spot | Chart |
+|--------|--------------|------|-------|
+| `alphavantage` (default) | `ALPHAVANTAGE_API_KEY` | `CURRENCY_EXCHANGE_RATE` | `FX_DAILY` (full history, narrowed locally) |
+| `alpaca` | `ALPACA_API_KEY` + `ALPACA_API_SECRET` | `/v1beta1/forex/latest/rates` | `/v1beta1/forex/rates` (1Day, trailing year) |
+
+- **Spot** is a realtime bid/ask/rate for a pair.
+- **Chart** is a daily series narrowed to the requested date range locally.
+
+Alpaca notes:
+- Forex market data requires an Alpaca entitlement. Without it the endpoint returns a
+  403 (`forbidden: insufficient grants`), surfaced verbatim to the user.
+- Alpaca's historical-rates endpoint carries bid/mid/ask only (no OHLC), so the
+  chart plots the mid price.
 
 ## Commands
 
@@ -26,30 +39,35 @@ All data comes from AlphaVantage's free tier forex APIs. Requires
   - The chart title labels the pair and the resolved range, e.g.
     `EUR/USD FX - 2025-10-07 to 2026-10-07`.
 
+- **source** `source [datatypeSource]`
+  - Switch the data source: `alphavantage` or `alpaca`.
+
 ## Architecture
 
 ```
 ForexMenu/
 ├── actions/
 │   ├── alphavantage.ts        # forexSpotHandler, forexChartHandler, parsePair
-│   └── alphavantage_test.ts   # Action-level tests (mocked services)
+│   ├── alpaca.ts              # forexSpotHandler, forexChartHandler (Alpaca)
+│   └── *_test.ts              # Action-level tests (mocked services)
 ├── services/
-│   └── index.ts               # ForexServiceMenuLive layer (ForexService + ChartRenderer)
-├── index.ts                   # Menu registration
+│   └── index.ts               # ForexServiceMenuLive layer (ForexService + Alpaca + ChartRenderer)
+├── index.ts                   # Menu registration + per-source dispatch
 └── README.md
 ```
 
 `ForexService` itself (schema validation, raw→clean transforms, date-range
 resolution) lives in `src/services/ForexService/` alongside the other data
-services, with its own `index.test.ts`.
+services, with its own `index.test.ts`; the Alpaca service lives in
+`src/services/AlpacaService/`.
 
 ## Testing
 
 ```bash
-deno test --allow-env --allow-read --allow-net --allow-sys src/cli/ForexMenu/ src/services/ForexService/
+deno test --allow-all src/cli/ForexMenu/ src/services/ForexService/ src/services/AlpacaService/
 ```
 
 - **Service tests**: Validate the Effect Schemas against real API response
   fixtures and cover `resolveDateRange` / `filterPointsByRange`.
-- **Action tests**: Mock `ForexService`, `ChartRenderer`, and
+- **Action tests**: Mock `ForexService`/`AlpacaService`, `ChartRenderer`, and
   `TerminalUserStateConfigContext` — zero network calls, CI-safe.

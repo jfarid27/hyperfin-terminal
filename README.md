@@ -40,6 +40,10 @@ Set up your environment variables:
         COINGECKO_API_KEY=your_api_key_here
         FRED_API_KEY=your_fred_api_key_here
         MASSIVE_API_KEY=your_massive_api_key_here
+        ALPHAVANTAGE_API_KEY=your_alphavantage_api_key_here
+        # Alpaca uses a key/secret header pair (both required together)
+        ALPACA_API_KEY=your_alpaca_key_id_here
+        ALPACA_API_SECRET=your_alpaca_secret_here
         ENVIRONMENT=development # or production
         DEBUG=false
         ```
@@ -207,6 +211,51 @@ To use:
 4. Fetch a specific expiration by date: `chain AAPL 2026-08-21`
 
 The chain displays calls and puts in color-coded terminal-kit tables with contract symbol, ITM/OTM status, strike, last price, bid/ask, volume, open interest, and implied volatility.
+
+To switch between sources (Yahoo Finance and Alpaca): `source alpaca` / `source yahoofinance`.
+
+### Alpaca Market Data
+
+[Alpaca's Market Data API](https://docs.alpaca.markets/us/docs/about-market-data-api)
+is available as a data source for **stocks, options, forex, and (fixed-income)
+bonds**. Authentication is a key/secret header pair — set `ALPACA_API_KEY` and
+`ALPACA_API_SECRET` in `.env` (both required together).
+
+Each menu picks its source with the `source` command:
+
+```
+stocks  → source alpaca   spot / chart
+options → source alpaca   chain / volcurve
+forex   → source alpaca   spot / chart
+bonds   → source alpaca   yields <isin>
+```
+
+What Alpaca provides, per asset class (all on `https://data.alpaca.markets`):
+
+| Menu | Spot | Historical | Feed / notes |
+|------|------|------------|--------------|
+| Stocks | `/{symbol}/snapshot` | `/v2/stocks/{symbol}/bars` (1Day) | free plan uses the IEX feed |
+| Options | `/{underlying}` chain snapshots | `/v1beta1/options/bars` | **indicative** feed: no OI, no IV/greeks (OPRA is paid) |
+| Forex | `/v1beta1/forex/latest/rates` | `/v1beta1/forex/rates` | bid/mid/ask only (no OHLC) |
+| Bonds | `/v1beta1/fixed_income/latest/prices` (by ISIN) | — (latest only) | requires a fixed-income entitlement |
+
+**Entitlements matter.** Alpaca gates forex and fixed-income data behind account
+entitlements; without them the API returns `403` and the CLI prints Alpaca's own
+message (e.g. `Alpaca (403) forbidden: insufficient grants`) instead of a generic
+error. Alpaca fixed income is quoted by **ISIN**, not the `US2/US5/US10/US30`
+codes used by the Yahoo Finance yield charts.
+
+### Bonds
+
+The Bonds menu supports both sources:
+
+- **Yahoo Finance** (default): `yields US2|US5|US10|US30 [range]` charts the yield
+  (CBOE yield indexes).
+- **Alpaca**: `yields <isin>` prints the latest fixed-income price and yield (YTM/YTW)
+  for the ISIN, e.g. `yields US912797KJ59`. Alpaca has no historical fixed-income
+  endpoint, so historical yield charts remain Yahoo-only.
+
+To switch: `source alpaca` / `source yahoofinance`.
 
 ## Development
 

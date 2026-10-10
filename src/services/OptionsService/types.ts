@@ -3,6 +3,7 @@ import { Schema } from "effect";
 
 export const OptionsDataSourceTypeSchema = Schema.Literal(
   DataSourceType.YahooFinance,
+  DataSourceType.Alpaca,
 );
 
 export type OptionsDataSourceType = typeof OptionsDataSourceTypeSchema.Type;

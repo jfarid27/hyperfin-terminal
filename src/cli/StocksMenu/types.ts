@@ -3,7 +3,8 @@ import { Schema } from "effect";
 
 export const StocksDataSourceTypeSchema = Schema.Literal(
   DataSourceType.AlphaVantage,
-  DataSourceType.Massive
+  DataSourceType.Massive,
+  DataSourceType.Alpaca
 );
 
 export type StocksDataSourceType = typeof StocksDataSourceTypeSchema.Type;

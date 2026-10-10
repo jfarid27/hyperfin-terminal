@@ -4,10 +4,15 @@ import { OptionsDataSourceTypeSchema, OptionsDataSourceType } from "../../servic
 import { menuGlobals } from "../utils/menu_globals.ts";
 import { chainHandler } from "./actions/chain.ts";
 import { volcurveHandler } from "./actions/volcurve.ts";
+import {
+  chainHandler as alpacaChainHandler,
+  volcurveHandler as alpacaVolcurveHandler,
+} from "./actions/alpaca.ts";
 import { Effect, Schema } from "effect";
 import { lensPath, set, view } from "ramda";
 import { DataSourceType } from "src/cli/types.ts";
 import { OptionsServiceLive } from "../../services/OptionsService/index.ts";
+import { catchAlpaca } from "../utils/alpaca_errors.ts";
 import chalk from "chalk";
 
 const tokenLens = lensPath(["loadedContext", "token", "symbol"]);
@@ -22,6 +27,12 @@ const optionsChainHandler = (symbolStr: string, dateStr?: string) => Effect.gen(
     return { result: { type: CommandResultType.Error }, state: st };
   }
 
+  const datasource = st.loadedContext.options.datasource;
+  yield* Effect.logInfo(`Fetching data from ${datasource}`);
+  if (datasource === DataSourceType.Alpaca) {
+    return yield* catchAlpaca(alpacaChainHandler(symbol, dateStr), "Alpaca options chain request failed.");
+  }
+
   return yield* chainHandler(symbol, dateStr);
 }).pipe(Effect.provide(OptionsServiceLive));
 
@@ -31,6 +42,12 @@ const optionsVolcurveHandler = (symbolStr: string, typeStr?: string, dateStr?: s
   if (!symbol) {
     console.log("No symbol provided");
     return { result: { type: CommandResultType.Error }, state: st };
+  }
+
+  const datasource = st.loadedContext.options.datasource;
+  yield* Effect.logInfo(`Fetching data from ${datasource}`);
+  if (datasource === DataSourceType.Alpaca) {
+    return yield* catchAlpaca(alpacaVolcurveHandler(symbol, typeStr, dateStr), "Alpaca volatility curve request failed.");
   }
 
   return yield* volcurveHandler(symbol, typeStr, dateStr);
@@ -78,7 +95,7 @@ const optionsMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
   {
     name: "source",
     command: "source [datatypeSource]",
-    description: "Switch the source of data between various available types.",
+    description: "Switch the source of data between: yahoofinance, alpaca.",
     action: datasourceSwapHandler,
   },
   ...menuGlobals(state),

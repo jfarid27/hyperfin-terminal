@@ -57,6 +57,7 @@ export enum APIKeyType {
     Fred = "fred",
     Massive = "massive",
     YahooFinance = "yahoofinance",
+    Alpaca = "alpaca",
 }
 
 /**
@@ -71,6 +72,7 @@ export enum DataSourceType {
     Massive = 'massive',
     CBOE = 'cboe',
     YahooFinance = 'yahoofinance',
+    Alpaca = 'alpaca',
 }
 
 /**
@@ -85,6 +87,7 @@ export interface DatasourceKeyMapping {
     [DataSourceType.Massive]: APIKeyType.Massive;
     [DataSourceType.CBOE]: APIKeyType.Massive;
     [DataSourceType.YahooFinance]: APIKeyType.YahooFinance;
+    [DataSourceType.Alpaca]: APIKeyType.Alpaca;
 }
 
 /**
@@ -101,12 +104,20 @@ export interface CryptoContext {
 
 export interface StocksContext {
     symbol?: string;
-    datasource: DataSourceType.AlphaVantage | DataSourceType.Massive;
+    datasource: DataSourceType.AlphaVantage | DataSourceType.Massive | DataSourceType.Alpaca;
 }
 
 export interface OptionsContext {
     symbol?: string;
-    datasource: DataSourceType.YahooFinance;
+    datasource: DataSourceType.YahooFinance | DataSourceType.Alpaca;
+}
+
+export interface BondsContext {
+    datasource: DataSourceType.YahooFinance | DataSourceType.Alpaca;
+}
+
+export interface ForexContext {
+    datasource: DataSourceType.AlphaVantage | DataSourceType.Alpaca;
 }
 
 export enum PredictionMarketsType {
@@ -130,6 +141,8 @@ export interface LoadedContext {
     predictionMarkets?: PredictionMarketsContext;
     stocks: StocksContext;
     options: OptionsContext;
+    bonds?: BondsContext;
+    forex?: ForexContext;
 }
 
 /**
