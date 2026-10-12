@@ -34,8 +34,9 @@ without the right entitlement fails with Alpaca's own 403 message.
   - Charts a technical indicator over the price series.
     - `bbands` — Bollinger Bands. `arg1` = period (default 20), `arg2` = standard deviations (default 2).
     - `fibonacci` — Fibonacci retracement levels over the latest swing. `arg1` = swing lookback in bars (default: the whole series).
+    - `returns` — Daily percent returns (each close against the previous close), drawn as bars coloured by sign: blue for an up day, red for a down day, against a zero baseline.
   - `symbol` is optional and falls back to the loaded token, e.g. `technicals bbands NVDA 20 2`.
-  - Branches on the active `source`: AlphaVantage uses its daily time series, Massive uses `/v2/aggs` daily bars (a year of history).
+  - Branches on the active `source`: AlphaVantage uses its daily time series, Massive uses `/v2/aggs` daily bars, Alpaca uses `/v2/stocks/{symbol}/bars` (a year of history).
 
 - **search** `search [term...]`
   - Searches AlphaVantage (`SYMBOL_SEARCH`) for tickers matching a free-text term and prints a table of the matching symbols with their name, instrument type, exchange region, currency, and match score.

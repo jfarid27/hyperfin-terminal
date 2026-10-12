@@ -61,7 +61,7 @@ const chartHandler = (symbolStr: string) => Effect.gen(function* () {
 
 /**
  * Enter the technicals submenu, which lists one option per indicator
- * (bbands, fibonacci).
+ * (bbands, fibonacci, returns).
  */
 const technicalsHandler = () => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
@@ -118,7 +118,7 @@ const stocksMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
   {
     name: "technicals",
     command: "technicals",
-    description: "Technical analysis indicators: bbands, fibonacci",
+    description: "Technical analysis indicators: bbands, fibonacci, returns",
     action: technicalsHandler,
   },
   {

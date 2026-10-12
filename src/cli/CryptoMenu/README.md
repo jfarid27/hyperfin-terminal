@@ -15,6 +15,7 @@ Fetch crypto prices from various sources.
   - Description: Technical indicators charted over the price series.
     - `bbands` — Bollinger Bands. `arg1` = period (default 20), `arg2` = standard deviations (default 2).
     - `fibonacci` — Fibonacci retracement levels over the latest swing. `arg1` = swing lookback in bars (default: the whole series).
+    - `returns` — Daily percent returns (each price against the previous price), drawn as bars coloured by sign: blue for an up day, red for a down day, against a zero baseline.
   - `symbol` is optional and falls back to the loaded token, e.g. `technicals bbands bitcoin 20 2`.
   - Technicals request a longer daily series than `chart` (CoinGecko returns only 14 days by default, which cannot fill a 20-bar window).
 - **set**

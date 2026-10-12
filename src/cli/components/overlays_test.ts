@@ -4,14 +4,28 @@ import * as Plot from "@observablehq/plot";
 import { JSDOM } from "npm:jsdom";
 import { serializeChart } from "./charting.ts";
 import type { SeriesPoint } from "../../technicals/index.ts";
+import { dailyReturns, returnStats } from "../../technicals/index.ts";
 import {
   bollingerBandsFor,
   fibonacciFor,
   formatLevelValue,
+  RETURN_DOWN_FILL,
+  RETURN_SIGMA_STROKE,
+  RETURN_UP_FILL,
+  returnsBars,
+  sigmaBandLevels,
+  sigmaBandsOverlay,
+  zeroLineOverlay,
 } from "../../technicals/overlays.ts";
 
 const series = (...values: number[]): SeriesPoint[] =>
   values.map((value, i) => ({ timestamp: Date.UTC(2026, 0, 1 + i), value }));
+
+/** A 40-bar series with a clear up move, long enough for a 20-bar band window. */
+const price = Array.from({ length: 40 }, (_, i) => ({
+  timestamp: Date.UTC(2026, 0, 1 + i),
+  value: 100 + Math.sin(i / 3) * 12 + i * 0.5,
+}));
 
 describe("formatLevelValue", () => {
   it("uses two decimals for prices at or above one", () => {
@@ -67,8 +81,18 @@ describe("fibonacciFor", () => {
 // render them through the real Plot + serializeChart pipeline so a bad channel
 // binding (an undefined accessor, a mistyped scale) cannot pass unnoticed.
 
-/** Render a price line under the given overlays and return the serialized SVG. */
-const renderSvg = (points: SeriesPoint[], overlays: Plot.Markish[]): string => {
+/**
+ * Render a series under the given overlays and return the serialized SVG.
+ *
+ * `primary`, when supplied, replaces the default line as the main series mark —
+ * mirroring how `showTechnicalChart` treats it.
+ */
+const renderSvg = (
+  points: SeriesPoint[],
+  overlays: Plot.Markish[],
+  yLabel: string = "Price",
+  primary: Plot.Markish[] = [],
+): string => {
   const jsdom = new JSDOM("");
   const document = jsdom.window.document;
 
@@ -78,14 +102,16 @@ const renderSvg = (points: SeriesPoint[], overlays: Plot.Markish[]): string => {
     style: { background: "black", color: "white" },
     grid: true,
     x: { label: "Date", ticks: 5, type: "time" },
-    y: { label: "Price" },
+    y: { label: yLabel },
     marks: [
       ...overlays,
-      Plot.line(points, {
-        x: (d) => new Date(d.timestamp),
-        y: (d) => d.value,
-        stroke: "dodgerblue",
-      }),
+      ...(primary.length > 0 ? primary : [
+        Plot.line(points, {
+          x: (d) => new Date(d.timestamp),
+          y: (d) => d.value,
+          stroke: "dodgerblue",
+        }),
+      ]),
     ],
   });
 
@@ -93,11 +119,6 @@ const renderSvg = (points: SeriesPoint[], overlays: Plot.Markish[]): string => {
 };
 
 describe("technical overlays render to SVG", () => {
-  const price = Array.from({ length: 40 }, (_, i) => ({
-    timestamp: Date.UTC(2026, 0, 1 + i),
-    value: 100 + Math.sin(i / 3) * 12 + i * 0.5,
-  }));
-
   it("paints a Bollinger envelope into the chart", () => {
     const svg = renderSvg(price, bollingerBandsFor(price, 20, 2));
 
@@ -122,5 +143,71 @@ describe("technical overlays render to SVG", () => {
 
     expect(svg.startsWith("<svg"), "a valid SVG is produced").toBe(true);
     expect(svg.includes("<path"), "the bare price line is still drawn").toBe(true);
+  });
+});
+
+describe("zeroLineOverlay", () => {
+  it("emits a single dashed baseline rule", () => {
+    expect(zeroLineOverlay().length).toBe(1);
+  });
+});
+
+describe("sigmaBandLevels", () => {
+  it("places the bands at ±k deviations", () => {
+    expect(sigmaBandLevels(1.5)).toEqual([3, -3]);
+    expect(sigmaBandLevels(1.5, 1)).toEqual([1.5, -1.5]);
+  });
+
+  it("emits nothing for a flat or unusable deviation", () => {
+    expect(sigmaBandLevels(0), "a flat series has no band").toEqual([]);
+    expect(sigmaBandLevels(Number.NaN)).toEqual([]);
+    expect(sigmaBandLevels(Number.POSITIVE_INFINITY)).toEqual([]);
+    expect(sigmaBandLevels(-1)).toEqual([]);
+    expect(sigmaBandLevels(1.5, 0)).toEqual([]);
+  });
+});
+
+describe("sigmaBandsOverlay", () => {
+  it("emits one rule mark holding both bands", () => {
+    expect(sigmaBandsOverlay(1.5).length).toBe(1);
+  });
+
+  it("draws no band on top of the baseline for a flat series", () => {
+    expect(sigmaBandsOverlay(0).length).toBe(0);
+    expect(sigmaBandsOverlay(Number.NaN).length).toBe(0);
+  });
+});
+
+describe("returnsBars", () => {
+  it("splits the series into one up-bar and one down-bar mark", () => {
+    const returns = dailyReturns(price);
+
+    expect(returns.length).toBe(price.length - 1);
+    // One mark for the non-negative bars, one for the negative bars.
+    expect(returnsBars(returns).length).toBe(2);
+    expect(returnsBars([]).length, "nothing to draw for an empty series").toBe(0);
+  });
+});
+
+describe("returns chart assembly", () => {
+  it("paints blue up bars, red down bars and both σ bands", () => {
+    const returns = dailyReturns(price);
+    const stats = returnStats(returns);
+    if (!stats) throw new Error("expected stats for a non-empty series");
+
+    const svg = renderSvg(
+      returns,
+      [...zeroLineOverlay(), ...sigmaBandsOverlay(stats.sd)],
+      "Return (%)",
+      returnsBars(returns),
+    );
+
+    expect(svg.includes("<rect"), "bars render as rects").toBe(true);
+    expect(svg.includes(RETURN_UP_FILL), "the up-day blue is present").toBe(true);
+    expect(svg.includes(RETURN_DOWN_FILL), "the down-day red is present").toBe(true);
+    expect(svg.includes("#9e9e9e"), "the zero baseline is present").toBe(true);
+    expect(svg.includes(RETURN_SIGMA_STROKE), "the dotted σ bands are present").toBe(true);
+    // Plot prefixes a vertical axis label with an arrow glyph, so match the text.
+    expect(svg.includes("Return (%)"), "the y axis is labelled as returns").toBe(true);
   });
 });

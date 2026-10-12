@@ -14,7 +14,7 @@ import {
 } from "../../types.ts";
 import type { ProgramError } from "../../errors/index.ts";
 import { menuGlobals } from "../../utils/menu_globals.ts";
-import { bollingerHandler, fibonacciHandler } from "../actions/technicals.ts";
+import { bollingerHandler, fibonacciHandler, returnsHandler } from "../actions/technicals.ts";
 import { ChartRendererLive } from "../../StocksMenu/services/ChartRenderer.ts";
 import { CryptoServiceLive } from "../../../services/CryptoService/index.ts";
 import { Effect, Layer } from "effect";
@@ -58,7 +58,22 @@ export const fibonacciOption: MenuOption = {
     }).pipe(Effect.provide(TechnicalsLive)),
 };
 
+export const returnsOption: MenuOption = {
+  name: "returns",
+  command: "returns [symbol]",
+  description: `Daily percent returns (each price against the previous price).
+
+    symbol (optional): falls back to the loaded token.`,
+  action: (
+    symbolStr?: string,
+  ): Effect.Effect<CommandState, ProgramError, TerminalUserStateConfigContext> =>
+    Effect.gen(function* () {
+      const st = yield* TerminalUserStateConfigContext;
+      return yield* returnsHandler(symbolStr);
+    }).pipe(Effect.provide(TechnicalsLive)),
+};
+
 /** The indicator options, in menu order. */
 export const technicalsMenuOptions = (
   state: TerminalUserStateConfig,
-): MenuOption[] => [bbandsOption, fibonacciOption, ...menuGlobals(state)];
+): MenuOption[] => [bbandsOption, fibonacciOption, returnsOption, ...menuGlobals(state)];

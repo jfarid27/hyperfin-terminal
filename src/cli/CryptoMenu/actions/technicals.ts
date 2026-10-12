@@ -24,17 +24,29 @@ import {
 } from "../../types.ts";
 import type { ProgramError } from "../../errors/index.ts";
 import { getLoadedToken } from "../../utils/index.ts";
-import { boldCell, escapeTableMarkup } from "../../utils/table_markup.ts";
+import { boldCell, escapeTableMarkup, greenCell, redCell } from "../../utils/table_markup.ts";
 import {
   bollingerBands,
   type BollingerPoint,
+  dailyReturns,
   DEFAULT_BOLLINGER_PERIOD,
   DEFAULT_BOLLINGER_STDDEV,
   fibonacciRetracement,
   type FibonacciRetracement,
+  type ReturnPoint,
+  returnStats,
+  type ReturnStats,
   type SeriesPoint,
 } from "../../../technicals/index.ts";
-import { bollingerBandsFor, fibonacciFor, formatLevelValue } from "../../../technicals/overlays.ts";
+import {
+  bollingerBandsFor,
+  fibonacciFor,
+  formatLevelValue,
+  RETURN_SIGMA_MULTIPLE,
+  returnsBars,
+  sigmaBandsOverlay,
+  zeroLineOverlay,
+} from "../../../technicals/overlays.ts";
 
 const { terminal } = terminalKit;
 
@@ -290,6 +302,108 @@ export const fibonacciHandler = (
 
     yield* Effect.logDebug(`Computed ${retracement.levels.length} retracement levels`);
     logFibonacciSummary(resolved.symbol, retracement);
+
+    return { result: { type: CommandResultType.Success }, state: st };
+  });
+
+/** Format a signed return: `+1.23%` / `-0.45%`. */
+const formatReturn = (value: number): string =>
+  `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+
+/** Colour a return by sign, as a terminal-kit markup cell. */
+const returnCell = (value: number): string =>
+  value >= 0 ? greenCell(formatReturn(value)) : redCell(formatReturn(value));
+
+/**
+ * Echo the newest daily returns so the numbers are visible without the chart.
+ *
+ * Takes the already-computed `stats` so the deviation that sized the chart's
+ * guide bands is the same number reported here.
+ */
+const logReturnsSummary = (
+  symbol: string,
+  returns: readonly ReturnPoint[],
+  stats: ReturnStats,
+): void => {
+  const rows = returns.slice(-SUMMARY_ROWS);
+  const band = RETURN_SIGMA_MULTIPLE * stats.sd;
+
+  console.log("");
+  console.log(
+    chalk.bold(`${symbol.toUpperCase()} — Daily Returns (${stats.count} session(s))`),
+  );
+  console.log("");
+
+  terminal.table(
+    [
+      ["Date", "Return"],
+      ...rows.map((r) => [boldCell(toDateLabel(r.timestamp)), returnCell(r.value)]),
+    ],
+    {
+      hasBorder: true,
+      contentHasMarkup: true,
+      borderChars: "lightRounded",
+      borderAttr: { color: "cyan" },
+      textAttr: { bgColor: "default" },
+      firstRowTextAttr: { bgColor: "cyan" },
+      width: 60,
+      fit: true,
+    },
+  );
+  console.log(
+    chalk.dim(
+      `\nMean ${formatReturn(stats.mean)} · daily sd ${stats.sd.toFixed(2)}% ` +
+        `(${RETURN_SIGMA_MULTIPLE}σ ±${band.toFixed(2)}%) · ` +
+        `range ${formatReturn(stats.min)} to ${formatReturn(stats.max)}`,
+    ),
+  );
+  console.log("");
+};
+
+/**
+ * Chart the daily percent returns of the series: each price measured against
+ * the previous price, drawn as bars coloured by sign (blue up, red down) with
+ * a zero baseline and dotted guide lines at ±2 daily standard deviations.
+ */
+export const returnsHandler = (
+  symbolStr?: string,
+) =>
+  Effect.gen(function* () {
+    const st = yield* TerminalUserStateConfigContext;
+
+    const resolved = yield* resolveSeries(symbolStr, lookbackDaysFor(0));
+    if (!resolved) {
+      return { result: { type: CommandResultType.Error }, state: st };
+    }
+
+    const returns = dailyReturns(resolved.points);
+    // Computed before the render call so the same deviation both sizes the
+    // guide bands and is reported in the read-out below the chart.
+    const stats = returnStats(returns);
+
+    if (!stats) {
+      console.log(
+        chalk.yellow(
+          `Not enough data for daily returns: ` +
+            `${resolved.symbol.toUpperCase()} returned ${resolved.points.length} point(s).`,
+        ),
+      );
+      return { result: { type: CommandResultType.Error }, state: st };
+    }
+
+    const chart = yield* ChartRenderer;
+    yield* chart.renderTechnical(
+      returns,
+      "timestamp",
+      "value",
+      [...zeroLineOverlay(), ...sigmaBandsOverlay(stats.sd)],
+      `${resolved.symbol.toUpperCase()} Daily Returns`,
+      "Return (%)",
+      returnsBars(returns),
+    );
+
+    yield* Effect.logDebug(`Computed ${returns.length} daily returns`);
+    logReturnsSummary(resolved.symbol, returns, stats);
 
     return { result: { type: CommandResultType.Success }, state: st };
   });

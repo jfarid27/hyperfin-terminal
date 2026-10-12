@@ -1,7 +1,7 @@
 import { describe, it } from "jsr:@std/testing/bdd";
 import { expect } from "jsr:@std/expect";
 import { Effect, Layer } from "effect";
-import { bollingerHandler, fibonacciHandler, parseNonNegative, parseOptionalPositiveInt, parsePositiveInt, lookbackDaysFor } from "./technicals.ts";
+import { bollingerHandler, fibonacciHandler, parseNonNegative, parseOptionalPositiveInt, parsePositiveInt, lookbackDaysFor, returnsHandler } from "./technicals.ts";
 import { CoinGeckoModel } from "../model/index.ts";
 import { technicalsMenuOptions } from "../TechnicalsMenu/menu.ts";
 import { ChartRenderer } from "../../StocksMenu/services/ChartRenderer.ts";
@@ -55,11 +55,11 @@ const mockModel = (series = prices) =>
   });
 
 /** Records every overlay handed to the renderer so band/level marks can be inspected. */
-const spyRenderer = (captured: { overlays: unknown[]; title?: string }[]) =>
+const spyRenderer = (captured: { overlays: unknown[]; title?: string; primary?: unknown[] }[]) =>
   Layer.succeed(ChartRenderer, {
     render: (_data, _x, _y) => Effect.void,
-    renderTechnical: (_data, _x, _y, overlays, title) => {
-      captured.push({ overlays, title });
+    renderTechnical: (_data, _x, _y, overlays, title, _yLabel, primary) => {
+      captured.push({ overlays, title, primary });
       return Effect.void;
     },
   });
@@ -105,18 +105,21 @@ describe("crypto technicals — parameter parsing", () => {
 });
 
 describe("crypto technicals submenu definition", () => {
-  it("lists bbands and fibonacci with chart-style parameters", () => {
+  it("lists bbands, fibonacci and returns with chart-style parameters", () => {
     const options = technicalsMenuOptions(baseState);
 
     const bbands = options.find((o) => o.name === "bbands");
     const fibonacci = options.find((o) => o.name === "fibonacci");
+    const returns = options.find((o) => o.name === "returns");
 
     expect(bbands, "the bbands option is present").toBeDefined();
     expect(fibonacci, "the fibonacci option is present").toBeDefined();
+    expect(returns, "the returns option is present").toBeDefined();
     // The parameter structure mirrors `chart`: an optional leading symbol that
     // falls back to the loaded token, then the indicator's own arguments.
     expect(bbands!.command).toBe("bbands [symbol] [period] [stddev]");
     expect(fibonacci!.command).toBe("fibonacci [symbol] [lookback]");
+    expect(returns!.command).toBe("returns [symbol]");
   });
 
   it("keeps the back option so the submenu is escapable", () => {
@@ -127,7 +130,7 @@ describe("crypto technicals submenu definition", () => {
 
 describe("crypto bollingerHandler", () => {
   it("charts the envelope and succeeds on a sufficient series", async () => {
-    const captured: { overlays: unknown[]; title?: string }[] = [];
+    const captured: { overlays: unknown[]; title?: string; primary?: unknown[] }[] = [];
     const result = await Effect.runPromise(
       bollingerHandler("bitcoin").pipe(
         Effect.provide(mockModel()),
@@ -143,7 +146,7 @@ describe("crypto bollingerHandler", () => {
   });
 
   it("respects an explicit period and deviation", async () => {
-    const captured: { overlays: unknown[]; title?: string }[] = [];
+    const captured: { overlays: unknown[]; title?: string; primary?: unknown[] }[] = [];
     await Effect.runPromise(
       bollingerHandler("bitcoin", "10", "3").pipe(
         Effect.provide(mockModel()),
@@ -156,7 +159,7 @@ describe("crypto bollingerHandler", () => {
   });
 
   it("falls back to the loaded crypto token when no symbol is given", async () => {
-    const captured: { overlays: unknown[]; title?: string }[] = [];
+    const captured: { overlays: unknown[]; title?: string; primary?: unknown[] }[] = [];
     const result = await Effect.runPromise(
       bollingerHandler().pipe(
         Effect.provide(mockModel()),
@@ -190,7 +193,7 @@ describe("crypto bollingerHandler", () => {
   });
 
   it("errors rather than charting when the series is shorter than the period", async () => {
-    const captured: { overlays: unknown[]; title?: string }[] = [];
+    const captured: { overlays: unknown[]; title?: string; primary?: unknown[] }[] = [];
     const short = prices.slice(0, 5);
 
     const result = await Effect.runPromise(
@@ -225,7 +228,7 @@ describe("crypto bollingerHandler", () => {
 
 describe("crypto fibonacciHandler", () => {
   it("charts the retracement levels over the whole series by default", async () => {
-    const captured: { overlays: unknown[]; title?: string }[] = [];
+    const captured: { overlays: unknown[]; title?: string; primary?: unknown[] }[] = [];
     const result = await Effect.runPromise(
       fibonacciHandler("bitcoin").pipe(
         Effect.provide(mockModel()),
@@ -240,7 +243,7 @@ describe("crypto fibonacciHandler", () => {
   });
 
   it("narrows the swing to the requested lookback", async () => {
-    const captured: { overlays: unknown[]; title?: string }[] = [];
+    const captured: { overlays: unknown[]; title?: string; primary?: unknown[] }[] = [];
     await Effect.runPromise(
       fibonacciHandler("bitcoin", "10").pipe(
         Effect.provide(mockModel()),
@@ -267,5 +270,53 @@ describe("crypto fibonacciHandler", () => {
     );
 
     expect(result.result.type).toBe(CommandResultType.Error);
+  });
+});
+
+describe("crypto returnsHandler", () => {
+  it("charts the daily percent returns as sign-coloured bars", async () => {
+    const captured: { overlays: unknown[]; title?: string; primary?: unknown[] }[] = [];
+    const result = await Effect.runPromise(
+      returnsHandler("bitcoin").pipe(
+        Effect.provide(mockModel()),
+        Effect.provide(spyRenderer(captured)),
+        Effect.provide(mockState()),
+      ),
+    );
+
+    expect(result.result.type).toBe(CommandResultType.Success);
+    expect(captured[0].title).toContain("BITCOIN Daily Returns");
+    // Two overlays: the zero baseline and the ±2σ guide bands. The returns
+    // themselves are the primary series — an up-bar and a down-bar mark.
+    expect(captured[0].overlays.length).toBe(2);
+    expect(captured[0].primary?.length, "bars replace the price line").toBe(2);
+  });
+
+  it("falls back to the loaded crypto token when no symbol is given", async () => {
+    const captured: { overlays: unknown[]; title?: string; primary?: unknown[] }[] = [];
+    const result = await Effect.runPromise(
+      returnsHandler().pipe(
+        Effect.provide(mockModel()),
+        Effect.provide(spyRenderer(captured)),
+        Effect.provide(mockState()),
+      ),
+    );
+
+    expect(result.result.type).toBe(CommandResultType.Success);
+    expect(captured[0].title).toContain("BITCOIN");
+  });
+
+  it("errors when the series cannot produce a single return", async () => {
+    const captured: { overlays: unknown[]; title?: string; primary?: unknown[] }[] = [];
+    const result = await Effect.runPromise(
+      returnsHandler("bitcoin").pipe(
+        Effect.provide(mockModel(prices.slice(0, 1))),
+        Effect.provide(spyRenderer(captured)),
+        Effect.provide(mockState()),
+      ),
+    );
+
+    expect(result.result.type).toBe(CommandResultType.Error);
+    expect(captured.length).toBe(0);
   });
 });
