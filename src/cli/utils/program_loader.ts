@@ -50,13 +50,39 @@ export function loadProgram(
 }
 
 // ---------------------------------------------------------------------------
+// Script lifecycle helpers.
+//
+// A script's state carries its filename for as long as the run is live, and the
+// command it is currently executing. When the commands run out the filename
+// stays behind with no command — that is a finished script.
+// ---------------------------------------------------------------------------
+export const scriptFinished = (st: TerminalUserStateConfig): boolean =>
+  Boolean(st.scriptContext?.filename) && !st.scriptContext?.currentCommand;
+
+/** Drop a finished script from the state so the next input is read normally. */
+export const clearScript = (
+  st: TerminalUserStateConfig,
+): TerminalUserStateConfig => ({
+  ...st,
+  scriptContext: {},
+});
+
+// ---------------------------------------------------------------------------
 // registerTerminalApplication — the recursive menu loop, now as an Effect.
 //
 // Returns Effect<TerminalUserStateConfig> instead of Promise<TerminalUserStateConfig>.
 // Recursion is via Effect.gen + yield* (not async/await), so the entire
 // call stack stays inside the Effect runtime.
+//
+// Passing `{ isRoot: true }` marks the outermost menu of the application. The
+// flag only matters for scripts: every enclosing menu unwinds a finished
+// script back up, and the root is the one that clears it and shows itself.
 // ---------------------------------------------------------------------------
-export const registerTerminalApplication = (menu: Menu) => {
+export const registerTerminalApplication = (
+  menu: Menu,
+  options: { isRoot?: boolean } = {},
+) => {
+  const isRootMenu = options.isRoot === true;
 
   const terminalApplication = (
     st: TerminalUserStateConfig,
@@ -64,6 +90,21 @@ export const registerTerminalApplication = (menu: Menu) => {
     Effect.gen(function* () {
 
       installGlobalHandlers();
+
+      // --- Finished scripts return to the top-level menu ------------------
+      // A script's commands are exhausted once its state still carries the
+      // script's filename but no command to run. The command that ran last may
+      // have run inside a nested submenu (`stocks` then `chart NVDA`), and that
+      // submenu is not where the user should end up, so hand the state to the
+      // enclosing menu instead of showing this menu. Each enclosing menu
+      // unwinds the same way; the root clears the script context and shows the
+      // main menu again.
+      if (scriptFinished(st)) {
+        if (isRootMenu) {
+          return yield* terminalApplication(clearScript(st));
+        }
+        return st;
+      }
 
       const menu_options = menu.options(st);
 
@@ -217,6 +258,8 @@ export const registerTerminalApplication = (menu: Menu) => {
           if (st.scriptContext?.currentCommand) {
             console.log(chalk.red("Script execution aborted due to error."));
 
+            // `--oet-script` is a batch run: report the failure as an exit code
+            // instead of opening a menu.
             if (st.scriptContext?.exitAfterCompletion) {
               return yield* Effect.sync(() => {
                 process.exit(1);
@@ -224,9 +267,17 @@ export const registerTerminalApplication = (menu: Menu) => {
               });
             }
 
-            const abortState = {
+            // No commands left after a failure, so treat the script as
+            // finished and let the enclosing menus unwind to the top-level
+            // menu rather than dropping the user into whichever submenu the
+            // failing command ran in.
+            const abortState: TerminalUserStateConfig = {
               ...st,
-              scriptContext: {} as typeof st.scriptContext,
+              scriptContext: {
+                ...st.scriptContext,
+                currentCommand: undefined,
+                tailCommands: [],
+              },
             };
             return yield* terminalApplication(abortState);
           }
