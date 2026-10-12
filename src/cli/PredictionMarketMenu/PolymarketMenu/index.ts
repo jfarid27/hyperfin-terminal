@@ -29,7 +29,8 @@ const polymarketMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => 
     {
         name: "sports",
         command: "sports",
-        description: "Enter the sports submenu (NFL games and league tags).",
+        description:
+            "Enter the sports submenu (NFL, MLB, UFC, NCAAF, NBA, NCAAM, PL, NHL games and league tags).",
         action: () => Effect.gen(function* () {
             const st = yield* TerminalUserStateConfigContext;
             const newState = yield* sportsTerminal(st);

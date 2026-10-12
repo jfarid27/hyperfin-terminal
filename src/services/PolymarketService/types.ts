@@ -2,6 +2,24 @@ import { Effect, Context, Layer } from "effect";
 import { FetchService } from "src/cli/services/FetchService.ts";
 import { HTTPError, LocalProcessingError } from "src/cli/errors/index.ts";
 
+/**
+ * Query for a series' events, restricted server-side where possible.
+ *
+ * `resolvesFrom`/`resolvesUntil` bound the event **resolution** date
+ * (`endDate`). They matter because `order=startDate` pages by *start* date: a
+ * series holding old, still-unresolved events fills the first page with games
+ * that resolve outside the caller's window, hiding the in-window ones. Bounding
+ * the resolution date server-side keeps the page on the games being asked for.
+ */
+export interface SeriesEventQuery {
+  /** Maximum number of events to return (default 50). */
+  limit?: number;
+  /** Only events resolving at or after this ISO instant (`end_date_min`). */
+  resolvesFrom?: string;
+  /** Only events resolving at or before this ISO instant (`end_date_max`). */
+  resolvesUntil?: string;
+}
+
 export interface PolymarketModelPort {
   tags: {
     get: () => Effect.Effect<unknown, HTTPError | LocalProcessingError>;
@@ -11,7 +29,10 @@ export interface PolymarketModelPort {
   };
   events: {
     getByTagId: (tagId: string) => Effect.Effect<unknown, HTTPError | LocalProcessingError>;
-    getBySeriesId: (seriesId: string, limit?: number) => Effect.Effect<unknown, HTTPError | LocalProcessingError>;
+    getBySeriesId: (
+      seriesId: string,
+      query?: SeriesEventQuery,
+    ) => Effect.Effect<unknown, HTTPError | LocalProcessingError>;
     top: (limit?: number) => Effect.Effect<unknown, HTTPError | LocalProcessingError>;
   };
   event: {
@@ -67,15 +88,17 @@ export const PolymarketModelLive = Layer.effect(
             const params = new URLSearchParams({ tag_id: tagId });
             return yield* fs.fetchJson("https://gamma-api.polymarket.com/events", params);
           }),
-        getBySeriesId: (seriesId: string, limit: number = 50) =>
+        getBySeriesId: (seriesId: string, query: SeriesEventQuery = {}) =>
           Effect.gen(function* () {
             const params = new URLSearchParams({
               series_id: seriesId,
               closed: "false",
-              limit: String(limit),
+              limit: String(query.limit ?? 50),
               order: "startDate",
               ascending: "true",
             });
+            if (query.resolvesFrom) params.set("end_date_min", query.resolvesFrom);
+            if (query.resolvesUntil) params.set("end_date_max", query.resolvesUntil);
             return yield* fs.fetchJson("https://gamma-api.polymarket.com/events", params);
           }),
         top: (limit: number = 10) =>

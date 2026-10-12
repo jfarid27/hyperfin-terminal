@@ -1,14 +1,15 @@
 /**
  * @file Sports — league game markets.
- * @description Action handler for the sports submenu's `nfl` command: it shows
- * the current open games for a league as a stack of layered tables — a
- * full-width header (game + resolution date), the moneyline outcomes with their
- * prices, and the specific market's slug.
+ * @description Shared action handler for the sports submenu's per-league games
+ * commands (`nfl`, `mlb`, `ufc`, `ncaaf`, `nba`, `ncaam`, `pl`): it shows the
+ * current open games for a league as a stack of layered tables — a full-width
+ * header (game + resolution date), the moneyline outcomes with their prices,
+ * and the specific market's slug.
  *
  * The league is resolved from the Gamma `/sports` endpoint rather than
  * hardcoding tag/series ids: `/sports` lists every league with its `primaryTagId`,
- * its tag ids and the `series` id its game events hang off, so identifying the
- * NFL's tags is a lookup, not a constant.
+ * its tag ids and the `series` id its game events hang off, so identifying a
+ * league's tags is a lookup, not a constant.
  */
 
 import { Effect } from "effect";
@@ -80,6 +81,10 @@ export const resolutionWindow = (
 /** Format an epoch-millisecond instant for display. */
 export const formatEpoch = (ms: number): string =>
   formatResolutionDate(new Date(ms).toISOString());
+
+/** Format an epoch-millisecond instant as an ISO-8601 UTC instant, whole seconds. */
+export const isoSeconds = (ms: number): string =>
+  new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
 
 /**
  * True when the event's resolution (`endDate`) falls inside the window. Events
@@ -184,8 +189,11 @@ export const renderGame = (layers: GameLayers): void => {
  * Builds an action handler that lists the current open games for a league.
  *
  * @param sportKey League key from `/sports`, e.g. `nfl`.
+ * @param displayName Name to echo in output; defaults to the league's `/sports`
+ *   name. Passed explicitly for leagues whose menu label differs from the API
+ *   key (e.g. `ncaaf` resolves `cfb` but should print as `NCAAF`).
  */
-export const sportGamesHandler = (sportKey: string) => (
+export const sportGamesHandler = (sportKey: string, displayName?: string) => (
   limitStr?: string,
 ): Effect.Effect<
   CommandState,
@@ -210,22 +218,32 @@ export const sportGamesHandler = (sportKey: string) => (
       };
     }
 
+    const name = displayName ?? league.name;
+
     yield* Effect.logDebug(
-      `Resolved ${league.name} -> series ${league.series}, primaryTagId ${league.primaryTagId}, tags ${league.tags}`,
+      `Resolved ${name} -> series ${league.series}, primaryTagId ${league.primaryTagId}, tags ${league.tags}`,
     );
 
-    const events = (yield* polymarket.events.getBySeriesId(league.series, limit)) as any[];
-
     // Only games resolving in [now - 1 day, now + 7 days]: just-finished games
-    // plus the coming week.
+    // plus the coming week. The window is applied server-side as well, because
+    // the events page is ordered by startDate — a series carrying older
+    // unresolved games fills that page ahead of the games resolving this week
+    // (college football's season opens in August, so its page is all September
+    // games without it).
     const window = resolutionWindow(Date.now());
+    const events = (yield* polymarket.events.getBySeriesId(league.series, {
+      limit,
+      resolvesFrom: isoSeconds(window.start),
+      resolvesUntil: isoSeconds(window.end),
+    })) as any[];
+
     const games = gamesInResolutionWindow(events ?? [], window);
 
     yield* Effect.logDebug(
-      `${games.length} ${league.name} games in window (series ${league.series})`,
+      `${games.length} ${name} games in window (series ${league.series})`,
     );
 
-    console.log(chalk.blue.bold(`Open ${league.name} games (${games.length})`));
+    console.log(chalk.blue.bold(`Open ${name} games (${games.length})`));
     console.log(
       chalk.blue(
         `Resolution window: ${formatEpoch(window.start)} .. ${formatEpoch(window.end)}`,

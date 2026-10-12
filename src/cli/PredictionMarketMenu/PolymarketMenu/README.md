@@ -9,7 +9,7 @@ Polymarket Menu.
   - Description: Fetch the top polymarket markets. If a limit is not provided, the top 10 markets by volume are returned. If a term is provided, filters the top markets for that term.
 - **sports**
   - Usage: `sports`
-  - Description: Enter the sports submenu. Shows current open league games (NFL for now) and the league tags used to find them. See `SportsMenu/README.md`.
+  - Description: Enter the sports submenu. Shows current open league games (NFL, MLB, UFC, NCAAF, NBA, NCAAM, PL, NHL) and the league tags used to find them. See `SportsMenu/README.md`.
 - **event**
   - Usage: `event [slug]`
   - Description: Fetch a specific event by slug.

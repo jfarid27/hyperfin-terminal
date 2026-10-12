@@ -14,9 +14,44 @@ import {
   gamesInResolutionWindow,
   isGameEvent,
   isWithinResolutionWindow,
+  isoSeconds,
   resolutionWindow,
-} from "./nfl.ts";
+} from "./games.ts";
+import { SPORT_LEAGUES } from "../leagues.ts";
 import { filterSportsLeagues, sportsLeagueRows } from "./tags.ts";
+
+describe("Polymarket Sports — league catalogue", () => {
+  it("maps every league command to a distinct Gamma sport key", () => {
+    const keys = SPORT_LEAGUES.map((l) => l.sportKey);
+    expect(new Set(keys).size).toBe(SPORT_LEAGUES.length);
+  });
+
+  it("resolves the leagues whose key differs from the menu abbreviation", () => {
+    const byCommand = new Map(SPORT_LEAGUES.map((l) => [l.command, l.sportKey]));
+    expect(byCommand.get("ncaaf")).toBe("cfb");
+    expect(byCommand.get("ncaam")).toBe("cbb");
+    expect(byCommand.get("pl")).toBe("epl");
+  });
+
+  it("resolves the alias keys against the live-shaped /sports list", () => {
+    expect(findSportLeague(sportsMockData, "cfb")?.name).toBe("College Football");
+    expect(findSportLeague(sportsMockData, "cbb")?.name).toBe("College Basketball");
+    expect(findSportLeague(sportsMockData, "epl")?.name).toBe("Premier League");
+  });
+
+  it("covers the requested leagues", () => {
+    expect(SPORT_LEAGUES.map((l) => l.command)).toEqual([
+      "nfl",
+      "mlb",
+      "ufc",
+      "ncaaf",
+      "nba",
+      "ncaam",
+      "pl",
+      "nhl",
+    ]);
+  });
+});
 
 describe("Polymarket Sports — league lookup", () => {
   it("resolves the NFL league from the /sports list by sport key", () => {
@@ -91,7 +126,7 @@ describe("Polymarket Sports — league rows", () => {
   });
 
   it("returns every league when no term is given", () => {
-    expect(filterSportsLeagues(sportsMockData).length).toBe(2);
+    expect(filterSportsLeagues(sportsMockData).length).toBe(8);
   });
 
   it("maps leagues to Name/Sport/Primary Tag/Tags/Series rows", () => {
@@ -112,6 +147,11 @@ describe("Polymarket Sports — resolution window", () => {
   it("spans one day back and seven days ahead", () => {
     expect(window.start).toBe(now - DAY_MS);
     expect(window.end).toBe(now + 7 * DAY_MS);
+  });
+
+  it("formats window bounds as whole-second ISO instants for the API", () => {
+    expect(isoSeconds(now)).toBe("2026-10-12T04:00:00Z");
+    expect(isoSeconds(Date.parse("2026-10-12T00:20:12.088Z"))).toBe("2026-10-12T00:20:12Z");
   });
 
   it("includes a game that just finished (earlier today)", () => {

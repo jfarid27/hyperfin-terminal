@@ -16,24 +16,41 @@ import type { ProgramError } from "../../../errors/index.ts";
 import { menuGlobals } from "../../../utils/menu_globals.ts";
 import { PolymarketServiceLive } from "../../../../services/PolymarketService/service.ts";
 import { Effect } from "effect";
-import { sportGamesHandler } from "./actions/nfl.ts";
+import { sportGamesHandler } from "./actions/games.ts";
 import { sportsTagsHandler } from "./actions/tags.ts";
+import { SPORT_LEAGUES, type SportLeague } from "./leagues.ts";
 
-export const nflOption: MenuOption = {
-  name: "nfl",
-  command: "nfl [limit]",
-  description: `Show NFL games resolving within the current window.
+/**
+ * The description shared by every league's games command, specialised with the
+ * league's name.
+ */
+const gamesDescription = (league: SportLeague): string =>
+  `Show ${league.title} games resolving within the current window.
 
     Only games whose resolution date falls from one day ago through the next
     seven days are shown — just-finished games plus the coming week.
     Each game is displayed as a header (matchup + resolution date), the
     moneyline outcomes with their prices, and the market's slug.
-    limit (optional): number of events to scan, default 20.`,
+    limit (optional): number of events to scan, default 20.`;
+
+/**
+ * One games command for a league: the menu shows the command's abbreviation as
+ * its name, and the handler resolves the league's Gamma `sport` key.
+ */
+export const leagueOption = (league: SportLeague): MenuOption => ({
+  name: league.command.toUpperCase(),
+  command: `${league.command} [limit]`,
+  description: gamesDescription(league),
   action: (
     limitStr?: string,
   ): Effect.Effect<CommandState, ProgramError, TerminalUserStateConfigContext> =>
-    sportGamesHandler("nfl")(limitStr).pipe(Effect.provide(PolymarketServiceLive)),
-};
+    sportGamesHandler(league.sportKey, league.title)(limitStr).pipe(
+      Effect.provide(PolymarketServiceLive),
+    ),
+});
+
+/** A games command per supported league, in menu order. */
+export const leagueOptions: MenuOption[] = SPORT_LEAGUES.map(leagueOption);
 
 export const tagsOption: MenuOption = {
   name: "tags",
@@ -52,4 +69,4 @@ export const tagsOption: MenuOption = {
 /** The sports submenu options, in menu order. */
 export const sportsMenuOptions = (
   state: TerminalUserStateConfig,
-): MenuOption[] => [nflOption, tagsOption, ...menuGlobals(state)];
+): MenuOption[] => [...leagueOptions, tagsOption, ...menuGlobals(state)];
