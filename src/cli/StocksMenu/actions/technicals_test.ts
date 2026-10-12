@@ -1,9 +1,10 @@
 import { describe, it } from "jsr:@std/testing/bdd";
 import { expect } from "jsr:@std/expect";
 import { Effect, Layer } from "effect";
-import { bollingerHandler, fibonacciHandler, parsePositiveInt, toSeriesPoints } from "./technicals.ts";
+import { bollingerHandler, fibonacciHandler, parsePositiveInt, returnsHandler, toSeriesPoints } from "./technicals.ts";
 import { technicalsMenuOptions } from "../TechnicalsMenu/menu.ts";
 import { AlphaVantageService, type ChartPoint } from "src/services/AlphaVantageService/index.ts";
+import { AlpacaService } from "src/services/AlpacaService/index.ts";
 import { ChartRenderer } from "../services/ChartRenderer.ts";
 import { ConfigService } from "src/cli/services/ConfigService.ts";
 import { FetchService } from "src/cli/services/FetchService.ts";
@@ -81,11 +82,23 @@ const mockFetch = (response: unknown) =>
     fetchJson: (_url, _params?, _init?) => Effect.succeed(response),
   });
 
-const captured: { overlays: unknown[]; title?: string }[] = [];
+/** Alpaca's daily bars, exposed through the service port the technicals use. */
+const mockAlpaca = (points: ChartPoint[] = bars) =>
+  Layer.succeed(AlpacaService, {
+    getStockSpot: (_symbol) => Effect.fail(new HTTPError({ message: "unused" })),
+    getStockChart: (_symbol) => Effect.succeed(points),
+    getOptionExpirations: (_underlying) => Effect.succeed([]),
+    getOptionChain: (_symbol, _expiration) => Effect.fail(new HTTPError({ message: "unused" })),
+    getForexSpot: (_pair) => Effect.fail(new HTTPError({ message: "unused" })),
+    getForexDaily: (_pair) => Effect.succeed([]),
+    getFixedIncomeLatestPrices: (_isins) => Effect.succeed([]),
+  });
+
+const captured: { overlays: unknown[]; title?: string; primary?: unknown[] }[] = [];
 const spyRenderer = Layer.succeed(ChartRenderer, {
   render: (_data, _x, _y) => Effect.void,
-  renderTechnical: (_data, _x, _y, overlays, title) => {
-    captured.push({ overlays, title });
+  renderTechnical: (_data, _x, _y, overlays, title, _yLabel, primary) => {
+    captured.push({ overlays, title, primary });
     return Effect.void;
   },
 });
@@ -98,7 +111,8 @@ const layer = (
   cfg = mockConfig(undefined),
   fs = mockFetch({}),
   state = mockState(),
-) => Layer.mergeAll(av, cfg, fs, spyRenderer, state);
+  alpaca = mockAlpaca(),
+) => Layer.mergeAll(av, cfg, fs, alpaca, spyRenderer, state);
 
 // ── Tests ──
 
@@ -122,18 +136,21 @@ describe("stocks technicals — helpers", () => {
 });
 
 describe("stocks technicals submenu definition", () => {
-  it("lists bbands and fibonacci with chart-style parameters", () => {
+  it("lists bbands, fibonacci and returns with chart-style parameters", () => {
     const options = technicalsMenuOptions(baseState);
 
     const bbands = options.find((o) => o.name === "bbands");
     const fibonacci = options.find((o) => o.name === "fibonacci");
+    const returns = options.find((o) => o.name === "returns");
 
     expect(bbands, "the bbands option is present").toBeDefined();
     expect(fibonacci, "the fibonacci option is present").toBeDefined();
+    expect(returns, "the returns option is present").toBeDefined();
     // The parameter structure mirrors `chart`: an optional leading symbol that
     // falls back to the loaded token, then the indicator's own arguments.
     expect(bbands!.command).toBe("bbands [symbol] [period] [stddev]");
     expect(fibonacci!.command).toBe("fibonacci [symbol] [lookback]");
+    expect(returns!.command).toBe("returns [symbol]");
   });
 
   it("keeps the back option so the submenu is escapable", () => {
@@ -224,6 +241,86 @@ describe("stocks fibonacciHandler", () => {
     const flat = bars.map((b) => ({ ...b, close: 50 }));
     const result = await Effect.runPromise(
       fibonacciHandler("NVDA").pipe(Effect.provide(layer(mockAV(flat)))),
+    );
+
+    expect(result.result.type).toBe(CommandResultType.Error);
+  });
+});
+
+describe("stocks returnsHandler", () => {
+  const alpacaState = mockState({
+    ...baseState,
+    loadedContext: {
+      ...baseState.loadedContext,
+      stocks: { datasource: DataSourceType.Alpaca },
+    },
+  });
+
+  it("charts the daily percent returns as sign-coloured bars", async () => {
+    captured.length = 0;
+    const result = await Effect.runPromise(
+      returnsHandler("NVDA").pipe(Effect.provide(layer())),
+    );
+
+    expect(result.result.type).toBe(CommandResultType.Success);
+    expect(captured[0].title).toContain("NVDA Daily Returns");
+    // Two overlays: the zero baseline and the ±2σ guide bands. The returns
+    // themselves are the primary series — an up-bar and a down-bar mark.
+    expect(captured[0].overlays.length).toBe(2);
+    expect(captured[0].primary?.length, "bars replace the price line").toBe(2);
+  });
+
+  it("uses the Alpaca daily bars when that is the active source", async () => {
+    captured.length = 0;
+    const result = await Effect.runPromise(
+      returnsHandler("NVDA").pipe(
+        Effect.provide(layer(mockAV(), mockConfig(undefined), mockFetch({}), alpacaState)),
+      ),
+    );
+
+    expect(result.result.type).toBe(CommandResultType.Success);
+    expect(captured[0].title).toContain("NVDA Daily Returns");
+    expect(captured[0].primary?.length).toBe(2);
+  });
+
+  it("reports an Alpaca failure instead of charting anything", async () => {
+    captured.length = 0;
+    const failingAlpaca = Layer.succeed(AlpacaService, {
+      getStockSpot: (_symbol) => Effect.fail(new HTTPError({ message: "unused" })),
+      getStockChart: (_symbol) => Effect.fail(new HTTPError({ message: "403 forbidden" })),
+      getOptionExpirations: (_underlying) => Effect.succeed([]),
+      getOptionChain: (_symbol, _expiration) => Effect.fail(new HTTPError({ message: "unused" })),
+      getForexSpot: (_pair) => Effect.fail(new HTTPError({ message: "unused" })),
+      getForexDaily: (_pair) => Effect.succeed([]),
+      getFixedIncomeLatestPrices: (_isins) => Effect.succeed([]),
+    });
+
+    const result = await Effect.runPromise(
+      returnsHandler("NVDA").pipe(
+        Effect.provide(
+          layer(mockAV(), mockConfig(undefined), mockFetch({}), alpacaState, failingAlpaca),
+        ),
+      ),
+    );
+
+    expect(result.result.type).toBe(CommandResultType.Error);
+    expect(captured.length, "no chart is drawn on an Alpaca failure").toBe(0);
+  });
+
+  it("errors when the series cannot produce a single return", async () => {
+    captured.length = 0;
+    const result = await Effect.runPromise(
+      returnsHandler("NVDA").pipe(Effect.provide(layer(mockAV([bars[0]])))),
+    );
+
+    expect(result.result.type).toBe(CommandResultType.Error);
+    expect(captured.length).toBe(0);
+  });
+
+  it("errors when there is no symbol to resolve", async () => {
+    captured.length = 0;
+    const result = await Effect.runPromise(
+      returnsHandler("").pipe(Effect.provide(layer())),
     );
 
     expect(result.result.type).toBe(CommandResultType.Error);

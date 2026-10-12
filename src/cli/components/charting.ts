@@ -399,16 +399,21 @@ export function showMultiLineChart(
  *
  * `overlays` are pre-built Plot marks, so this renderer stays generic: the
  * caller decides which indicators to draw and how they are computed (see
- * `src/technicals/`). The price line is added last so it stays legible on top
+ * `src/technicals/`). The series mark is added last so it stays legible on top
  * of the envelopes and levels.
+ *
+ * `primary` replaces the default white price line as the chart's main series —
+ * e.g. sign-coloured return bars. Leave it empty to plot the `x`/`y` fields as
+ * a line.
  *
  * @param data The price series to plot.
  * @param x The x axis field, read as a millisecond timestamp.
  * @param y The y axis field (e.g. `close`).
- * @param overlays Technical marks to draw beneath the price line.
+ * @param overlays Technical marks to draw beneath the series.
  * @param xLabel The x axis label.
  * @param yLabel The y axis label.
  * @param title The title of the chart.
+ * @param primary Marks to draw as the main series instead of a line.
  */
 export function showTechnicalChart(
     data: Record<string, any>[],
@@ -417,7 +422,8 @@ export function showTechnicalChart(
     overlays: Plot.Markish[] = [],
     xLabel: string = "Date",
     yLabel: string = "Price",
-    title: string = "Chart"
+    title: string = "Chart",
+    primary: Plot.Markish[] = []
 ): Effect.Effect<void, LocalProcessingError> {
     // specific setup for jsdom to match what Plot expects
     const jsdom = new JSDOM("");
@@ -435,7 +441,7 @@ export function showTechnicalChart(
         y: { label: yLabel },
         marks: [
             ...overlays,
-            lineChart(data, x, y)
+            ...(primary.length > 0 ? primary : [lineChart(data, x, y)])
         ]
     });
 

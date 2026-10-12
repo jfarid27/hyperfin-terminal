@@ -14,3 +14,6 @@ export {
 
 export type { FibonacciLevel, FibonacciRetracement } from "./fibonacci.ts";
 export { FIBONACCI_RATIOS, fibonacciRetracement } from "./fibonacci.ts";
+
+export type { ReturnPoint, ReturnStats } from "./returns.ts";
+export { dailyReturns, returnStats } from "./returns.ts";
