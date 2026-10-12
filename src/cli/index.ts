@@ -198,7 +198,7 @@ const mainMenu: Menu = {
     options: menuOptions,
 }
 
-export const terminalMain = registerTerminalApplication(mainMenu);
+export const terminalMain = registerTerminalApplication(mainMenu, { isRoot: true });
 
 export async function startMain(sessionPath: string, scriptFilename?: string) {
   // Only show banner on initial load, and only in interactive TTY mode.

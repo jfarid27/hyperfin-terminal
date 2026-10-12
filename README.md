@@ -83,6 +83,9 @@ From within the terminal, use the `script` command:
 script <filename>.txt
 ```
 
+The script runs inside the terminal, so when it finishes you are returned to the main
+menu — even if the script's last command ran inside a submenu.
+
 #### Running Scripts from Command Line
 
 You can also run scripts directly from the command line using the `--oet-script` flag. The terminal will execute the script and exit automatically:
