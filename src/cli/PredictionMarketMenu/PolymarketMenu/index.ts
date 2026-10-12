@@ -1,6 +1,7 @@
-import { Menu, MenuOption, TerminalUserStateConfig } from "../../types.ts";
+import { CommandResultType, Menu, MenuOption, TerminalUserStateConfig, TerminalUserStateConfigContext } from "../../types.ts";
 import { registerTerminalApplication } from "../../utils/program_loader.ts";
 import { menuGlobals } from "../../utils/menu_globals.ts";
+import { Effect } from "effect";
 import {
     polymarketMarketsTopFetchHandler,
     polymarketMarketsTagsFetchHandler,
@@ -11,6 +12,7 @@ import {
  import { predictionMarketViewHandler } from './actions/Market/index.ts';
  import { predictionEventViewHandler } from './actions/Event/index.ts';
  import { polymarketMarketsSearchHandler } from './actions/Search/index.ts';
+ import sportsTerminal from './SportsMenu/index.ts';
 
 /**
  *  Prediction Markets Menu Options.
@@ -23,6 +25,19 @@ const polymarketMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => 
         If a limit is not provided, the top 10 markets by volume are returned.
         If a term is provided, filters the top markets for that term.`,
         action: polymarketMarketsTopFetchHandler,
+    },
+    {
+        name: "sports",
+        command: "sports",
+        description: "Enter the sports submenu (NFL games and league tags).",
+        action: () => Effect.gen(function* () {
+            const st = yield* TerminalUserStateConfigContext;
+            const newState = yield* sportsTerminal(st);
+            return {
+                result: { type: CommandResultType.Success },
+                state: newState,
+            };
+        }),
     },
     {
         name: "event",

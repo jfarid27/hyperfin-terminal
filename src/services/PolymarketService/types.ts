@@ -6,8 +6,12 @@ export interface PolymarketModelPort {
   tags: {
     get: () => Effect.Effect<unknown, HTTPError | LocalProcessingError>;
   };
+  sports: {
+    get: () => Effect.Effect<unknown, HTTPError | LocalProcessingError>;
+  };
   events: {
     getByTagId: (tagId: string) => Effect.Effect<unknown, HTTPError | LocalProcessingError>;
+    getBySeriesId: (seriesId: string, limit?: number) => Effect.Effect<unknown, HTTPError | LocalProcessingError>;
     top: (limit?: number) => Effect.Effect<unknown, HTTPError | LocalProcessingError>;
   };
   event: {
@@ -51,10 +55,27 @@ export const PolymarketModelLive = Layer.effect(
             return yield* fs.fetchJson("https://gamma-api.polymarket.com/tags", params);
           }),
       },
+      sports: {
+        get: () =>
+          Effect.gen(function* () {
+            return yield* fs.fetchJson("https://gamma-api.polymarket.com/sports");
+          }),
+      },
       events: {
         getByTagId: (tagId: string) =>
           Effect.gen(function* () {
             const params = new URLSearchParams({ tag_id: tagId });
+            return yield* fs.fetchJson("https://gamma-api.polymarket.com/events", params);
+          }),
+        getBySeriesId: (seriesId: string, limit: number = 50) =>
+          Effect.gen(function* () {
+            const params = new URLSearchParams({
+              series_id: seriesId,
+              closed: "false",
+              limit: String(limit),
+              order: "startDate",
+              ascending: "true",
+            });
             return yield* fs.fetchJson("https://gamma-api.polymarket.com/events", params);
           }),
         top: (limit: number = 10) =>
