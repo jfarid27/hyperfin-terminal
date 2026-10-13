@@ -3,13 +3,13 @@ import { InvalidStateError } from "src/cli/errors/index.ts";
 import {
     CommandResultType, TerminalUserStateConfigContext
 } from "src/cli/types.ts";
-import terminalKit from "terminal-kit";
 import { PolymarketModel } from "../../../../../services/PolymarketService/index.ts";
-const { terminal } = terminalKit;
 import { showMultiLineChart, TimeSeriesData } from "src/cli/components/charting.ts";
 import chalk from "chalk";
 import { zip, pipe, props, map, prop } from "ramda";
 import { PolymarketServiceLive } from "../../../../../services/PolymarketService/service.ts";
+import { table } from "../../../../utils/table.ts";
+import { clampText, DESCRIPTION_LIMIT, outputWidth, wrapText } from "../../../../utils/text.ts";
 
 export const xPolymarketMarketData = props([
     "active",
@@ -97,9 +97,7 @@ export const marketChartHandler = (slug: string, startTs?: string, endTs?: strin
   }
 
   const response = yield* polymarket.market.getBySlug(slug);
-  yield* Effect.logDebug(response);
   const clobIds = splitClobIds(response);
-  yield* Effect.logDebug(clobIds);
 
   if (clobIds.length !== 2) {
     console.log(chalk.red("Invalid clob ids"));
@@ -108,8 +106,6 @@ export const marketChartHandler = (slug: string, startTs?: string, endTs?: strin
 
   const yesPrices = yield* polymarket.market.prices(clobIds[0], start, end);
   const noPrices = yield* polymarket.market.prices(clobIds[1], start, end);
-  yield* Effect.logDebug(yesPrices);
-  yield* Effect.logDebug(noPrices);
   const yesPricesProcessed = processMarketPriceHistory(yesPrices);
   const noPricesProcessed = processMarketPriceHistory(noPrices);
 
@@ -165,15 +161,23 @@ export const predictionMarketViewHandler = (slug?: string, type?: string, startT
 
     const response = yield* polymarket.market.getBySlug(slug);
     const { marketData, outcomeData } = processMarketSlugDataResponse(response);
-    yield* Effect.logDebug(marketData);
-    yield* Effect.logDebug(outcomeData);
 
     console.log(chalk.blue.bold("Market Data"))
     console.log(chalk.blue("Question: " + response.question))
     console.log(chalk.blue("Slug: " + response.slug))
-    console.log(chalk.yellow("Description: " + response.description))
+    // The description is the market's resolution rules — often a couple of
+    // thousand characters — and printed whole it buries the tables below it.
+    // Raise DESCRIPTION_LIMIT in utils/text.ts to read more of it.
+    for (
+      const line of wrapText(
+        "Description: " + clampText(response.description, DESCRIPTION_LIMIT),
+        outputWidth(),
+      )
+    ) {
+      console.log(chalk.yellow(line));
+    }
 
-    terminal.table([
+    table([
         ['Active', 'Liquidity', 'Volume'],
         marketData,
     ], {
@@ -188,7 +192,7 @@ export const predictionMarketViewHandler = (slug?: string, type?: string, startT
     });
 
     for (const [question, outcomePrices] of outcomeData) {
-        terminal.table([
+        table([
             [question, ""],
             ['Outcome', 'Price'],
             ...outcomePrices,

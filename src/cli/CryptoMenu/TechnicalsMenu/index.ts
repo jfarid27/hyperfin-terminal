@@ -14,7 +14,7 @@ import { registerTerminalApplication } from "../../utils/program_loader.ts";
 import { type Menu } from "../../types.ts";
 import { technicalsMenuOptions } from "./menu.ts";
 
-const technicalsMenu: Menu = {
+export const technicalsMenu: Menu = {
   name: "Technicals Menu",
   description: "Technical analysis indicators",
   messagePrompt: "Select an indicator:",

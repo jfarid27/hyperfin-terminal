@@ -4,9 +4,8 @@ import { ChartRenderer } from "../services/ChartRenderer.ts";
 import { DataSourceType, TerminalUserStateConfigContext } from "../../types.ts";
 import { CommandResultType } from "../../types.ts";
 import { Effect } from "effect";
-import terminalKit from "terminal-kit";
-import { boldCell, escapeTableMarkup } from "../../utils/table_markup.ts";
-const { terminal } = terminalKit;
+import { boldCell } from "../../utils/table_markup.ts";
+import { table } from "../../utils/table.ts";
 
 const getLoadedToken = (st: any): string | undefined =>
   st?.loadedContext?.token?.symbol;
@@ -14,7 +13,7 @@ const getLoadedToken = (st: any): string | undefined =>
 /** Row for the symbol-search results table. */
 const toSearchTableRow = (m: SymbolMatch) => [
   boldCell(m.symbol),
-  escapeTableMarkup(m.name),
+  m.name,
   m.type,
   m.region,
   m.currency,
@@ -57,7 +56,7 @@ export const searchSymbolsHandler = (
     console.log(chalk.bold(`\nSymbols matching "${query}" (${matches.length})`));
     console.log("");
 
-    terminal.table(
+    table(
       [
         ["Symbol", "Name", "Type", "Region", "Cur", "Match"],
         ...matches.map(toSearchTableRow),

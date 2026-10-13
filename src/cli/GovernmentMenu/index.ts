@@ -19,7 +19,7 @@ const governmentMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => 
     ...menuGlobals(state),
 ]
 
-const governmentMenu: Menu = {
+export const governmentMenu: Menu = {
     name: "Government Menu",
     description: "Government economic data and statistics",
     messagePrompt: "Select an option:",

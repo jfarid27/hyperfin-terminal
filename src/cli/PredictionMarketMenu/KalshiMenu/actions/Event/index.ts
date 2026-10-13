@@ -1,6 +1,4 @@
 import { Effect } from "effect";
-import terminalKit from "terminal-kit";
-const { terminal } = terminalKit;
 import {
     CommandResultType,
     TerminalUserStateConfigContext
@@ -8,6 +6,7 @@ import {
 import chalk from "chalk";
 import { KalshiModel } from "src/services/KalshiService/types.ts";
 import { KalshiServiceLive } from "src/services/KalshiService/index.ts";
+import { table } from "../../../../utils/table.ts";
 
 /**
  * Extract market summary data for display
@@ -96,7 +95,6 @@ export const kalshiEventViewHandler = (eventTicker?: string) => Effect.gen(funct
   }
 
   const response = yield* kalshi.markets.getByEventTicker(eventTicker);
-  yield* Effect.logDebug(response);
 
   if (!response.markets || response.markets.length === 0) {
     console.log(chalk.yellow("No markets found for this event ticker"));
@@ -114,7 +112,7 @@ export const kalshiEventViewHandler = (eventTicker?: string) => Effect.gen(funct
     console.log(chalk.blue.bold(`\nMarket ${i + 1}: ${processed.summary.title}`))
     console.log(chalk.blue("Subtitle: ") + processed.summary.subtitle)
 
-    terminal.table([
+    table([
       ['Volume', 'Volume 24h', 'Liquidity', 'Liquidity (USD)'],
       [
         processed.summary.volume.toString(),
@@ -135,7 +133,7 @@ export const kalshiEventViewHandler = (eventTicker?: string) => Effect.gen(funct
 
     console.log(chalk.blue.bold("Bid/Ask Prices and Spreads"))
 
-    terminal.table([
+    table([
       ['Option', 'Bid', 'Ask', 'Spread'],
       ['Yes', processed.bidAsk.yes.bid, processed.bidAsk.yes.ask, processed.bidAsk.yes.spread],
       ['No', processed.bidAsk.no.bid, processed.bidAsk.no.ask, processed.bidAsk.no.spread],
@@ -152,7 +150,7 @@ export const kalshiEventViewHandler = (eventTicker?: string) => Effect.gen(funct
 
     console.log(chalk.blue.bold("Price Range"))
 
-    terminal.table([
+    table([
       ['Start', 'End'],
       [processed.priceRange.start, processed.priceRange.end],
     ], {

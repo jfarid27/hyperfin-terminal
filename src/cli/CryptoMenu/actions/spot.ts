@@ -37,9 +37,6 @@ export const spotPriceHandler = (symbolStr: string) => Effect.gen(function*() {
     const coingecko = yield* CoinGeckoModel;
     const result = yield* coingecko.spot.get(symbolObj);
 
-    yield* Effect.logDebug("Result: ");
-    yield* Effect.logDebug(result);
-
     console.log(chalk.yellow(`Symbol: ${result.symbol.name}`));
     console.log(chalk.green(`Price: $${result.price}`));
 

@@ -6,9 +6,8 @@ import { DataSourceType, TerminalUserStateConfigContext } from "../../types.ts";
 import { CommandResultType } from "../../types.ts";
 import type { TerminalUserStateConfig } from "../../types.ts";
 import { ChartRenderer } from "../../StocksMenu/services/ChartRenderer.ts";
-import terminalKit from "terminal-kit";
-import { boldCell, escapeTableMarkup } from "../../utils/table_markup.ts";
-const { terminal } = terminalKit;
+import { boldCell } from "../../utils/table_markup.ts";
+import { table } from "../../utils/table.ts";
 
 /** Error shape for a command that cannot proceed. */
 const errorState = (st: TerminalUserStateConfig) => ({
@@ -77,7 +76,7 @@ export const forexSpotHandler = (fromStr?: string, toStr?: string) =>
     console.log(chalk.bold(`\n${quote.from}/${quote.to} — ${quote.fromName} / ${quote.toName}`));
     console.log("");
 
-    terminal.table(
+    table(
       [
         ["Pair", "Rate", "Bid", "Ask", "Refreshed"],
         [
@@ -85,7 +84,7 @@ export const forexSpotHandler = (fromStr?: string, toStr?: string) =>
           boldCell(quote.rate.toFixed(4)),
           quote.bid.toFixed(4),
           quote.ask.toFixed(4),
-          escapeTableMarkup(`${quote.lastRefreshed} ${quote.timeZone}`),
+          `${quote.lastRefreshed} ${quote.timeZone}`,
         ],
       ],
       {

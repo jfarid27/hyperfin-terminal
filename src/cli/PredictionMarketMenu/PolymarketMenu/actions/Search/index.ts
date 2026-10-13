@@ -2,12 +2,11 @@ import { Effect } from "effect";
 import {
     CommandResultType, TerminalUserStateConfigContext,
 } from "../../../../types.ts";
-import terminalKit from "terminal-kit";
 import { PolymarketModel } from "../../../../../services/PolymarketService/index.ts";
-const { terminal } = terminalKit;
 import { pipe, map, filter } from "ramda";
 import { processOutcomeData } from "../../utils.ts";
 import { PolymarketServiceLive } from "../../../../../services/PolymarketService/service.ts";
+import { table } from "../../../../utils/table.ts";
 
 export const processEventsFromResponse = pipe(
     (r: any) => r.events,
@@ -47,12 +46,10 @@ export const polymarketMarketsSearchHandler = (query?: string) => Effect.gen(fun
 
   const eventData = processEventsFromResponse(response);
 
-  yield* Effect.logDebug(eventData);
-
   yield* Effect.logInfo(`Found ${eventData.length} events`);
 
   for (const event of eventData) {
-    terminal.table([
+    table([
       ['Event', 'Slug', 'Active'],
       event.tableRow,
     ], {
@@ -67,7 +64,7 @@ export const polymarketMarketsSearchHandler = (query?: string) => Effect.gen(fun
     });
 
     for (const market of event.markets) {
-      terminal.table([
+      table([
         ['Question', 'Slug'],
         market.tableRow,
       ], {
@@ -82,7 +79,7 @@ export const polymarketMarketsSearchHandler = (query?: string) => Effect.gen(fun
       });
 
       for (const [question, outcomePrices] of market.outcomeData) {
-        terminal.table([
+        table([
           [question, ""],
           ['Outcome', 'Price'],
           ...outcomePrices,

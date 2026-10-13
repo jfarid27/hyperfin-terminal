@@ -2,9 +2,8 @@ import chalk from "chalk";
 import { AlpacaService, type FixedIncomeQuote } from "src/services/AlpacaService/index.ts";
 import { CommandResultType, TerminalUserStateConfigContext } from "../../types.ts";
 import { Effect } from "effect";
-import terminalKit from "terminal-kit";
-import { boldCell, escapeTableMarkup } from "../../utils/table_markup.ts";
-const { terminal } = terminalKit;
+import { boldCell } from "../../utils/table_markup.ts";
+import { table } from "../../utils/table.ts";
 
 /** ISIN: 2-letter country + 9 alphanumeric + 1 check digit (12 chars total). */
 export const isIsin = (value: string): boolean => /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(value);
@@ -50,7 +49,7 @@ export const bondSpotHandler = (code: string) =>
     console.log(chalk.bold(`\n${quote.isin} — Fixed Income (Alpaca)`));
     console.log("");
 
-    terminal.table(
+    table(
       [
         ["ISIN", "Price", "YTM", "YTW", "As of"],
         [
@@ -58,7 +57,7 @@ export const bondSpotHandler = (code: string) =>
           boldCell(quote.price.toFixed(4)),
           fmtPct(quote.yieldToMaturity),
           fmtPct(quote.yieldToWorst),
-          escapeTableMarkup(quote.asOf),
+          quote.asOf,
         ],
       ],
       {

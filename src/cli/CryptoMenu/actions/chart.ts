@@ -40,9 +40,6 @@ export const chartPriceHandler = (symbolStr: string) => Effect.gen(function*() {
 
     yield* showLineChart(chartData.prices, "timestamp", "price", `${loadedTokenSymbol} Price`);
 
-    yield* Effect.logDebug("Result: ");
-    yield* Effect.logDebug(chartData);
-
     return {
         result: { type: CommandResultType.Success },
         state: st,

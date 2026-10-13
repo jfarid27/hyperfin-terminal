@@ -12,7 +12,7 @@ import {
  import { predictionMarketViewHandler } from './actions/Market/index.ts';
  import { predictionEventViewHandler } from './actions/Event/index.ts';
  import { polymarketMarketsSearchHandler } from './actions/Search/index.ts';
- import sportsTerminal from './SportsMenu/index.ts';
+ import sportsTerminal, { sportsMenu } from './SportsMenu/index.ts';
 
 /**
  *  Prediction Markets Menu Options.
@@ -39,6 +39,7 @@ const polymarketMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => 
                 state: newState,
             };
         }),
+        submenu: () => sportsMenu,
     },
     {
         name: "event",
@@ -105,7 +106,7 @@ const polymarketMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => 
 /**
  *  Prediction Markets Menu Definitions.
  */
-const polymarketMenu: Menu = {
+export const polymarketMenu: Menu = {
     name: "Polymarket Menu",
     description: "Polymarket Menu",
     messagePrompt: "Select an option:",

@@ -14,7 +14,6 @@
 
 import chalk from "chalk";
 import { Effect } from "effect";
-import terminalKit from "terminal-kit";
 import { CoinGeckoModel } from "../model/index.ts";
 import { ChartRenderer } from "../../StocksMenu/services/ChartRenderer.ts";
 import {
@@ -24,7 +23,7 @@ import {
 } from "../../types.ts";
 import type { ProgramError } from "../../errors/index.ts";
 import { getLoadedToken } from "../../utils/index.ts";
-import { boldCell, escapeTableMarkup, greenCell, redCell } from "../../utils/table_markup.ts";
+import { boldCell, greenCell, redCell } from "../../utils/table_markup.ts";
 import {
   bollingerBands,
   type BollingerPoint,
@@ -47,8 +46,7 @@ import {
   sigmaBandsOverlay,
   zeroLineOverlay,
 } from "../../../technicals/overlays.ts";
-
-const { terminal } = terminalKit;
+import { table } from "../../utils/table.ts";
 
 /** The number of indicator rows echoed back to the terminal after a chart. */
 const SUMMARY_ROWS = 5;
@@ -150,7 +148,7 @@ const logBollingerSummary = (
   );
   console.log("");
 
-  terminal.table(
+  table(
     [
       ["Date", "Lower", "Basis", "Upper", "StDev"],
       ...rows.map((b) => [
@@ -193,11 +191,11 @@ const logFibonacciSummary = (
   );
   console.log("");
 
-  terminal.table(
+  table(
     [
       ["Level", "Price"],
       ...retracement.levels.map((l) => [
-        boldCell(escapeTableMarkup(l.label)),
+        boldCell(l.label),
         formatLevelValue(l.value),
       ]),
     ],
@@ -310,7 +308,7 @@ export const fibonacciHandler = (
 const formatReturn = (value: number): string =>
   `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 
-/** Colour a return by sign, as a terminal-kit markup cell. */
+/** Colour a return by sign, as a table cell. */
 const returnCell = (value: number): string =>
   value >= 0 ? greenCell(formatReturn(value)) : redCell(formatReturn(value));
 
@@ -334,7 +332,7 @@ const logReturnsSummary = (
   );
   console.log("");
 
-  terminal.table(
+  table(
     [
       ["Date", "Return"],
       ...rows.map((r) => [boldCell(toDateLabel(r.timestamp)), returnCell(r.value)]),

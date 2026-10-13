@@ -69,7 +69,7 @@ const bondsMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
   ...menuGlobals(state),
 ];
 
-const bondsMenu: Menu = {
+export const bondsMenu: Menu = {
   name: "Bonds Menu",
   description: "Bonds Menu",
   messagePrompt: "Select an option:",

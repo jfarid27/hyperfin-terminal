@@ -4,8 +4,6 @@
 
 import { Effect } from "effect";
 import { project, pipe, prop, reduce } from "ramda";
-import terminalKit from "terminal-kit";
-const { terminal } = terminalKit;
 import { PolymarketModel } from "../../../../../services/PolymarketService/index.ts";
 import {
     CommandResultType
@@ -13,6 +11,7 @@ import {
 import { TerminalUserStateConfigContext } from "src/cli/types.ts";
 import chalk from "chalk";
 import { PolymarketServiceLive } from "../../../../../services/PolymarketService/service.ts";
+import { table } from "../../../../utils/table.ts";
 
 /**
  * Pick the title, size, currentValue, and slug from the response.
@@ -53,7 +52,6 @@ export const predictionUserPositionsHandler = (address?: string) => Effect.gen(f
 
   const response = yield* polymarket.user.getPositions(address);
   yield* Effect.logInfo("Fetched Data for user address: " + address);
-  yield* Effect.logDebug(response);
 
   console.log(chalk.blue("User Address: ") + address)
   console.log(chalk.blue.bold("User Positions"))
@@ -61,7 +59,7 @@ export const predictionUserPositionsHandler = (address?: string) => Effect.gen(f
   const userData = processUserData(response);
   const accountData = processUserAccountData(response);
 
-  terminal.table([
+  table([
     ["Title", "Size", "Current Value", "Slug"],
     ...userData.map((item: any) => [item.title, item.size, item.currentValue, item.slug])
   ], {
@@ -77,7 +75,7 @@ export const predictionUserPositionsHandler = (address?: string) => Effect.gen(f
 
   console.log(chalk.blue.bold("Account Data"))
 
-  terminal.table([
+  table([
     ["Current Value", "Realized PnL"],
     [accountData.currentValue, accountData.realizedPnl]
   ], {

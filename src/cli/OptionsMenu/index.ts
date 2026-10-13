@@ -68,7 +68,6 @@ const datasourceSwapHandler = (datatypeStr: string) => Effect.gen(function* () {
   const val = yield* updatedE;
 
   const updatedSt = set<TerminalUserStateConfig, OptionsDataSourceType>(datasourceTypeLens, val, st);
-  yield* Effect.logDebug(updatedSt.loadedContext.options);
   console.log(chalk.green(`Swapped datasource to ${val}`));
   return { result: { type: CommandResultType.Success }, state: updatedSt };
 }).pipe(
@@ -101,7 +100,7 @@ const optionsMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
   ...menuGlobals(state),
 ];
 
-const optionsMenu: Menu = {
+export const optionsMenu: Menu = {
   name: "Options Menu",
   description: "Options Menu",
   messagePrompt: "Select an option:",

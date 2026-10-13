@@ -1,7 +1,7 @@
 import { registerTerminalApplication } from "../utils/program_loader.ts";
 import { Menu, MenuOption, TerminalUserStateConfig, CommandResultType, TerminalUserStateConfigContext } from "../types.ts";
 import { menuGlobals } from "../utils/menu_globals.ts";
-import { redditTerminal } from "./RedditMenu/index.ts";
+import { redditMenu, redditTerminal } from "./RedditMenu/index.ts";
 import { Effect } from "effect";
 
 const newsMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
@@ -17,11 +17,12 @@ const newsMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
                 state: newState,
             };
         }),
+        submenu: () => redditMenu,
     },
     ...menuGlobals(state),
 ]
 
-const newsMenu: Menu = {
+export const newsMenu: Menu = {
     name: "News Menu",
     description: "Source news from various sources",
     messagePrompt: "Select an option:",

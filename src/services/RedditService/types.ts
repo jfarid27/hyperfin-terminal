@@ -47,7 +47,6 @@ export const RedditLayer = Layer.succeed(RedditService, {
       Effect.tryPromise(() => parser.parseURL(url)),
       Effect.map((response: any) => generateRedditDataFromFeed(response.items)),
       Effect.tap((data) => Effect.logInfo(`Found ${data.length} results for "${subreddit}"`)),
-      Effect.tap((data) => Effect.logDebug(data)),
       Effect.catchAll((err) => Effect.gen(function* () {
         yield* Effect.logError(err);
         return yield* new HTTPError({ message: "Failed to fetch Reddit RSS feed." });

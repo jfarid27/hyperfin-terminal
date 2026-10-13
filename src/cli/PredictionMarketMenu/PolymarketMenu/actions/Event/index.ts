@@ -1,7 +1,5 @@
 import { pipe, props } from "ramda";
 import { Effect } from "effect";
-import terminalKit from "terminal-kit";
-const { terminal } = terminalKit;
 import {
     CommandResultType,
     TerminalUserStateConfigContext
@@ -10,6 +8,8 @@ import chalk from "chalk";
 import { PolymarketModel } from "../../../../../services/PolymarketService/index.ts";
 import { processOutcomeData } from "../../utils.ts";
 import { PolymarketServiceLive } from "../../../../../services/PolymarketService/service.ts";
+import { table } from "../../../../utils/table.ts";
+import { clampText, DESCRIPTION_LIMIT, outputWidth, wrapText } from "../../../../utils/text.ts";
 
 /**
  * Pull relevant market data from the polymarket API response for given slug.
@@ -50,14 +50,20 @@ export const predictionEventViewHandler = (slug?: string) => Effect.gen(function
 
   const response = yield* polymarket.event.getBySlug(slug);
   const { marketData, outcomeData } = processEventDataBySlug(response);
-  yield* Effect.logDebug(marketData);
-  yield* Effect.logDebug(outcomeData);
 
   console.log(chalk.blue.bold("Market Data"))
   console.log(chalk.blue("Title: ") + response.title)
-  console.log(chalk.blue("Description: ") + response.description)
+  // Clamped for the same reason as the market view: resolution rules run long.
+  for (
+    const line of wrapText(
+      "Description: " + clampText(response.description, DESCRIPTION_LIMIT),
+      outputWidth(),
+    )
+  ) {
+    console.log(chalk.blue(line));
+  }
 
-  terminal.table([
+  table([
     ['Slug', 'Active', 'Liquidity', 'Volume', 'Competitive'],
     marketData,
   ], {
@@ -74,7 +80,7 @@ export const predictionEventViewHandler = (slug?: string) => Effect.gen(function
   console.log(chalk.blue.bold("Outcome Data"))
 
   for (const [question, outcomePrices] of outcomeData) {
-    terminal.table([
+    table([
       [question, ""],
       ['Outcome', 'Price'],
       ...outcomePrices,

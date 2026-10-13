@@ -13,8 +13,6 @@
  */
 
 import { Effect } from "effect";
-import terminalKit from "terminal-kit";
-const { terminal } = terminalKit;
 import {
   CommandResultType,
   TerminalUserStateConfigContext,
@@ -23,9 +21,10 @@ import {
 import type { ProgramError } from "../../../../errors/index.ts";
 import chalk from "chalk";
 import { PolymarketModel } from "../../../../../services/PolymarketService/index.ts";
-import { escapeTableMarkup } from "../../../../utils/table_markup.ts";
+
 import { zipEventOutcomePrices } from "../../utils.ts";
 import type { PolymarketSport } from "../types.ts";
+import { table } from "../../../../utils/table.ts";
 
 /**
  * Resolve a league entry (e.g. the NFL) from the `/sports` list by its sport key.
@@ -138,8 +137,8 @@ export const buildGameLayers = (event: any): GameLayers => {
  */
 export const renderGame = (layers: GameLayers): void => {
   // Full-width header: game title + resolution date.
-  terminal.table([
-    [`${escapeTableMarkup(layers.title)}   |   Resolves: ${escapeTableMarkup(layers.resolutionDate)}`],
+  table([
+    [`${layers.title}   |   Resolves: ${layers.resolutionDate}`],
   ], {
     hasBorder: true,
     contentHasMarkup: true,
@@ -152,11 +151,11 @@ export const renderGame = (layers: GameLayers): void => {
   });
 
   // Outcomes and their price, one row per outcome, split by column.
-  terminal.table([
+  table([
     ["Outcome", "Price"],
     ...layers.outcomes.map(([outcome, price]) => [
-      escapeTableMarkup(outcome),
-      escapeTableMarkup(price),
+      outcome,
+      price,
     ]),
   ], {
     hasBorder: true,
@@ -170,9 +169,9 @@ export const renderGame = (layers: GameLayers): void => {
   });
 
   // The specific market's slug.
-  terminal.table([
+  table([
     ["Slug"],
-    [escapeTableMarkup(layers.slug)],
+    [layers.slug],
   ], {
     hasBorder: true,
     contentHasMarkup: true,

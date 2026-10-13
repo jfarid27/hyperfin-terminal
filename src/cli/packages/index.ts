@@ -63,8 +63,8 @@ export async function preparePackages(
 
 /**
  * Print package discovery results. Plain `console.log` lines rather than a
- * terminal-kit table, so the output cannot fight the menu table for the
- * terminal and stays readable in scripted runs.
+ * table, so the output cannot fight the menu table for the terminal and stays
+ * readable in scripted runs.
  */
 export function reportPackages(
     discovery: PackageDiscoveryResult,

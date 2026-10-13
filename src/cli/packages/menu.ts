@@ -91,6 +91,11 @@ export function packageMenuOption(
         command: pkg.command,
         description: `${pkg.description} [package: ${relativeEntryPath(pkg, rootDir)}]`,
         action,
+        // A package exporting a raw `Menu` can be opened as a submenu state by
+        // the shell. One exporting only a registered runner cannot: the runner
+        // *is* the blocking menu loop, and `program_loader` refuses to enter it
+        // while the shell owns the terminal.
+        ...(isMenu(entry) ? { submenu: () => entry } : {}),
     };
 }
 

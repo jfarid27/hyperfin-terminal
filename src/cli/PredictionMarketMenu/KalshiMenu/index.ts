@@ -19,7 +19,7 @@ const kalshiMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
 /**
  *  Kalshi Menu Definitions.
  */
-const kalshiMenu: Menu = {
+export const kalshiMenu: Menu = {
     name: "Kalshi Menu",
     description: "Kalshi Menu",
     messagePrompt: "Select an option:",
