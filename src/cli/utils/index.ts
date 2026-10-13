@@ -21,6 +21,21 @@ export const getLoadedToken = view<TerminalUserStateConfig, string | undefined>(
 export const datasourceLens = lensPath(["loadedContext", "crypto", "datasource"]);
 
 /**
+ * Lens for the loaded DEX token address on the user state config.
+ *
+ * The DEX submenu prices tokens by contract address, so this is the address a
+ * bare `spot` / `chart` / `bbands` falls back to when none is given.
+ */
+export const dexAddressLens = lensPath(["loadedContext", "dex", "address"]);
+
+/**
+ * View the loaded DEX token address on the user state config.
+ * @param st The {@link TerminalUserStateConfig}
+ * @returns The address a DEX action should fall back to, if one is loaded.
+ */
+export const getLoadedDexAddress = view<TerminalUserStateConfig, string | undefined>(dexAddressLens);
+
+/**
  * View the datasource on the user state config.
  * @param st The {@link TerminalUserStateConfig}
  * @returns The datasource on the user state config.

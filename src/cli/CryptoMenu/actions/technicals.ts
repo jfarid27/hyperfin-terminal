@@ -10,6 +10,13 @@
  * Handlers declare their dependencies but do NOT provide layers; the menu index
  * supplies `Layer.mergeAll(CryptoServiceLive, ChartRendererLive)` so tests can
  * swap in mocks.
+ *
+ * Each indicator is split in two: a `resolveSeries*` step that turns a symbol
+ * into a price series, and a `run*` step that measures and charts an
+ * already-resolved series. The `run*` steps are the shared half — the DEX
+ * submenu resolves its series from an on-chain address and then routes through
+ * the very same Bollinger / Fibonacci / returns logic, so the two menus cannot
+ * drift apart.
  */
 
 import chalk from "chalk";
@@ -21,6 +28,7 @@ import {
   DataSourceType,
   TerminalUserStateConfigContext,
 } from "../../types.ts";
+import type { CommandResult } from "../../types.ts";
 import type { ProgramError } from "../../errors/index.ts";
 import { getLoadedToken } from "../../utils/index.ts";
 import { boldCell, greenCell, redCell } from "../../utils/table_markup.ts";
@@ -90,7 +98,7 @@ const toDateLabel = (timestamp: number): string =>
   new Date(timestamp).toISOString().slice(0, 10);
 
 /** A symbol's trailing price series, cleaned and sorted oldest-first. */
-interface ResolvedSeries {
+export interface ResolvedSeries {
   symbol: string;
   points: SeriesPoint[];
 }
@@ -215,8 +223,47 @@ const logFibonacciSummary = (
 };
 
 /**
- * Chart the price series with a Bollinger envelope over `period` bars at
- * `stddev` standard deviations (defaults: 20, 2).
+ * Chart an already-resolved price series with a Bollinger envelope over
+ * `period` bars at `stddev` standard deviations (defaults: 20, 2).
+ *
+ * The shared half of the indicator: any menu able to produce a
+ * `ResolvedSeries` draws its bands through here.
+ */
+export const runBollinger = (
+  resolved: ResolvedSeries,
+  period: number = DEFAULT_BOLLINGER_PERIOD,
+  stddev: number = DEFAULT_BOLLINGER_STDDEV,
+): Effect.Effect<CommandResult, ProgramError, ChartRenderer> =>
+  Effect.gen(function* () {
+    const bands = bollingerBands(resolved.points, period, stddev);
+    if (bands.length === 0) {
+      console.log(
+        chalk.yellow(
+          `Not enough data for ${period}-bar Bollinger Bands: ` +
+            `${resolved.symbol.toUpperCase()} returned ${resolved.points.length} point(s).`,
+        ),
+      );
+      return { type: CommandResultType.Error };
+    }
+
+    const chart = yield* ChartRenderer;
+    yield* chart.renderTechnical(
+      resolved.points,
+      "timestamp",
+      "value",
+      bollingerBandsFor(resolved.points, period, stddev),
+      `${resolved.symbol.toUpperCase()} Bollinger Bands (${period}, ${stddev})`,
+    );
+
+    yield* Effect.logDebug(`Computed ${bands.length} Bollinger bands`);
+    logBollingerSummary(resolved.symbol, period, stddev, bands);
+
+    return { type: CommandResultType.Success };
+  });
+
+/**
+ * Resolve the symbol (argument, else the loaded crypto token) and chart its
+ * Bollinger envelope.
  */
 export const bollingerHandler = (
   symbolStr?: string,
@@ -234,15 +281,28 @@ export const bollingerHandler = (
       return { result: { type: CommandResultType.Error }, state: st };
     }
 
-    const bands = bollingerBands(resolved.points, period, stddev);
-    if (bands.length === 0) {
+    const result = yield* runBollinger(resolved, period, stddev);
+    return { result, state: st };
+  });
+
+/**
+ * Chart an already-resolved series with Fibonacci retracement levels drawn
+ * over the most recent swing (the whole series unless `lookback` narrows it).
+ */
+export const runFibonacci = (
+  resolved: ResolvedSeries,
+  lookback?: number,
+): Effect.Effect<CommandResult, ProgramError, ChartRenderer> =>
+  Effect.gen(function* () {
+    const retracement = fibonacciRetracement(resolved.points, lookback);
+    if (!retracement) {
       console.log(
         chalk.yellow(
-          `Not enough data for ${period}-bar Bollinger Bands: ` +
-            `${resolved.symbol.toUpperCase()} returned ${resolved.points.length} point(s).`,
+          `No swing to retrace for ${resolved.symbol.toUpperCase()}: ` +
+            `needs at least two points at different prices.`,
         ),
       );
-      return { result: { type: CommandResultType.Error }, state: st };
+      return { type: CommandResultType.Error };
     }
 
     const chart = yield* ChartRenderer;
@@ -250,19 +310,19 @@ export const bollingerHandler = (
       resolved.points,
       "timestamp",
       "value",
-      bollingerBandsFor(resolved.points, period, stddev),
-      `${resolved.symbol.toUpperCase()} Bollinger Bands (${period}, ${stddev})`,
+      fibonacciFor(resolved.points, lookback),
+      `${resolved.symbol.toUpperCase()} Fibonacci Retracement (${retracement.windowSize} bars)`,
     );
 
-    yield* Effect.logDebug(`Computed ${bands.length} Bollinger bands`);
-    logBollingerSummary(resolved.symbol, period, stddev, bands);
+    yield* Effect.logDebug(`Computed ${retracement.levels.length} retracement levels`);
+    logFibonacciSummary(resolved.symbol, retracement);
 
-    return { result: { type: CommandResultType.Success }, state: st };
+    return { type: CommandResultType.Success };
   });
 
 /**
- * Chart the price series with Fibonacci retracement levels drawn over the most
- * recent swing (the whole series unless `lookbackStr` narrows the window).
+ * Resolve the symbol (argument, else the loaded crypto token) and chart its
+ * Fibonacci retracement levels.
  */
 export const fibonacciHandler = (
   symbolStr?: string,
@@ -278,30 +338,8 @@ export const fibonacciHandler = (
       return { result: { type: CommandResultType.Error }, state: st };
     }
 
-    const retracement = fibonacciRetracement(resolved.points, lookback);
-    if (!retracement) {
-      console.log(
-        chalk.yellow(
-          `No swing to retrace for ${resolved.symbol.toUpperCase()}: ` +
-            `needs at least two points at different prices.`,
-        ),
-      );
-      return { result: { type: CommandResultType.Error }, state: st };
-    }
-
-    const chart = yield* ChartRenderer;
-    yield* chart.renderTechnical(
-      resolved.points,
-      "timestamp",
-      "value",
-      fibonacciFor(resolved.points, lookback),
-      `${resolved.symbol.toUpperCase()} Fibonacci Retracement (${retracement.windowSize} bars)`,
-    );
-
-    yield* Effect.logDebug(`Computed ${retracement.levels.length} retracement levels`);
-    logFibonacciSummary(resolved.symbol, retracement);
-
-    return { result: { type: CommandResultType.Success }, state: st };
+    const result = yield* runFibonacci(resolved, lookback);
+    return { result, state: st };
   });
 
 /** Format a signed return: `+1.23%` / `-0.45%`. */
@@ -359,21 +397,15 @@ const logReturnsSummary = (
 };
 
 /**
- * Chart the daily percent returns of the series: each price measured against
- * the previous price, drawn as bars coloured by sign (blue up, red down) with
- * a zero baseline and dotted guide lines at ±2 daily standard deviations.
+ * Chart the daily percent returns of an already-resolved series: each price
+ * measured against the previous price, drawn as bars coloured by sign (blue up,
+ * red down) with a zero baseline and dotted guide lines at ±2 daily standard
+ * deviations.
  */
-export const returnsHandler = (
-  symbolStr?: string,
-) =>
+export const runReturns = (
+  resolved: ResolvedSeries,
+): Effect.Effect<CommandResult, ProgramError, ChartRenderer> =>
   Effect.gen(function* () {
-    const st = yield* TerminalUserStateConfigContext;
-
-    const resolved = yield* resolveSeries(symbolStr, lookbackDaysFor(0));
-    if (!resolved) {
-      return { result: { type: CommandResultType.Error }, state: st };
-    }
-
     const returns = dailyReturns(resolved.points);
     // Computed before the render call so the same deviation both sizes the
     // guide bands and is reported in the read-out below the chart.
@@ -386,7 +418,7 @@ export const returnsHandler = (
             `${resolved.symbol.toUpperCase()} returned ${resolved.points.length} point(s).`,
         ),
       );
-      return { result: { type: CommandResultType.Error }, state: st };
+      return { type: CommandResultType.Error };
     }
 
     const chart = yield* ChartRenderer;
@@ -403,5 +435,24 @@ export const returnsHandler = (
     yield* Effect.logDebug(`Computed ${returns.length} daily returns`);
     logReturnsSummary(resolved.symbol, returns, stats);
 
-    return { result: { type: CommandResultType.Success }, state: st };
+    return { type: CommandResultType.Success };
+  });
+
+/**
+ * Resolve the symbol (argument, else the loaded crypto token) and chart its
+ * daily percent returns.
+ */
+export const returnsHandler = (
+  symbolStr?: string,
+) =>
+  Effect.gen(function* () {
+    const st = yield* TerminalUserStateConfigContext;
+
+    const resolved = yield* resolveSeries(symbolStr, lookbackDaysFor(0));
+    if (!resolved) {
+      return { result: { type: CommandResultType.Error }, state: st };
+    }
+
+    const result = yield* runReturns(resolved);
+    return { result, state: st };
   });

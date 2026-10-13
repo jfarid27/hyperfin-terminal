@@ -226,12 +226,14 @@ const prepareInitialState = async (
         massive: process.env.MASSIVE_API_KEY,
         yahoofinance: process.env.YAHOOFINANCE_API_KEY,
         alpaca: process.env.ALPACA_API_KEY,
+        coinmarketcap: process.env.CMC_API_KEY,
     },
     loadedContext: {
       stocks: { datasource: DataSourceType.AlphaVantage },
       options: { datasource: DataSourceType.YahooFinance },
       bonds: { datasource: DataSourceType.YahooFinance },
       forex: { datasource: DataSourceType.AlphaVantage },
+      dex: { datasource: DataSourceType.CoinMarketCap },
     },
     scriptContext,
   };

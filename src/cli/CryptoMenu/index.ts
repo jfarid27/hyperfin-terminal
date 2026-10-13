@@ -11,9 +11,12 @@ import { menuGlobals } from "../utils/menu_globals.ts";
 import { spotPriceHandler } from "./actions/spot.ts";
 import { chartPriceHandler } from "./actions/chart.ts";
 import { technicalsMenu as cryptoTechnicalsMenu, technicalsTerminal } from "./TechnicalsMenu/index.ts";
+import { dexMenu, dexTerminal } from "./DexMenu/index.ts";
+import { altcoinSeasonHandler, fearGreedHandler } from "./actions/sentiment.ts";
 import chalk from "chalk";
 import { lensPath, set, includes} from "ramda";
 import { datasourceLens, tokenLens } from "../utils/index.ts";
+import { CryptoServiceLive } from "../../services/CryptoService/index.ts";
 import { Effect } from 'effect';
 
 /**
@@ -48,6 +51,39 @@ const cryptoMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
         description: "Technical analysis indicators: bbands, fibonacci, returns",
         action: technicalsHandler,
         submenu: () => cryptoTechnicalsMenu,
+    },
+    {
+        name: "dex",
+        command: "dex",
+        description:
+            "Enter the DEX submenu, which prices on-chain tokens by contract address (ethereum).",
+        action: () => Effect.gen(function* () {
+            const st = yield* TerminalUserStateConfigContext;
+            const newState = yield* dexTerminal(st);
+            return {
+                result: { type: CommandResultType.Success },
+                state: newState,
+            };
+        }),
+        submenu: () => dexMenu,
+    },
+    {
+        name: "fg",
+        command: "fg",
+        description: "Show the CoinMarketCap Fear & Greed index (requires CMC_API_KEY).",
+        action: () => Effect.gen(function* () {
+            const st = yield* TerminalUserStateConfigContext;
+            return yield* fearGreedHandler();
+        }).pipe(Effect.provide(CryptoServiceLive)),
+    },
+    {
+        name: "altcoin",
+        command: "altcoin",
+        description: "Show the CoinMarketCap Altcoin Season index (requires CMC_API_KEY).",
+        action: () => Effect.gen(function* () {
+            const st = yield* TerminalUserStateConfigContext;
+            return yield* altcoinSeasonHandler();
+        }).pipe(Effect.provide(CryptoServiceLive)),
     },
     {
         name: "set",

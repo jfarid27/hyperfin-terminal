@@ -19,6 +19,9 @@ import { createMenuSession } from "./termui/session.ts";
 import { mainMenu } from "./index.ts";
 import { cryptoMenu } from "./CryptoMenu/index.ts";
 import { technicalsMenu as cryptoTechnicalsMenu } from "./CryptoMenu/TechnicalsMenu/index.ts";
+import { dexMenu } from "./CryptoMenu/DexMenu/index.ts";
+import { ethereumMenu } from "./CryptoMenu/DexMenu/EthereumMenu/index.ts";
+import { technicalsMenu as ethereumTechnicalsMenu } from "./CryptoMenu/DexMenu/EthereumMenu/TechnicalsMenu/index.ts";
 import { stocksMenu } from "./StocksMenu/index.ts";
 import { technicalsMenu as stocksTechnicalsMenu } from "./StocksMenu/TechnicalsMenu/index.ts";
 import { governmentMenu } from "./GovernmentMenu/index.ts";
@@ -45,6 +48,7 @@ const state: TerminalUserStateConfig = {
     massive: undefined,
     yahoofinance: undefined,
     alpaca: undefined,
+    coinmarketcap: undefined,
   },
   loadedContext: {
     stocks: { datasource: DataSourceType.AlphaVantage },
@@ -59,6 +63,9 @@ const allMenus: Menu[] = [
   mainMenu,
   cryptoMenu,
   cryptoTechnicalsMenu,
+  dexMenu,
+  ethereumMenu,
+  ethereumTechnicalsMenu,
   stocksMenu,
   stocksTechnicalsMenu,
   governmentMenu,
