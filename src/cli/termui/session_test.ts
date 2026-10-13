@@ -25,6 +25,7 @@ const state: TerminalUserStateConfig = {
     massive: undefined,
     yahoofinance: undefined,
     alpaca: undefined,
+    coinmarketcap: undefined,
   },
   loadedContext: {
     stocks: { datasource: DataSourceType.AlphaVantage },

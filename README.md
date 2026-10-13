@@ -44,11 +44,17 @@ Set up your environment variables:
         # Alpaca uses a key/secret header pair (both required together)
         ALPACA_API_KEY=your_alpaca_key_id_here
         ALPACA_API_SECRET=your_alpaca_secret_here
+        # CoinMarketCap: required by the crypto menu's `dex`, `fg` and `altcoin` commands
+        CMC_API_KEY=your_coinmarketcap_api_key_here
         ENVIRONMENT=development # or production
         DEBUG=false
         ```
     
     To get a FRED API key, register at [https://fred.stlouisfed.org/docs/api/api_key.html](https://fred.stlouisfed.org/docs/api/api_key.html)
+
+    The crypto menu's `dex`, `fg` and `altcoin` commands need a CoinMarketCap key
+    ([pro.coinmarketcap.com](https://pro.coinmarketcap.com/signup)). Without it they report a
+    missing-key error instead of returning data.
 
 ## Usage
 

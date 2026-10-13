@@ -58,6 +58,7 @@ export enum APIKeyType {
     Massive = "massive",
     YahooFinance = "yahoofinance",
     Alpaca = "alpaca",
+    CoinMarketCap = "coinmarketcap",
 }
 
 /**
@@ -73,6 +74,7 @@ export enum DataSourceType {
     CBOE = 'cboe',
     YahooFinance = 'yahoofinance',
     Alpaca = 'alpaca',
+    CoinMarketCap = 'coinmarketcap',
 }
 
 /**
@@ -88,6 +90,7 @@ export interface DatasourceKeyMapping {
     [DataSourceType.CBOE]: APIKeyType.Massive;
     [DataSourceType.YahooFinance]: APIKeyType.YahooFinance;
     [DataSourceType.Alpaca]: APIKeyType.Alpaca;
+    [DataSourceType.CoinMarketCap]: APIKeyType.CoinMarketCap;
 }
 
 /**
@@ -100,6 +103,16 @@ export type APIKeyConfig = {
 export interface CryptoContext {
     symbol?: string;
     datasource?: DataSourceType;
+}
+
+/**
+ * Context for the DEX submenu, which prices on-chain tokens by contract
+ * address rather than by a ticker. CoinMarketCap is the only source that
+ * serves these tokens, so the datasource is fixed to it.
+ */
+export interface DexContext {
+    address?: string;
+    datasource: DataSourceType.CoinMarketCap;
 }
 
 export interface StocksContext {
@@ -138,6 +151,7 @@ export interface PredictionMarketsContext {
 
 export interface LoadedContext {
     crypto?: CryptoContext;
+    dex?: DexContext;
     predictionMarkets?: PredictionMarketsContext;
     stocks: StocksContext;
     options: OptionsContext;

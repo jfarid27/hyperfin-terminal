@@ -101,6 +101,31 @@ Deno.test("NAV: Can navigate into the Crypto technicals submenu and back", async
   assert(code === 0, `Expected clean exit, got code ${code}`);
 });
 
+Deno.test("NAV: Can navigate into the crypto DEX submenu and back", async () => {
+  // The DEX tree is three levels deep (crypto > dex > ethereum), so this also
+  // proves the descent and the unwind: each `back` pops exactly one level.
+  seedScript("test_nav_dex.txt", ["crypto", "dex", "ethereum", "back", "back", "exit"]);
+
+  const { output, code } = await runScriptWithTimeout("test_nav_dex.txt");
+
+  // Submenu tables are suppressed in script mode, so the observable signal is
+  // that each navigation command dispatched rather than falling through to
+  // "Invalid command" (which is what an unregistered command prints).
+  assert(
+    output.includes("Executing script command: dex"),
+    `Expected the dex command to run: ${output.substring(0, 1000)}`,
+  );
+  assert(
+    output.includes("Executing script command: ethereum"),
+    `Expected the ethereum command to run: ${output.substring(0, 1000)}`,
+  );
+  assert(
+    !output.includes("Invalid command"),
+    `Expected dex and ethereum to be registered menu options: ${output.substring(0, 1000)}`,
+  );
+  assert(code === 0, `Expected clean exit, got code ${code}`);
+});
+
 /**
  * A script started from the `script` command is interactive, so the terminal
  * has to be somewhere usable when it finishes. Its last command may have run
