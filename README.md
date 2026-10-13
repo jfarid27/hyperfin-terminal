@@ -62,6 +62,46 @@ To run a script directly from the command line:
 deno task cli --oet-script scripts/<filename>.txt
 ```
 
+### Interactive shell
+
+`deno task cli` on a terminal opens the full-screen shell:
+
+```bash
+deno task cli
+```
+
+The layout is a scrolling output log above and a single input bar pinned to the bottom. The
+input's prompt is the path of menus you have walked into — `hyperfin > main > stocks >` — and it
+grows and shrinks as you enter and leave submenus, so the line you are typing always shows where
+you are. The text box spans whatever width the terminal gives it and reflows on resize.
+
+Command output, including menu tables, is captured and printed into the log rather than written
+straight to the screen, so a command can never tear the frame apart. `back` steps out of a menu
+and `exit` quits; `Ctrl-C` and `Ctrl-X` are the kill switch.
+
+`LOG_LEVEL` sets how much the runtime logs, and those lines land in the shell's log. The default
+(`.env` ships `debug`) prints the framework's DEBUG lines, including the progress notes the data
+sources emit; set it to `warning` or `error` for a quiet log. Long payloads are never logged — only
+readable one-liners.
+
+Tab completes the first word. It fills in a unique match, or the longest common prefix when the
+command is ambiguous — the candidates are then listed in the log — and pressing Tab again walks
+through them, so `s`, Tab, Tab, Tab at the main menu gives `script`, `stocks`, `showconfig` and back
+to `script`. Only the first word is completed: once a line has arguments, Tab leaves it alone.
+
+The output log scrolls. `Up`/`Down` move a line, `PgUp`/`PgDn` a screenful, and the mouse wheel
+works too (hold `Shift` while dragging if you want to select text). Scrolling back into history
+stops the view following new output, so a command running in the background cannot yank you away
+from what you are reading; `Ctrl-G` jumps back to the newest line and follows it again, and
+submitting a command does the same. A shortcut row above the input bar lists these.
+
+Without a terminal — piped input, `--oet-script`, cron — the line-based loop runs instead, reading
+one command per menu level. Add `--line` to ask for that loop on a terminal too:
+
+```bash
+deno task cli --line
+```
+
 ## Features
 
 ### General Usage

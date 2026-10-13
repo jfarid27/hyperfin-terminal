@@ -1,6 +1,5 @@
 import { Effect } from "effect";
 import chalk from "chalk";
-import { registerTerminalApplication } from "../../src/cli/utils/program_loader.ts";
 import {
     CommandResultType,
     type Menu,
@@ -50,8 +49,14 @@ const helloMenu: Menu = {
 };
 
 /**
- * Export the menu as `menu` (preferred) or as the default export — both
- * are recognised by the package loader.
+ * Export the **raw** menu as `menu` (preferred) or as the default export — both
+ * are recognised by the package loader, which wraps a raw `Menu` in
+ * `registerTerminalApplication` when it needs the blocking runner.
+ *
+ * Exporting that runner directly also works, but the termui shell cannot then
+ * open this package as a submenu state: it has no `Menu` to render, and running
+ * the runner would read stdin. Export the raw menu unless you specifically need
+ * to hand back a runner.
  */
-export const menu = registerTerminalApplication(helloMenu);
+export const menu = helloMenu;
 export default menu;

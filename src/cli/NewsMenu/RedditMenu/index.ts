@@ -19,13 +19,13 @@ const newsMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
     ...menuGlobals(state),
 ]
 
-const newsMenu: Menu = {
+export const redditMenu: Menu = {
     name: "Reddit Menu",
     description: "Source news from Reddit",
     messagePrompt: "Select an option:",
     options: newsMenuOptions,
 }
 
-export const redditTerminal = registerTerminalApplication(newsMenu);
+export const redditTerminal = registerTerminalApplication(redditMenu);
 
 export default redditTerminal;

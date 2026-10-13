@@ -4,9 +4,8 @@ import type { OptionsChain, OptionContract } from "../../../services/OptionsServ
 import { DataSourceType, TerminalUserStateConfigContext } from "../../types.ts";
 import { CommandResultType } from "../../types.ts";
 import { Effect } from "effect";
-import terminalKit from "terminal-kit";
 import { greenCell, redCell } from "../../utils/table_markup.ts";
-const { terminal } = terminalKit;
+import { table } from "../../utils/table.ts";
 
 const getLoadedToken = (st: any): string | undefined =>
   st?.loadedContext?.token?.symbol;
@@ -91,7 +90,7 @@ export const chainHandler = (symbolStr: string, dateStr?: string) =>
 
     if (chain.calls.length > 0) {
       console.log(chalk.bold.green(`CALLS (${chain.calls.length})`));
-      terminal.table(
+      table(
         [header, ...chain.calls.map(toTableRow)],
         {
           hasBorder: true,
@@ -109,7 +108,7 @@ export const chainHandler = (symbolStr: string, dateStr?: string) =>
 
     if (chain.puts.length > 0) {
       console.log(chalk.bold.red(`PUTS (${chain.puts.length})`));
-      terminal.table(
+      table(
         [header, ...chain.puts.map(toTableRow)],
         {
           hasBorder: true,

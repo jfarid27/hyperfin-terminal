@@ -10,9 +10,10 @@ import {
 import { menuGlobals } from "../utils/menu_globals.ts";
 import { spotPriceHandler } from "./actions/spot.ts";
 import { chartPriceHandler } from "./actions/chart.ts";
-import { technicalsTerminal } from "./TechnicalsMenu/index.ts";
+import { technicalsMenu as cryptoTechnicalsMenu, technicalsTerminal } from "./TechnicalsMenu/index.ts";
 import chalk from "chalk";
 import { lensPath, set, includes} from "ramda";
+import { datasourceLens, tokenLens } from "../utils/index.ts";
 import { Effect } from 'effect';
 
 /**
@@ -46,6 +47,7 @@ const cryptoMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
         command: "technicals",
         description: "Technical analysis indicators: bbands, fibonacci, returns",
         action: technicalsHandler,
+        submenu: () => cryptoTechnicalsMenu,
     },
     {
         name: "set",
@@ -65,7 +67,7 @@ const cryptoMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
             if (settingType === "datasource") {
                 const datasources = Object.values(DataSourceType);
                 if (value && includes(value, datasources)) {
-                    const newState = set(lensPath(['loadedContext', 'datasource']), value, st);
+                    const newState = set(datasourceLens, value as string, st);
                     console.log(chalk.green(`Datasource set to ${value}`));
                     return {
                         result: { type: CommandResultType.Success },
@@ -83,7 +85,7 @@ const cryptoMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
             
             if (settingType === "symbol") {
                 if (value) {
-                    const newState = set(lensPath(['loadedContext', 'symbol']), value, st);
+                    const newState = set(tokenLens, value as string, st);
                     console.log(chalk.green(`Symbol set to ${value}`));
                     return {
                         result: { type: CommandResultType.Success },
@@ -107,7 +109,7 @@ const cryptoMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
     ...menuGlobals(state),
 ]
 
-const cryptoMenu: Menu = {
+export const cryptoMenu: Menu = {
     name: "Crypto Menu",
     description: "Crypto Menu",
     messagePrompt: "Select an option:",

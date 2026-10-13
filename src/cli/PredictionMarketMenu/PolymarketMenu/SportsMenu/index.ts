@@ -10,7 +10,7 @@ import { registerTerminalApplication } from "../../../utils/program_loader.ts";
 import { type Menu } from "../../../types.ts";
 import { sportsMenuOptions } from "./menu.ts";
 
-const sportsMenu: Menu = {
+export const sportsMenu: Menu = {
   name: "Sports Menu",
   description: "Polymarket sports markets",
   messagePrompt: "Select a sport:",

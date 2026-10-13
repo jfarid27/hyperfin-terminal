@@ -1,133 +1,98 @@
 import chalk from "chalk";
+import { Effect } from "effect";
 import { lensPath, set, view } from "ramda";
-import cryptoTerminal from "./CryptoMenu/index.ts";
-import predictionMarketsTerminal from "./PredictionMarketMenu/index.ts";
-import stocksTerminal from "./StocksMenu/index.ts";
-import optionsTerminal from "./OptionsMenu/index.ts";
-import bondsTerminal from "./BondsMenu/index.ts";
-import { menuGlobalsTop } from "./utils/menu_globals.ts";
-import newsTerminal from "./NewsMenu/index.ts";
-import { executeScript } from "./utils/scripts.ts";
-import governmentTerminal from "./GovernmentMenu/index.ts";
-import forexTerminal from "./ForexMenu/index.ts";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import figlet from "figlet";
+import cryptoTerminal, { cryptoMenu } from "./CryptoMenu/index.ts";
+import predictionMarketsTerminal, { predictionMarketsMenu } from "./PredictionMarketMenu/index.ts";
+import stocksTerminal, { stocksMenu } from "./StocksMenu/index.ts";
+import optionsTerminal, { optionsMenu } from "./OptionsMenu/index.ts";
+import bondsTerminal, { bondsMenu } from "./BondsMenu/index.ts";
+import governmentTerminal, { governmentMenu } from "./GovernmentMenu/index.ts";
+import newsTerminal, { newsMenu } from "./NewsMenu/index.ts";
+import forexTerminal, { forexMenu } from "./ForexMenu/index.ts";
+import { menuGlobalsTop } from "./utils/menu_globals.ts";
+import { executeScript } from "./utils/scripts.ts";
 import {
-  type Menu, type MenuOption, type TerminalUserStateConfig,
+  type Menu, type MenuOption, type ScriptContext, type TerminalUserStateConfig,
   CommandResultType, EnvironmentType, TerminalUserStateConfigContext, DataSourceType,
   logLevelFromEnv,
 } from "./types.ts";
 import { registerTerminalApplication } from "./utils/program_loader.ts";
 import { preparePackages, reportPackages } from "./packages/index.ts";
 import { packageMenuOptions } from "./packages/menu.ts";
-import { Effect } from "effect";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { canRunTermui, startTermuiApp } from "./termui/index.ts";
+
+/** A registered menu application: run it and get the state back. */
+type MenuTerminal = (
+  st: TerminalUserStateConfig,
+) => Effect.Effect<TerminalUserStateConfig>;
+
+/**
+ * A top-level option that opens a child menu.
+ *
+ * Same edge, two views. `action` is the classic path the terminal-kit loop
+ * takes: enter the child by running the child's own registered application,
+ * which reads its own input. `submenu` states the same edge as data, so the
+ * termui shell can render the child menu itself and keep its single input bar.
+ * Both loops read one declaration, and a menu is a single line here.
+ */
+const submenuOption = (
+  name: string,
+  command: string,
+  description: string,
+  childMenu: Menu,
+  childTerminal: MenuTerminal,
+): MenuOption => ({
+  name,
+  command,
+  description,
+  action: () => Effect.gen(function* () {
+    const st = yield* TerminalUserStateConfigContext;
+    const newState = yield* childTerminal(st);
+    return {
+      result: { type: CommandResultType.Success },
+      state: newState,
+    };
+  }),
+  submenu: () => childMenu,
+});
 
 const builtinMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
-    {
-        name: "crypto",
-        command: "crypto",
-        description: "Fetch crypto prices from various sources",
-        action: () => Effect.gen(function*() {
-            const st = yield* TerminalUserStateConfigContext;
-            const newState = yield* cryptoTerminal(st);
-            return {
-                result: { type: CommandResultType.Success },
-                state: newState,
-            };
-        })
-    },
-    {
-        name: "stocks",
-        command: "stocks",
-        description: "Fetch stock prices from various sources",
-        action: () => Effect.gen(function*() {
-            const st = yield* TerminalUserStateConfigContext;
-            const newState = yield* stocksTerminal(st);
-            return {
-                result: { type: CommandResultType.Success },
-                state: newState,
-            };
-        })
-    },
-    {
-        name: "government",
-        command: "government",
-        description: "Fetch government bond yields from Yahoo Finance",
-        action: () => Effect.gen(function*() {
-            const st = yield* TerminalUserStateConfigContext;
-            const newState = yield* governmentTerminal(st);
-            return {
-                result: { type: CommandResultType.Success },
-                state: newState,
-            };
-        })
-    },
-    {
-        name: "options",
-        command: "options",
-        description: "Fetch options chains from Yahoo Finance",
-        action: () => Effect.gen(function*() {
-            const st = yield* TerminalUserStateConfigContext;
-            const newState = yield* optionsTerminal(st);
-            return {
-                result: { type: CommandResultType.Success },
-                state: newState,
-            };
-        })
-    },
-    {
-        name: "forex",
-        command: "forex",
-        description: "Fetch foreign exchange rates and charts",
-        action: () => Effect.gen(function*() {
-            const st = yield* TerminalUserStateConfigContext;
-            const newState = yield* forexTerminal(st);
-            return {
-                result: { type: CommandResultType.Success },
-                state: newState,
-            };
-        })
-    },
-    {
-        name: "bonds",
-        command: "bonds",
-        description: "Fetch bond yields from Yahoo Finance",
-        action: () => Effect.gen(function*() {
-            const st = yield* TerminalUserStateConfigContext;
-            const newState = yield* bondsTerminal(st);
-            return {
-                result: { type: CommandResultType.Success },
-                state: newState,
-            };
-        })
-    },
-    {
-        name: "news",
-        command: "news",
-        description: "Fetch news from various sources",
-        action: () => Effect.gen(function*() {
-            const st = yield* TerminalUserStateConfigContext;
-            const newState = yield* newsTerminal(st);
-            return {
-                result: { type: CommandResultType.Success },
-                state: newState,
-            };
-        })
-    },
-    {
-        name: "prediction markets",
-        command: "predictions",
-        description: "Fetch prediction markets prices from various sources",
-        action: () => Effect.gen(function*() {
-            const st = yield* TerminalUserStateConfigContext;
-            const newState = yield* predictionMarketsTerminal(st);
-            return {
-                result: { type: CommandResultType.Success },
-                state: newState,
-            };
-        })
-    },
+    submenuOption(
+        "crypto", "crypto", "Fetch crypto prices from various sources",
+        cryptoMenu, cryptoTerminal,
+    ),
+    submenuOption(
+        "stocks", "stocks", "Fetch stock prices from various sources",
+        stocksMenu, stocksTerminal,
+    ),
+    submenuOption(
+        "government", "government", "Fetch government bond yields from Yahoo Finance",
+        governmentMenu, governmentTerminal,
+    ),
+    submenuOption(
+        "options", "options", "Fetch options chains from Yahoo Finance",
+        optionsMenu, optionsTerminal,
+    ),
+    submenuOption(
+        "forex", "forex", "Fetch foreign exchange rates and charts",
+        forexMenu, forexTerminal,
+    ),
+    submenuOption(
+        "bonds", "bonds", "Fetch bond yields from Yahoo Finance",
+        bondsMenu, bondsTerminal,
+    ),
+    submenuOption(
+        "news", "news", "Fetch news from various sources",
+        newsMenu, newsTerminal,
+    ),
+    submenuOption(
+        "prediction markets", "predictions",
+        "Fetch prediction markets prices from various sources",
+        predictionMarketsMenu, predictionMarketsTerminal,
+    ),
     {
         name: "script",
         command: "script [filename]",
@@ -191,7 +156,7 @@ const menuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
     ...packageOptions,
 ];
 
-const mainMenu: Menu = {
+export const mainMenu: Menu = {
     name: "Main Menu",
     description: "Main Menu",
     messagePrompt: "Select an option:",
@@ -200,12 +165,42 @@ const mainMenu: Menu = {
 
 export const terminalMain = registerTerminalApplication(mainMenu, { isRoot: true });
 
-export async function startMain(sessionPath: string, scriptFilename?: string) {
-  // Only show banner on initial load, and only in interactive TTY mode.
-  if (Deno.stdin.isTerminal()) {
-    console.log(chalk.green(figlet.textSync("Hyperfin Terminal", { horizontalLayout: 'full' })));
+/**
+ * Build the script context for a `--oet-script` / `script` run.
+ *
+ * A missing script exits: the flag was explicit, so silently starting an
+ * interactive session instead would hide the typo.
+ */
+const loadScriptContext = async (
+  scriptFilename?: string,
+): Promise<ScriptContext> => {
+  if (!scriptFilename) return {};
+  try {
+    const scriptPath = join(process.cwd(), "scripts", scriptFilename);
+    const content = await readFile(scriptPath, "utf-8");
+    const lines = content.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+    const [currentCommand, ...tailCommands] = lines;
+    return {
+      filename: scriptFilename,
+      currentCommand,
+      tailCommands,
+      exitAfterCompletion: true,
+    };
+  } catch {
+    console.error(chalk.red(`Failed to load script: ${scriptFilename}`));
+    process.exit(1);
   }
+};
 
+/**
+ * The application state both entry points start from: environment, log level,
+ * API keys, the default data sources, the script context, and the menus
+ * contributed by packages under `hyperfin-packages/`.
+ */
+const prepareInitialState = async (
+  sessionPath: string,
+  scriptFilename?: string,
+): Promise<TerminalUserStateConfig> => {
   const logLevel = logLevelFromEnv(process.env.LOG_LEVEL);
 
   const environmentMap: { [key: string]: EnvironmentType } = {
@@ -216,25 +211,7 @@ export async function startMain(sessionPath: string, scriptFilename?: string) {
   const environment = (process.env.ENVIRONMENT && process.env.ENVIRONMENT in environmentMap) ?
     environmentMap[process.env.ENVIRONMENT] : EnvironmentType.Production;
 
-  // Build script context from --oet-script flag.
-  let scriptContext = {};
-  if (scriptFilename) {
-    try {
-      const scriptPath = join(process.cwd(), "scripts", scriptFilename);
-      const content = await readFile(scriptPath, "utf-8");
-      const lines = content.split("\n").map(l => l.trim()).filter(l => l.length > 0);
-      const [currentCommand, ...tailCommands] = lines;
-      scriptContext = {
-        filename: scriptFilename,
-        currentCommand,
-        tailCommands,
-        exitAfterCompletion: true,
-      };
-    } catch {
-      console.error(chalk.red(`Failed to load script: ${scriptFilename}`));
-      process.exit(1);
-    }
-  }
+  const scriptContext = await loadScriptContext(scriptFilename);
 
   const state: TerminalUserStateConfig = {
     environment: environment,
@@ -268,10 +245,49 @@ export async function startMain(sessionPath: string, scriptFilename?: string) {
   packageOptions = packageMenuOptions(loaded.packages, discovery.root);
   reportPackages(discovery, loaded, notes);
 
+  return state;
+};
+
+/**
+ * Start the application.
+ *
+ * An interactive terminal gets the full-screen termui shell. Everything else —
+ * piped input, `--oet-script`, cron — keeps the line-based loop, which reads one
+ * command per menu level. The shell needs a terminal on both ends and somebody
+ * at the input bar, so a script run is never handed to it.
+ *
+ * `--line` forces the line-based loop on a terminal, for anyone who wants their
+ * scrollback rather than the full-screen frame.
+ */
+export async function startMain(
+  sessionPath: string,
+  scriptFilename?: string,
+  options: { line?: boolean } = {},
+) {
+  const interactive = !options.line && !scriptFilename && canRunTermui();
+
+  if (!interactive) {
+    // The banner is for the line-based loop: the shell draws its own header,
+    // and on a piped run there is no terminal to draw it on.
+    if (Deno.stdin.isTerminal()) {
+      console.log(chalk.green(figlet.textSync("Hyperfin Terminal", { horizontalLayout: "full" })));
+    }
+
+    const state = await prepareInitialState(sessionPath, scriptFilename);
+    try {
+      await Effect.runPromise(terminalMain(state));
+    } catch (error) {
+      console.error("Error in main terminal:", error);
+      process.exit(1);
+    }
+    return;
+  }
+
+  const state = await prepareInitialState(sessionPath);
   try {
-    await Effect.runPromise(terminalMain(state));
+    await startTermuiApp(mainMenu, state);
   } catch (error) {
-    console.error("Error in main terminal:", error);
+    console.error("Error in termui shell:", error);
     process.exit(1);
   }
 }

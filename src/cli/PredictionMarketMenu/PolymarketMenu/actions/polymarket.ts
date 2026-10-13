@@ -9,8 +9,6 @@ import { project, pipe as pipeR, set, filter, toLower, lensProp, map,
     props,
     reduce
 } from "ramda";
-import terminalKit from "terminal-kit";
-const { terminal } = terminalKit;
 import { PolymarketModel } from "../../../../services/PolymarketService/index.ts";
 import {CommandResultType, PredictionMarketsType } from "../../../types.ts";
 import { TerminalUserStateConfigContext } from "../../../types.ts";
@@ -18,6 +16,7 @@ import chalk from "chalk";
 import { loadCSVPortfolio } from "../../../utils/loaders.ts";
 import { PolymarketPortfolio, PolymarketPosition, PortfolioAnalysisType } from "./types.ts";
 import { PolymarketServiceLive } from "../../../../services/PolymarketService/service.ts";
+import { table } from "../../../utils/table.ts";
 
 /**
  * Lens path for predictions markets data on the User State.
@@ -145,14 +144,12 @@ export const predictionMarketsViewHandler = (tag?: string) => Effect.gen(functio
 
     const markets = yield* polymarket.markets.getByTagId(tag);
 
-    yield* Effect.logDebug(markets);
-
     const marketsData = pipeR(
         xPolymarketMarketsData,
         formatMarketsDataForTable
     )(markets);
 
-    terminal.table([
+    table([
         ['ID', 'Question', 'Information'],
         ...marketsData,
     ], {
@@ -184,8 +181,6 @@ export const polymarketMarketsTopFetchHandler = (n?: string, term?: string) => E
   const limit = n ? Number(n) : 10;
   const markets = yield* polymarket.markets.top(limit);
 
-  yield* Effect.logDebug(markets);
-
   const marketsData = pipeR(
     xPolymarketMarketsData,
     formatMarketsDataForTable,
@@ -195,7 +190,7 @@ export const polymarketMarketsTopFetchHandler = (n?: string, term?: string) => E
     })
   )(markets);
 
-  terminal.table([
+  table([
     ['Question', 'Information'],
     ...marketsData,
   ], {
@@ -228,9 +223,6 @@ export const polymarketMarketsTagsFetchHandler = (_search?: string) => Effect.ge
 
   const tags = yield* polymarket.tags.get();
 
-  yield* Effect.logDebug("Tags fetched");
-  yield* Effect.logDebug(tags);
-
   const formattedTags = processTags(tags as readonly unknown[]);
 
   const newSt1 = set(xPolymarketTagData, formattedTags, st);
@@ -262,19 +254,13 @@ export const polymarketMarketsTagsSearchHandler = (search?: string) => Effect.ge
 
     const tags = view(xPolymarketTagData, st);
 
-    yield* Effect.logDebug("Stored Tags");
-    yield* Effect.logDebug(tags);
-
     if (tags) {
         const filteredTags = filterTags(search)(tags);
-
-        yield* Effect.logDebug("Filtered Tags");
-        yield* Effect.logDebug(filteredTags);
 
         const tableFilteredObjects = filteredTags
             .map((tag: any) => [tag.label, tag.slug, tag.id]);
 
-        terminal.table([
+        table([
             ['Label', 'Slug', 'ID'],
             ...tableFilteredObjects,
         ], {
@@ -401,8 +387,6 @@ const portfolioAnalysisSpotHandler = (portfolio: PolymarketPortfolio) => Effect.
             yield* Effect.logInfo("Processing MarketData for slug: " + position.slug);
             const response = yield* polymarket.market.getBySlug(position.slug);
             const outcomeData = processOutcomeData([response]);
-            yield* Effect.logDebug("Processed OutcomeData");
-            yield* Effect.logDebug(outcomeData);
             const position_outcome = position.outcome;
             const outcomePrice = processOutcomePriceFromResponseData(position_outcome)(outcomeData);
 
@@ -460,10 +444,9 @@ const portfolioAnalysisSpotHandler = (portfolio: PolymarketPortfolio) => Effect.
         }
     }, 0)(portfolioData);
 
-    yield* Effect.logDebug(portfolioData);
     const tablePortfolioData = processTablePortfolioData(portfolioData)
 
-    terminal.table([
+    table([
         ['Question', 'Slug', 'Amount', 'Price', 'Value'],
         ...tablePortfolioData
     ], {

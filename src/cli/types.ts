@@ -171,6 +171,17 @@ export interface MenuOption {
     command: string;
     description: string;
     action: ActionHandler;
+    /**
+     * Present on options that *open a submenu* rather than run a command.
+     *
+     * The line-based loop ignores this: its action enters the child
+     * menu by calling that menu's `registerTerminalApplication`, which blocks
+     * on its own input field. The termui shell cannot use that path (the child's
+     * input field would fight it for stdin), so it follows this link instead —
+     * it renders the child's options itself and keeps one input bar. A factory
+     * rather than a `Menu` so importing a parent never pulls in its children.
+     */
+    submenu?: () => Menu;
 }
 
 /**

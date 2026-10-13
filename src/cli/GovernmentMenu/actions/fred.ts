@@ -10,9 +10,8 @@ import { Effect, Option } from "effect";
 import { ConfigService } from "src/cli/services/ConfigService.ts";
 import { GovernmentServiceLive } from "../../../services/GovernmentService/index.ts";
 import type { FredSeriesSummary } from "../../../services/GovernmentService/types.ts";
-import terminalKit from "terminal-kit";
-import { boldCell, escapeTableMarkup } from "../../utils/table_markup.ts";
-const { terminal } = terminalKit;
+import { boldCell } from "../../utils/table_markup.ts";
+import { table } from "../../utils/table.ts";
 
 /** Strip HTML tags/entities from FRED's `notes` field. */
 export const stripHtml = (html: string): string =>
@@ -131,8 +130,6 @@ export const fredHandler = (
 
     const result: any = yield* fred.get(seriesObj, startDate, endDate, FRED_API_KEY);
 
-    yield* Effect.logDebug(result);
-
     const processed = processFredData(result);
 
     // Filter out non-numeric values (FRED returns "." for missing data)
@@ -208,15 +205,15 @@ export const fredSearchHandler = (
     console.log(chalk.bold(`\nFRED series matching "${query}" (${summaries.length})`));
     console.log("");
 
-    terminal.table(
+    table(
         [
             ["Series ID", "Title", "Freq", "Units", "Description"],
             ...summaries.map((s) => [
                 boldCell(s.id),
-                escapeTableMarkup(truncate(s.title)),
+                truncate(s.title),
                 s.frequency,
                 s.units,
-                escapeTableMarkup(snippet(s.description)),
+                snippet(s.description),
             ]),
         ],
         {

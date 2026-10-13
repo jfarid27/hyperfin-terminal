@@ -1,53 +1,37 @@
 import chalk from "chalk";
-import terminalKit from "terminal-kit";
-const { terminal } = terminalKit;
-import { Command } from "commander";
+import { Cause, Effect } from "effect";
 import {
-  type CommandState, CommandResultType, type Menu, type MenuOption,
+  CommandResultType, type Menu,
   type TerminalUserStateConfig,
-  TerminalUserStateConfigContext
 } from "../types.ts";
-import { Effect, Fiber, Logger } from "effect";
-import { mapErrorsToCommandResults } from "src/cli/errors/index.ts";
-import { installGlobalHandlers } from "./global_handlers.ts";
-import { logSessionArgs } from "./session_logging.ts";
+import { dispatchMenuInput, findMenuOption, usageLine } from "./menu_dispatch.ts";
+import { table } from "./table.ts";
 
-// ---------------------------------------------------------------------------
-// loadProgram — wraps a commander action into an Effect<CommandState>.
-// The Effect is lazy: it only runs when forked/executed, which happens
-// after commander's parseAsync dispatches the matching command.
-// ---------------------------------------------------------------------------
-export function loadProgram(
-  program: Command,
-  menuOption: MenuOption,
-  state: TerminalUserStateConfig,
-): Effect.Effect<CommandState> {
-  return Effect.promise<CommandState>(() =>
-    new Promise<CommandState>((resolve) => {
-      program
-        .command(menuOption.command)
-        .description(menuOption.description)
-        .action(async (...args: any[]) => {
-          const tusccService = Effect.provideService(
-            TerminalUserStateConfigContext, state,
-          );
-
-          // Run the action, catch errors into CommandState, then resolve
-          // the outer Promise. Effect.tap ensures resolve is called
-          // regardless of whether the action succeeded or was caught by
-          // mapErrorsToCommandResults.
-          const actionEffect = menuOption.action(...args).pipe(
-            mapErrorsToCommandResults(state),
-            tusccService,
-            Logger.withMinimumLogLevel(state.logLevel),
-            Effect.tap((res) => Effect.sync(() => resolve(res))),
-          );
-
-          await Effect.runPromise(actionEffect);
-        });
-    }),
-  );
-}
+/**
+ * Read one line from stdin, or null at end of input.
+ *
+ * A whole line, not a buffer-full: the menu loop consumes exactly one line per
+ * menu level, so two commands arriving in one write (`stocks` then
+ * `chart NVDA`) must not be glued together. Reading it byte by byte leaves the
+ * rest of the pipe untouched for the next level, and the bytes are decoded
+ * together so a multi-byte character survives the split.
+ */
+const readStdinLine = (): Effect.Effect<string | null> =>
+  Effect.promise(async () => {
+    const decoder = new TextDecoder();
+    const byte = new Uint8Array(1);
+    const line: number[] = [];
+    while (true) {
+      const n = await Deno.stdin.read(byte);
+      if (n === null) {
+        return line.length > 0 ? decoder.decode(new Uint8Array(line)) : null;
+      }
+      if (byte[0] === 0x0a) break;
+      line.push(byte[0]);
+    }
+    if (line[line.length - 1] === 0x0d) line.pop();
+    return decoder.decode(new Uint8Array(line));
+  });
 
 // ---------------------------------------------------------------------------
 // Script lifecycle helpers.
@@ -78,6 +62,22 @@ export const clearScript = (
 // flag only matters for scripts: every enclosing menu unwinds a finished
 // script back up, and the root is the one that clears it and shows itself.
 // ---------------------------------------------------------------------------
+/**
+ * Which front end owns the terminal.
+ *
+ * The termui shell renders menus itself and reads keys in raw mode. A nested
+ * menu loop started from inside it would call `readStdinLine()`, and raw mode
+ * delivers Enter as a bare `\r` with no `\n` — the read never returns and the
+ * whole app wedges. The loop therefore refuses to run while the shell owns the
+ * terminal, and says so instead of hanging.
+ */
+let interactiveOwner: "shell" | null = null;
+
+/** Hand the terminal over to the termui shell (see `interactiveOwner`). */
+export const claimInteractiveTerminal = (): void => {
+  interactiveOwner = "shell";
+};
+
 export const registerTerminalApplication = (
   menu: Menu,
   options: { isRoot?: boolean } = {},
@@ -89,7 +89,16 @@ export const registerTerminalApplication = (
   ): Effect.Effect<TerminalUserStateConfig> =>
     Effect.gen(function* () {
 
-      installGlobalHandlers();
+      // --- The shell owns the terminal ------------------------------------
+      // A nested menu loop reads stdin, which is raw mode while the shell is
+      // up: Enter then arrives without a newline and the read never completes.
+      // Report the missing link and hand the state straight back.
+      if (interactiveOwner === "shell") {
+        console.log(chalk.yellow(
+          `${menu.name} has no submenu link — the shell cannot open it.`,
+        ));
+        return st;
+      }
 
       // --- Finished scripts return to the top-level menu ------------------
       // A script's commands are exhausted once its state still carries the
@@ -114,7 +123,7 @@ export const registerTerminalApplication = (
         const tableDescriptions = menu_options.map((option) =>
           [option.name, option.command, option.description],
         );
-        terminal.table([
+        table([
           ["Name", "Command", "Description"],
           ...tableDescriptions,
         ], {
@@ -137,81 +146,72 @@ export const registerTerminalApplication = (
         input = st.scriptContext.currentCommand;
         console.log(chalk.yellow(`Executing script command: ${input}`));
         isScriptExecution = true;
-      } else if (!Deno.stdin.isTerminal()) {
-        const decoder = new TextDecoder();
-        const buf = new Uint8Array(4096);
-        const n = yield* Effect.promise(() => Deno.stdin.read(buf));
-        if (n === null) {
+      } else {
+        process.stdout.write(menu.name + " > ");
+        const line = yield* readStdinLine();
+        if (line === null) {
           console.log(chalk.yellow("No input on stdin — exiting."));
           process.exit(0);
           return yield* Effect.die("unreachable");
         }
-        input = decoder.decode(buf.subarray(0, n)).trim();
-        input = input.split("\n")[0].trim();
-      } else {
-        terminal(menu.name + " > ");
-        const answer = yield* Effect.promise<string>(() =>
-          new Promise((resolve) => {
-            terminal.inputField((_error, inp) => resolve(inp || ""));
-          }),
-        );
-        input = answer?.trim();
+        input = line.trim();
       }
 
       if (!input) {
-        if (!Deno.stdin.isTerminal()) {
-          return yield* Effect.die("no stdin input");
-        }
         return yield* terminalApplication(st);
       }
-      terminal("\n");
+      process.stdout.write("\n");
 
       // --- Build commander program --------------------------------------
-      const program = new Command();
-      program.exitOverride();
-      program.configureOutput({
-        writeErr: (str) => process.stdout.write(chalk.red(str)),
-      });
-
-      // Create lazy effects for every menu option
-      const effects: Effect.Effect<CommandState>[] = menu_options.map((option) => {
-        if (isScriptExecution) {
-          const [nextCommand, ...rest] = st.scriptContext.tailCommands || [];
-          const nextScriptState: TerminalUserStateConfig = {
-            ...st,
-            scriptContext: {
-              ...st.scriptContext,
-              currentCommand: nextCommand,
-              tailCommands: rest,
-            },
-          };
-          return loadProgram(program, option, nextScriptState);
+      // The dispatch half of the loop lives in `dispatchMenuInput` so the
+      // termui shell can run commands through the exact same pipeline
+      // (commander registration, error mapping, session logging) without
+      // inheriting this loop's blocking input read.
+      //
+      // In script mode each option's action receives the *next* line as its
+      // state: `stocks` is handed a state whose currentCommand is
+      // `chart NVDA`, so the child menu runs that instead of prompting.
+      const [nextCommand, ...rest] = st.scriptContext?.tailCommands || [];
+      const dispatchState: TerminalUserStateConfig = isScriptExecution
+        ? {
+          ...st,
+          scriptContext: {
+            ...st.scriptContext,
+            currentCommand: nextCommand,
+            tailCommands: rest,
+          },
         }
-        return loadProgram(program, option, st);
-      });
+        : st;
 
-      // Fork all effects BEFORE parseAsync — they're lazy, so nothing
-      // runs yet. parseAsync triggers commander, which calls the matching
-      // action, which resolves the corresponding effect.
-      // Use forkDaemon so non-matching fibers are auto-interrupted when
-      // the parent scope exits — no need for explicit Fiber.interrupt
-      // (which would deadlock on uninterruptible Effect.promise regions).
-      const fibers = yield* Effect.all(
-        effects.map((e) => Effect.forkDaemon(e)),
+      const result = yield* dispatchMenuInput(menu_options, input, st, {
+        stateForOption: () => dispatchState,
+      }).pipe(
+        // Commander's `exitOverride` turns a line it cannot parse — a missing
+        // required argument, one word too many — into an error rather than an
+        // exit. Report the command's usage and keep the loop alive instead of
+        // letting it escape and take the process down.
+        //
+        // `catchAllCause`, not `catchAll`: the dispatch is forked and raced, so
+        // by the time commander's error surfaces here it is a defect, not a
+        // typed failure. A typed catch misses it — which is why the loop used
+        // to print the generic "unhandled critical error" instead.
+        Effect.catchAllCause((cause) =>
+          // A command that cannot run *inside a script* aborts the script: the
+          // loop's abort path reports it and unwinds to the main menu, which is
+          // the contract the script tests pin. Re-raise and leave that alone.
+          st.scriptContext?.currentCommand
+            ? Effect.failCause(cause)
+            : Effect.sync(() => {
+              const option = findMenuOption(menu_options, input);
+              const detail = [...Cause.failures(cause), ...Cause.defects(cause)]
+                .map((reason) => reason instanceof Error ? reason.message : String(reason))
+                .join("; ");
+              console.log(chalk.red(option ? usageLine(option) : `unknown command: ${input}`));
+              if (detail) console.log(chalk.gray(`  (${detail})`));
+              return { result: { type: CommandResultType.Error }, state: st };
+            })
+        ),
       );
-
-      const args = input.split(/\s+/);
-
-      // Log the input immediately
-      yield* logSessionArgs(args, st);
-
-      // Dispatch to commander — this triggers the matching action
-      yield* Effect.promise(() => program.parseAsync(args, { from: "user" }));
-
-      // Race all fibers — the first one to resolve wins.
-      // Non-matching fibers are daemons and will be cleaned up when
-      // this gen block's scope exits.
-      const result = yield* Effect.raceAll(fibers.map((f) => Fiber.join(f)));
 
       // --- Handle result ------------------------------------------------
       if (result.result.type === CommandResultType.Back) {

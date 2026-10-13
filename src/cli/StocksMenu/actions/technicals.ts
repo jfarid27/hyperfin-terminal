@@ -15,7 +15,6 @@
 
 import chalk from "chalk";
 import { Effect, Option, Schema } from "effect";
-import terminalKit from "terminal-kit";
 import { AlphaVantageService, type ChartPoint } from "src/services/AlphaVantageService/index.ts";
 import { AlpacaService } from "src/services/AlpacaService/index.ts";
 import { ConfigService } from "src/cli/services/ConfigService.ts";
@@ -23,7 +22,7 @@ import { FetchService } from "src/cli/services/FetchService.ts";
 import { HTTPError, HTTPErrorTag, type ProgramError } from "src/cli/errors/index.ts";
 import { ChartRenderer } from "../services/ChartRenderer.ts";
 import { CommandResultType, DataSourceType, TerminalUserStateConfigContext } from "../../types.ts";
-import { boldCell, escapeTableMarkup, greenCell, redCell } from "../../utils/table_markup.ts";
+import { boldCell, greenCell, redCell } from "../../utils/table_markup.ts";
 import {
   bollingerBands,
   type BollingerPoint,
@@ -46,8 +45,7 @@ import {
   sigmaBandsOverlay,
   zeroLineOverlay,
 } from "../../../technicals/overlays.ts";
-
-const { terminal } = terminalKit;
+import { table } from "../../utils/table.ts";
 
 /** The last bar of a Massive aggregate response. */
 const MassiveAggRaw = Schema.Struct({
@@ -237,7 +235,7 @@ const logBollingerSummary = (
   );
   console.log("");
 
-  terminal.table(
+  table(
     [
       ["Date", "Lower", "Basis", "Upper", "StDev"],
       ...rows.map((b) => [
@@ -280,11 +278,11 @@ const logFibonacciSummary = (
   );
   console.log("");
 
-  terminal.table(
+  table(
     [
       ["Level", "Price"],
       ...retracement.levels.map((l) => [
-        boldCell(escapeTableMarkup(l.label)),
+        boldCell(l.label),
         formatLevelValue(l.value),
       ]),
     ],
@@ -397,7 +395,7 @@ export const fibonacciHandler = (
 const formatReturn = (value: number): string =>
   `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 
-/** Colour a return by sign, as a terminal-kit markup cell. */
+/** Colour a return by sign, as a table cell. */
 const returnCell = (value: number): string =>
   value >= 0 ? greenCell(formatReturn(value)) : redCell(formatReturn(value));
 
@@ -421,7 +419,7 @@ const logReturnsSummary = (
   );
   console.log("");
 
-  terminal.table(
+  table(
     [
       ["Date", "Return"],
       ...rows.map((r) => [boldCell(toDateLabel(r.timestamp)), returnCell(r.value)]),

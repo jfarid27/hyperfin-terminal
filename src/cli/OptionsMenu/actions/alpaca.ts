@@ -4,9 +4,8 @@ import type { OptionContract, OptionsChain } from "src/services/OptionsService/t
 import { showNumericLineChart } from "../../components/charting.ts";
 import { CommandResultType, DataSourceType, TerminalUserStateConfigContext } from "../../types.ts";
 import { Effect } from "effect";
-import terminalKit from "terminal-kit";
 import { greenCell, redCell } from "../../utils/table_markup.ts";
-const { terminal } = terminalKit;
+import { table } from "../../utils/table.ts";
 
 const getLoadedToken = (st: unknown): string | undefined =>
   (st as { loadedContext?: { token?: { symbol?: string } } })?.loadedContext?.token?.symbol;
@@ -63,7 +62,7 @@ const printChain = (chain: OptionsChain, expirationCount: number) => {
 
   if (chain.calls.length > 0) {
     console.log(chalk.bold.green(`CALLS (${chain.calls.length})`));
-    terminal.table([header, ...chain.calls.map(toTableRow)], {
+    table([header, ...chain.calls.map(toTableRow)], {
       hasBorder: true,
       contentHasMarkup: true,
       borderChars: "lightRounded",
@@ -78,7 +77,7 @@ const printChain = (chain: OptionsChain, expirationCount: number) => {
 
   if (chain.puts.length > 0) {
     console.log(chalk.bold.red(`PUTS (${chain.puts.length})`));
-    terminal.table([header, ...chain.puts.map(toTableRow)], {
+    table([header, ...chain.puts.map(toTableRow)], {
       hasBorder: true,
       contentHasMarkup: true,
       borderChars: "lightRounded",

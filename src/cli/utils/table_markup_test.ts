@@ -1,35 +1,59 @@
 import { describe, it } from "jsr:@std/testing/bdd";
 import { expect } from "jsr:@std/expect";
-import { boldCell, greenCell, redCell, escapeTableMarkup } from "./table_markup.ts";
+import chalk from "chalk";
+import { stringWidth, stripAnsi } from "npm:@termuijs/core";
+import { boldCell, greenCell, redCell } from "./table_markup.ts";
+
+/** Run `fn` with colour forced on or off, so assertions do not depend on the runner's TTY. */
+const withColorLevel = (level: number, fn: () => void) => {
+  const previous = chalk.level;
+  chalk.level = level as typeof chalk.level;
+  try {
+    fn();
+  } finally {
+    chalk.level = previous;
+  }
+};
 
 describe("table_markup", () => {
-  it("wraps a cell in terminal-kit bold markup", () => {
-    expect(boldCell("TSMC34.SAO")).toBe("^+TSMC34.SAO^:");
+  it("leaves the cell text intact", () => {
+    for (
+      const cell of [boldCell("TSMC34.SAO"), greenCell("ITM"), redCell("OTM")]
+    ) {
+      expect(cell).toContain(stripAnsi(cell));
+      expect(stripAnsi(cell).length).toBeGreaterThan(0);
+    }
+    expect(stripAnsi(greenCell("ITM"))).toBe("ITM");
+    expect(stripAnsi(redCell("OTM"))).toBe("OTM");
+    expect(stripAnsi(boldCell("TSMC34.SAO"))).toBe("TSMC34.SAO");
   });
 
-  it("wraps a cell in terminal-kit colour markup", () => {
-    expect(greenCell("ITM")).toBe("^gITM^:");
-    expect(redCell("OTM")).toBe("^rOTM^:");
-  });
-
-  it("emits no ANSI escape sequences", () => {
-    // chalk (ANSI) in a table cell renders as literal "[1m" text — the bug.
-    for (const cell of [boldCell("ABC"), greenCell("ITM"), redCell("OTM")]) {
-      expect(cell.includes("\u001b"),
-        "Cells must not carry ANSI escapes"
-      ).toBe(false);
-      expect(/\[\d+m/.test(cell),
-        "Cells must not carry literal ANSI codes"
-      ).toBe(false);
+  it("carries no terminal-kit markup and no literal ANSI codes", () => {
+    for (
+      const cell of [boldCell("ABC"), greenCell("ITM"), redCell("OTM")]
+    ) {
+      expect(cell.includes("^")).toBe(false);
+      expect(/\[\d+m/.test(cell) && !cell.includes("\u001b")).toBe(false);
     }
   });
 
-  it("escapes the ^ markup metacharacter in dynamic text", () => {
-    expect(escapeTableMarkup("A^B")).toBe("A^^B");
-    expect(boldCell("A^B.SAO")).toBe("^+A^^B.SAO^:");
+  it("adds no visible width, so a styled cell pads the same as a plain one", () => {
+    expect(stringWidth(greenCell("ITM"))).toBe(stringWidth("ITM"));
+    expect(stringWidth(boldCell("TSMC34.SAO"))).toBe(stringWidth("TSMC34.SAO"));
   });
 
-  it("leaves plain text untouched", () => {
-    expect(escapeTableMarkup("Taiwan Semiconductor")).toBe("Taiwan Semiconductor");
+  it("styles the cell with ANSI when colour is available", () => {
+    withColorLevel(1, () => {
+      expect(boldCell("ABC")).toContain("\u001b[");
+      expect(greenCell("ITM")).toContain("\u001b[");
+    });
+  });
+
+  it("falls back to plain text when colour is unavailable", () => {
+    withColorLevel(0, () => {
+      expect(boldCell("ABC")).toBe("ABC");
+      expect(greenCell("ITM")).toBe("ITM");
+      expect(redCell("OTM")).toBe("OTM");
+    });
   });
 });

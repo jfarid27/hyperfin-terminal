@@ -9,7 +9,7 @@ import {
   spotPriceHandler as alpacaSpotPriceHandler,
 } from "./actions/alpaca.ts";
 import { bollingerHandler, fibonacciHandler } from "./actions/technicals.ts";
-import { technicalsTerminal } from "./TechnicalsMenu/index.ts";
+import { technicalsMenu as stocksTechnicalsMenu, technicalsTerminal } from "./TechnicalsMenu/index.ts";
 import { Effect, Schema } from "effect";
 import { lensPath, set, view } from "ramda";
 import { DataSourceType } from "src/cli/types.ts";
@@ -96,7 +96,6 @@ const datasourceSwapHandler = (datatypeStr: string) => Effect.gen(function* () {
   const val = yield* updatedE;
 
   const updatedSt = set<TerminalUserStateConfig, StocksDataSourceType>(datasourceTypeLens, val, st);
-  yield* Effect.logDebug(updatedSt.loadedContext.stocks);
   console.log(chalk.green(`Swapped datasource to ${val}`));
   return { result: { type: CommandResultType.Success }, state: updatedSt };
 
@@ -120,6 +119,7 @@ const stocksMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
     command: "technicals",
     description: "Technical analysis indicators: bbands, fibonacci, returns",
     action: technicalsHandler,
+    submenu: () => stocksTechnicalsMenu,
   },
   {
     name: "spot",
@@ -142,7 +142,7 @@ const stocksMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
   ...menuGlobals(state),
 ];
 
-const stocksMenu: Menu = {
+export const stocksMenu: Menu = {
   name: "Stocks Menu",
   description: "Stocks Menu",
   messagePrompt: "Select an option:",

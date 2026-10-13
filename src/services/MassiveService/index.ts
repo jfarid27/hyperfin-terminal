@@ -117,8 +117,6 @@ export const MassiveServiceLive = Layer.effect(
           yield* Effect.logDebug(`Fetching range data from ${rangeUrl}`);
 
           const rangeRaw = yield* fs.fetchJson(rangeUrl, params, massiveAuthHeaders(apiKey));
-          yield* Effect.logDebug(`Fetched range data:`)
-          yield* Effect.logDebug(`${rangeRaw}`);
           const rangeValidated = yield* decodePreviousDayBar(rangeRaw);
 
           if (rangeValidated.status !== "OK" && rangeValidated.status !== "DELAYED") {

@@ -8,8 +8,6 @@
  */
 
 import { Effect } from "effect";
-import terminalKit from "terminal-kit";
-const { terminal } = terminalKit;
 import {
   CommandResultType,
   TerminalUserStateConfigContext,
@@ -18,8 +16,9 @@ import {
 import type { ProgramError } from "../../../../errors/index.ts";
 import chalk from "chalk";
 import { PolymarketModel } from "../../../../../services/PolymarketService/index.ts";
-import { escapeTableMarkup } from "../../../../utils/table_markup.ts";
+
 import type { PolymarketSport } from "../types.ts";
+import { table } from "../../../../utils/table.ts";
 
 /**
  * Filter league entries by a search term, matching either the sport key or the
@@ -42,11 +41,11 @@ export const filterSportsLeagues = (
  */
 export const sportsLeagueRows = (sports: readonly PolymarketSport[]): string[][] =>
   sports.map((s) => [
-    escapeTableMarkup(s.name ?? ""),
-    escapeTableMarkup(s.sport ?? ""),
-    escapeTableMarkup(String(s.primaryTagId ?? "")),
-    escapeTableMarkup(s.tags ?? ""),
-    escapeTableMarkup(s.series ?? ""),
+    s.name ?? "",
+    s.sport ?? "",
+    String(s.primaryTagId ?? ""),
+    s.tags ?? "",
+    s.series ?? "",
   ]);
 
 /**
@@ -70,7 +69,7 @@ export const sportsTagsHandler = (
 
     console.log(chalk.blue.bold(`Polymarket leagues (${leagues.length})`));
 
-    terminal.table([
+    table([
       ["Name", "Sport", "Primary Tag", "Tags", "Series"],
       ...sportsLeagueRows(leagues),
     ], {

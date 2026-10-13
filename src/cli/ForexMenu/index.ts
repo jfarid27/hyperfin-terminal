@@ -103,7 +103,7 @@ const forexMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
   ...menuGlobals(state),
 ];
 
-const forexMenu: Menu = {
+export const forexMenu: Menu = {
   name: "Forex Menu",
   description: "Foreign exchange rates and charts",
   messagePrompt: "Select an option:",
