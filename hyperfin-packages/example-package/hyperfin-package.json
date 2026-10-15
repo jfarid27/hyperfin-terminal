@@ -1,6 +1,0 @@
-{
-  "name": "hello-quotes",
-  "description": "Example Hyperfin package: a tiny menu that reads a symbol from state",
-  "command": "hello",
-  "entry": "index.ts"
-}
