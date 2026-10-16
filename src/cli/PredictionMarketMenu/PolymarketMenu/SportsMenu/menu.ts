@@ -30,7 +30,8 @@ const gamesDescription = (league: SportLeague): string =>
     Only games whose resolution date falls from one day ago through the next
     seven days are shown — just-finished games plus the coming week.
     Each game is displayed as a header (matchup + resolution date), the
-    moneyline outcomes with their prices, and the market's slug.
+    moneyline outcomes with their prices, and the market's slug with a link to
+    its page on polymarket.com.
     limit (optional): number of events to scan, default 20.`;
 
 /**

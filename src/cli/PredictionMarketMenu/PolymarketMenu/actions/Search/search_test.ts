@@ -21,6 +21,11 @@ describe("Polymarket Search", () => {
                 expect(result[0].tableRow[2])
                 .toBe(eventMockData.active);
             });
+
+            it("should carry the event's page on polymarket.com", () => {
+                expect(result[0].url)
+                .toBe(`https://polymarket.com/event/${eventMockData.slug}`);
+            });
         });
     });
     
@@ -32,6 +37,15 @@ describe("Polymarket Search", () => {
                 .toBe(eventMockData.markets[0].question);
                 expect(result[0].markets[0].tableRow[1])
                 .toBe(eventMockData.markets[0].slug);
+            });
+
+            it("should carry the market's page under its event", () => {
+                // The enclosing event slug is used, so the link is canonical
+                // even though the nested market carries no `events` array.
+                expect(result[0].markets[0].url)
+                .toBe(
+                    `https://polymarket.com/event/${eventMockData.slug}/${eventMockData.markets[0].slug}`
+                );
             });
 
         });

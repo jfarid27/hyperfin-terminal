@@ -3,6 +3,7 @@ import { expect } from "jsr:@std/expect";
 import { stringWidth, stripAnsi } from "npm:@termuijs/core";
 import { renderTable } from "./table.ts";
 import { greenCell } from "./table_markup.ts";
+import { renderHyperlink, stripOsc } from "./links.ts";
 
 /** The option set every caller in this repo uses. */
 const CALLER_OPTIONS = {
@@ -85,6 +86,23 @@ describe("renderTable", () => {
     );
     expect(styled.map(stringWidth)).toEqual(plain.map(stringWidth));
     expect(stripAnsi(styled[3])).toContain("ITM");
+  });
+
+  it("measures a hyperlinked cell exactly like its plain text", () => {
+    // A hyperlink's escape bytes are not columns. Measured un-stripped, the
+    // link column would be padded against the escape's length and the box would
+    // come out crooked — the rendered frame must be identical to the plain one.
+    const url = "https://polymarket.com/event/nfl-sea-den-2026-10-16/nfl-sea-den-2026-10-16";
+    const options = { ...CALLER_OPTIONS, width: 60 };
+
+    const plain = renderTable([["Slug", "Link"], ["nfl-sea-den-2026-10-16", url]], options, 60);
+    const linked = renderTable(
+      [["Slug", "Link"], ["nfl-sea-den-2026-10-16", renderHyperlink(url)]],
+      options,
+      60,
+    );
+
+    expect(linked.map(stripOsc)).toEqual(plain);
   });
 
   it("renders without a border when hasBorder is not set", () => {

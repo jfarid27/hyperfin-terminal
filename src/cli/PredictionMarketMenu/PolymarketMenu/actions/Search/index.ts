@@ -7,6 +7,8 @@ import { pipe, map, filter } from "ramda";
 import { processOutcomeData } from "../../utils.ts";
 import { PolymarketServiceLive } from "../../../../../services/PolymarketService/service.ts";
 import { table } from "../../../../utils/table.ts";
+import { hyperlink } from "../../../../utils/links.ts";
+import { eventSlugOf, marketUrlOf, polymarketEventUrl, polymarketMarketUrl } from "../../links.ts";
 
 export const processEventsFromResponse = pipe(
     (r: any) => r.events,
@@ -17,20 +19,32 @@ export const processEventsFromResponse = pipe(
             r.slug,
             r.active
         ],
-        markets: processMarketsFromResponse(r.markets),
+        /** The event's own page on polymarket.com. */
+        url: polymarketEventUrl(r.slug),
+        markets: processMarketsFromResponse(r.markets, r.slug),
     })),
 );
 
-export const processMarketsFromResponse = pipe(
+/**
+ * The active markets of a search result, each with its canonical link.
+ *
+ * The event slug is passed down rather than read off the market: a market
+ * nested in a search result does not always carry the `events` array that
+ * `eventSlugOf` reads, and the enclosing event is the answer we already know.
+ */
+export const processMarketsFromResponse = (markets: any[], eventSlug?: string) =>
+  pipe(
     filter((r: any) => r.active && !r.closed),
     map((r: any) => ({
         tableRow: [
             r.question,
             r.slug,
         ],
+        /** The market's page on polymarket.com. */
+        url: polymarketMarketUrl(r.slug, eventSlug ?? eventSlugOf(r)),
         outcomeData: processOutcomeData([r]),
     })),
-);
+)(markets);
 
 export const polymarketMarketsSearchHandler = (query?: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
@@ -50,8 +64,8 @@ export const polymarketMarketsSearchHandler = (query?: string) => Effect.gen(fun
 
   for (const event of eventData) {
     table([
-      ['Event', 'Slug', 'Active'],
-      event.tableRow,
+      ['Event', 'Slug', 'Active', 'Link'],
+      [...event.tableRow, hyperlink(event.url)],
     ], {
       hasBorder: true,
       contentHasMarkup: true,
@@ -65,8 +79,8 @@ export const polymarketMarketsSearchHandler = (query?: string) => Effect.gen(fun
 
     for (const market of event.markets) {
       table([
-        ['Question', 'Slug'],
-        market.tableRow,
+        ['Question', 'Slug', 'Link'],
+        [...market.tableRow, hyperlink(market.url)],
       ], {
         hasBorder: true,
         contentHasMarkup: true,

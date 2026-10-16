@@ -21,13 +21,20 @@ current window — from one day ago through the next seven days (just-finished
 games plus the coming week). Each game is printed as a stack of layers: a
 full-width header with the matchup and its resolution date, the moneyline
 outcomes with their prices (one row per outcome, split by column), and the
-specific market's slug.
+specific market's slug with a link to its page on polymarket.com.
 
 `limit` (optional): number of events to scan, default 20.
 
 The slug shown is the game's moneyline market slug (identical to the event
 slug, e.g. `nfl-bal-atl-2026-10-12`) and can be viewed with the Polymarket
 menu's `market <slug>` command.
+
+The link is the canonical URL for that market —
+`https://polymarket.com/event/<event-slug>/<market-slug>` — which is where the
+site's own `https://polymarket.com/market/<market-slug>` redirects (`buildGameLayers`
+in `actions/games.ts` builds it through `links.ts`). A game's market slug equals
+its event slug, so the segment repeats; that is the site's canonical form, not a
+duplication bug.
 
 - **tags**
   - Usage: `tags [term]`

@@ -13,7 +13,11 @@
  * lines for the log view.
  */
 
-/** ANSI/DEC escape sequences: SGR colors, cursor moves, OSC titles, etc. */
+import { OSC_SEQUENCES } from "../utils/links.ts";
+
+/**
+ * ANSI/DEC escape sequences: SGR colors, cursor moves, OSC titles, etc.
+ */
 const ESCAPE_SEQUENCES =
   /[\u001B\u009B][[\]()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
 
@@ -28,9 +32,17 @@ const CONTROL_BYTES = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
  * one row per line where the writer emitted a newline. That is readable for
  * single-row output and lossy for heavy cursor drawing — the reason the menu
  * listing is rendered by this module rather than by a command's own table code.
+ *
+ * OSC sequences are stripped first, and as a whole. The generic pattern below
+ * cannot consume one — it matches a prefix of `ESC ] 8 ; ; <url> ESC \` and
+ * then swallows the wrong characters, so a command's hyperlinked URL (see
+ * `utils/links.ts`) arrived here as `ttps://…;;`, losing its scheme and leaving
+ * stray punctuation in the log. Removing the OSC first leaves its visible text,
+ * which is the URL.
  */
 export const toLines = (raw: string): string[] =>
   raw
+    .replace(OSC_SEQUENCES, "")
     .replace(ESCAPE_SEQUENCES, "")
     .replace(CONTROL_BYTES, "")
     .replace(/\r\n?/g, "\n")

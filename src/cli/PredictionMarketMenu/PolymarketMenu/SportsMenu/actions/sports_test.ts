@@ -113,6 +113,39 @@ describe("Polymarket Sports — game layers", () => {
     expect(layers.slug).toBe("nfl-bal-atl-2026-10-12");
   });
 
+  it("links the game to its canonical page on polymarket.com", () => {
+    // The site's own `/market/<slug>` link redirects to exactly this URL.
+    expect(layers.url).toBe(
+      "https://polymarket.com/event/nfl-bal-atl-2026-10-12/nfl-bal-atl-2026-10-12",
+    );
+  });
+
+  it("uses the event slug, not the market's, when the two differ", () => {
+    // A head-to-head game's moneyline market carries the event's slug, but a
+    // market listed under an event page does not — the link has to name both.
+    const spreadGame = {
+      ...gameEventMockData,
+      slug: "nfl-bal-atl-2026-10-12-more-markets",
+      markets: [
+        {
+          ...gameEventMockData.markets[0],
+          slug: "nfl-bal-atl-2026-10-12-spread-home-2pt5",
+        },
+      ],
+    };
+
+    const built = buildGameLayers(spreadGame);
+    expect(built.slug).toBe("nfl-bal-atl-2026-10-12-spread-home-2pt5");
+    expect(built.url).toBe(
+      "https://polymarket.com/event/nfl-bal-atl-2026-10-12-more-markets/nfl-bal-atl-2026-10-12-spread-home-2pt5",
+    );
+  });
+
+  it("has no link for a game with no slug at all", () => {
+    const bare = { ...gameEventMockData, slug: "", markets: [] };
+    expect(buildGameLayers(bare).url).toBe("");
+  });
+
   it("formats a missing date as N/A", () => {
     expect(formatResolutionDate(undefined)).toBe("N/A");
   });

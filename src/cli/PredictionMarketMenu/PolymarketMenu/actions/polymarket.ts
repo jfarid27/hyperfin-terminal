@@ -17,6 +17,8 @@ import { loadCSVPortfolio } from "../../../utils/loaders.ts";
 import { PolymarketPortfolio, PolymarketPosition, PortfolioAnalysisType } from "./types.ts";
 import { PolymarketServiceLive } from "../../../../services/PolymarketService/service.ts";
 import { table } from "../../../utils/table.ts";
+import { hyperlink } from "../../../utils/links.ts";
+import { marketUrlOf } from "../links.ts";
 
 /**
  * Lens path for predictions markets data on the User State.
@@ -31,28 +33,57 @@ const xPredictionMarketType = lensPath(["loadedContext", "predictionMarkets", "t
 /**
  * Lens path for polymarket prediction market properties returned by the polymarket API.
  */
-const xPolymarketMarketsData = project(["slug", "question", "outcomes", "outcomePrices", "volume", "liquidity"])
+const xPolymarketMarketsData = project(["slug", "question", "outcomes", "outcomePrices", "volume", "liquidity", "events"])
 
 
 /**
- * Formats the markets data for display in a terminal table.
+ * Formats a single market's data into a terminal table row.
+ *
+ * `events` is projected along with the display fields so the row can carry a
+ * link (`marketUrlOf`) — the market's `slug` alone does not name the event page
+ * the link needs.
  */
-const formatMarketsDataForTable = pipeR(
-    map((r: any) => {
+export const formatMarketTableRow = (r: any): string[] => {
+    const outcomes = JSON.parse(r.outcomes);
+    const outcomePrices = JSON.parse(r.outcomePrices);
+    const volume = r.volume;
+    const liquidity = r.liquidity;
+    const outcomesText = zip(outcomes, outcomePrices).map((o) => `${o[0]}: ${o[1]}`).join(", ");
 
-        const outcomes = JSON.parse(r.outcomes);
-        const outcomePrices = JSON.parse(r.outcomePrices);
-        const volume = r.volume;
-        const liquidity = r.liquidity;
-        const outcomesText = zip(outcomes, outcomePrices).map((o) => `${o[0]}: ${o[1]}`).join(", ");
+    return [
+        r.slug,
+        r.question,
+        `${outcomesText}\nVolume: ${volume}\nLiquidity: ${liquidity}`
+    ];
+};
 
-        return [
-            r.slug,
-            r.question,
-            `${outcomesText}\nVolume: ${volume}\nLiquidity: ${liquidity}`
-        ]
-    })
-)
+/**
+ * The `markets` table rows: the market's own columns plus its link, so every
+ * listed market is one click from its page.
+ */
+export const marketLinkRows = (markets: readonly any[]): string[][] =>
+    markets.map((market) => [
+        ...formatMarketTableRow(market),
+        hyperlink(marketUrlOf(market)),
+    ]);
+
+/**
+ * The `top` table rows: question, slug, information, and the market's link.
+ *
+ * `term` filters on the question, as the command's own description promises.
+ */
+export const topMarketLinkRows = (
+    markets: readonly any[],
+    term?: string,
+): string[][] =>
+    markets
+        .filter((market) =>
+            term ? String(market.question ?? "").toLowerCase().includes(term.toLowerCase()) : true
+        )
+        .map((market) => {
+            const [slug, question, information] = formatMarketTableRow(market);
+            return [question, slug, information, hyperlink(marketUrlOf(market))];
+        });
 
 /**
  * Projects the tag properties from the polymarket API response.
@@ -144,13 +175,10 @@ export const predictionMarketsViewHandler = (tag?: string) => Effect.gen(functio
 
     const markets = yield* polymarket.markets.getByTagId(tag);
 
-    const marketsData = pipeR(
-        xPolymarketMarketsData,
-        formatMarketsDataForTable
-    )(markets);
+    const marketsData = marketLinkRows(pipeR(xPolymarketMarketsData)(markets));
 
     table([
-        ['ID', 'Question', 'Information'],
+        ['Slug', 'Question', 'Information', 'Link'],
         ...marketsData,
     ], {
         hasBorder: true,
@@ -181,17 +209,10 @@ export const polymarketMarketsTopFetchHandler = (n?: string, term?: string) => E
   const limit = n ? Number(n) : 10;
   const markets = yield* polymarket.markets.top(limit);
 
-  const marketsData = pipeR(
-    xPolymarketMarketsData,
-    formatMarketsDataForTable,
-    filter((market: any) => term ? market[1].toLowerCase().includes(term.toLowerCase()) : true),
-    map((market: any) => {
-      return [market[1] + "\nSlug: " + market[0], market[2]];
-    })
-  )(markets);
+  const marketsData = topMarketLinkRows(pipeR(xPolymarketMarketsData)(markets), term);
 
   table([
-    ['Question', 'Information'],
+    ['Question', 'Slug', 'Information', 'Link'],
     ...marketsData,
   ], {
     hasBorder: true,
@@ -358,6 +379,8 @@ interface PolymarketSpotPosition {
     _type: PolymarketPositionType.Success;
     slug: string,
     question: string,
+    /** The market's page on polymarket.com, so the position can be checked at source. */
+    url: string,
     positionPoint: PositionPoint
 }
 
@@ -402,6 +425,7 @@ const portfolioAnalysisSpotHandler = (portfolio: PolymarketPortfolio) => Effect.
                 _type: PolymarketPositionType.Success,
                 slug: position.slug,
                 question: response.question,
+                url: marketUrlOf(response),
                 positionPoint: {
                     outcome: position.outcome,
                     amount: position.amount,
@@ -423,6 +447,7 @@ const portfolioAnalysisSpotHandler = (portfolio: PolymarketPortfolio) => Effect.
                     r.positionPoint.amount.toString(),
                     r.positionPoint.price.toString(),
                     r.positionPoint.value.toString(),
+                    hyperlink(r.url),
                 ];
             case PolymarketPositionType.Error:
                 return [
@@ -431,6 +456,7 @@ const portfolioAnalysisSpotHandler = (portfolio: PolymarketPortfolio) => Effect.
                     "0",
                     "0",
                     "0",
+                    "",
                 ];
         }
     });
@@ -447,7 +473,7 @@ const portfolioAnalysisSpotHandler = (portfolio: PolymarketPortfolio) => Effect.
     const tablePortfolioData = processTablePortfolioData(portfolioData)
 
     table([
-        ['Question', 'Slug', 'Amount', 'Price', 'Value'],
+        ['Question', 'Slug', 'Amount', 'Price', 'Value', 'Link'],
         ...tablePortfolioData
     ], {
         hasBorder: true,
