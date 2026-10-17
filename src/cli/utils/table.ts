@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import { splitGraphemes, stringWidth, stripAnsi, wordWrap } from "npm:@termuijs/core";
+import { stripOsc } from "./links.ts";
 
 /**
  * Plain-text table rendering.
@@ -13,7 +14,9 @@ import { splitGraphemes, stringWidth, stripAnsi, wordWrap } from "npm:@termuijs/
  *   alignment — computed on *visible* width — survive intact.
  * - terminal-kit markup cannot be measured with the frame's own width table, so
  *   a cell's padding could disagree with its rendered width. ANSI is measured
- *   with `stripAnsi` + `stringWidth`, so padding always matches what is drawn.
+ *   with `stripAnsi` + `stringWidth`, and OSC 8 hyperlinks with `stripOsc`
+ *   first — the width table counts a hyperlink's escape bytes as characters, so
+ *   an un-stripped link would pad its cell against the wrong length.
  *
  * The option names mirror terminal-kit's so existing call sites read the same.
  */
@@ -68,6 +71,18 @@ const CELL_PADDING = 2;
 const MIN_COLUMN_WIDTH = 4;
 
 /**
+ * A cell's visible text: colour and hyperlink escapes removed.
+ *
+ * Both have to go before measuring — `stringWidth` counts escape bytes as
+ * columns, so a styled or hyperlinked cell would be padded against a length
+ * that is not what the terminal draws.
+ */
+const visibleText = (cell: string): string => stripOsc(stripAnsi(cell));
+
+/** The columns a cell's visible text occupies. */
+const visibleWidth = (cell: string): number => stringWidth(visibleText(cell));
+
+/**
  * Render rows as aligned lines.
  *
  * `maxWidth` caps the result at what the caller's surface can actually show —
@@ -92,7 +107,7 @@ export const renderTable = (
 
   // Natural width: the widest visible cell in each column.
   const widths = Array.from({ length: columns }, (_, j) =>
-    cells.reduce((max, row) => Math.max(max, stringWidth(stripAnsi(row[j]))), 0)
+    cells.reduce((max, row) => Math.max(max, visibleWidth(row[j])), 0)
   );
 
   const frame = (w: readonly number[]): number =>
@@ -147,7 +162,7 @@ export const renderTable = (
     for (let k = 0; k < rowHeight; k++) {
       const rendered = row.map((_, j) => {
         const text = wrapped[j][k] ?? "";
-        const padding = Math.max(0, widths[j] - stringWidth(stripAnsi(text)));
+        const padding = Math.max(0, widths[j] - visibleWidth(text));
         return " " + paint(text + " ".repeat(padding), attr?.bgColor) + " ";
       });
       lines.push(
@@ -194,7 +209,7 @@ const cellText = (value: unknown): string => {
  * so the box cannot be pushed out of shape.
  */
 const wrapCell = (cell: string, width: number): string[] => {
-  const visible = stripAnsi(cell);
+  const visible = visibleText(cell);
   if (stringWidth(visible) <= width) return [cell];
   if (width <= 0) return [""];
 

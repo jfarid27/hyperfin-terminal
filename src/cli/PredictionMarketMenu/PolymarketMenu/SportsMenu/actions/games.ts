@@ -23,8 +23,10 @@ import chalk from "chalk";
 import { PolymarketModel } from "../../../../../services/PolymarketService/index.ts";
 
 import { zipEventOutcomePrices } from "../../utils.ts";
+import { polymarketMarketUrl } from "../../links.ts";
 import type { PolymarketSport } from "../types.ts";
 import { table } from "../../../../utils/table.ts";
+import { hyperlink } from "../../../../utils/links.ts";
 
 /**
  * Resolve a league entry (e.g. the NFL) from the `/sports` list by its sport key.
@@ -116,6 +118,8 @@ export interface GameLayers {
   resolutionDate: string;
   outcomes: [string, string][];
   slug: string;
+  /** The market's canonical page on polymarket.com. */
+  url: string;
 }
 
 /**
@@ -124,11 +128,13 @@ export interface GameLayers {
 export const buildGameLayers = (event: any): GameLayers => {
   const market = gameMoneylineMarket(event);
   const outcomes = market ? (zipEventOutcomePrices(market) as [string, string][]) : [];
+  const slug = market?.slug ?? event?.slug ?? "";
   return {
     title: event?.title ?? market?.question ?? "Unknown game",
     resolutionDate: formatResolutionDate(event?.endDate),
     outcomes,
-    slug: market?.slug ?? event?.slug ?? "N/A",
+    slug: slug || "N/A",
+    url: polymarketMarketUrl(slug, event?.slug),
   };
 };
 
@@ -168,10 +174,11 @@ export const renderGame = (layers: GameLayers): void => {
     fit: true,
   });
 
-  // The specific market's slug.
+  // The specific market's slug and its page on polymarket.com — the link is what
+  // the reader clicks through to trade or read the resolution rules.
   table([
-    ["Slug"],
-    [layers.slug],
+    ["Slug", "Link"],
+    [layers.slug, hyperlink(layers.url)],
   ], {
     hasBorder: true,
     contentHasMarkup: true,

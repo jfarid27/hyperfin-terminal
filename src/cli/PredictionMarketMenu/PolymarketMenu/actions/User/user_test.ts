@@ -84,6 +84,10 @@ describe("Polymarket User Data Transformer", () => {
         expect(userData[0].slug,
             "slug should be correctly identified"
         ).toBe(mockUserResponse[0].slug);
+
+        expect(userData[0].eventSlug,
+            "eventSlug should be kept — the position's link is the event page"
+        ).toBe(mockUserResponse[0].eventSlug);
     });
     
     it("Should correctly process account data", () => {

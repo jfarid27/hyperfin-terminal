@@ -10,6 +10,7 @@ import { processOutcomeData } from "../../utils.ts";
 import { PolymarketServiceLive } from "../../../../../services/PolymarketService/service.ts";
 import { table } from "../../../../utils/table.ts";
 import { clampText, DESCRIPTION_LIMIT, outputWidth, wrapText } from "../../../../utils/text.ts";
+import { linkLines, polymarketEventUrl, polymarketMarketUrl } from "../../links.ts";
 
 /**
  * Pull relevant market data from the polymarket API response for given slug.
@@ -50,9 +51,14 @@ export const predictionEventViewHandler = (slug?: string) => Effect.gen(function
 
   const response = yield* polymarket.event.getBySlug(slug);
   const { marketData, outcomeData } = processEventDataBySlug(response);
+  // The event page, and — per market below — the market's own page.
+  const markets: any[] = Array.isArray(response.markets) ? response.markets : [];
 
   console.log(chalk.blue.bold("Market Data"))
   console.log(chalk.blue("Title: ") + response.title)
+  for (const line of linkLines(polymarketEventUrl(response.slug))) {
+    console.log(chalk.cyan(line));
+  }
   // Clamped for the same reason as the market view: resolution rules run long.
   for (
     const line of wrapText(
@@ -79,7 +85,13 @@ export const predictionEventViewHandler = (slug?: string) => Effect.gen(function
 
   console.log(chalk.blue.bold("Outcome Data"))
 
-  for (const [question, outcomePrices] of outcomeData) {
+  for (const [index, [question, outcomePrices]] of outcomeData.entries()) {
+    // The market's own page, above the outcomes it belongs to. Gamma's event
+    // payload does not carry an `events` back-reference on its markets, so the
+    // event slug we are viewing is what makes the link canonical.
+    for (const line of linkLines(polymarketMarketUrl(markets[index]?.slug, response.slug))) {
+      console.log(chalk.cyan(line));
+    }
     table([
       [question, ""],
       ['Outcome', 'Price'],

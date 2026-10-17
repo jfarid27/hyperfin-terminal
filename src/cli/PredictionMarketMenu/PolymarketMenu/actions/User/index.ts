@@ -12,12 +12,17 @@ import { TerminalUserStateConfigContext } from "src/cli/types.ts";
 import chalk from "chalk";
 import { PolymarketServiceLive } from "../../../../../services/PolymarketService/service.ts";
 import { table } from "../../../../utils/table.ts";
+import { hyperlink } from "../../../../utils/links.ts";
+import { polymarketMarketUrl } from "../../links.ts";
 
 /**
- * Pick the title, size, currentValue, and slug from the response.
+ * Pick the title, size, currentValue, slug, and event slug from the response.
+ *
+ * `eventSlug` comes along because a position's canonical link is the event page
+ * (`/event/<eventSlug>/<marketSlug>`), which the positions feed names directly.
  */
 export const processUserData = pipe(
-    project(['title', 'size', 'currentValue', 'slug']),
+    project(['title', 'size', 'currentValue', 'slug', 'eventSlug']),
 );
 
 const currentValueProp = prop('currentValue');
@@ -60,8 +65,14 @@ export const predictionUserPositionsHandler = (address?: string) => Effect.gen(f
   const accountData = processUserAccountData(response);
 
   table([
-    ["Title", "Size", "Current Value", "Slug"],
-    ...userData.map((item: any) => [item.title, item.size, item.currentValue, item.slug])
+    ["Title", "Size", "Current Value", "Slug", "Link"],
+    ...userData.map((item: any) => [
+      item.title,
+      item.size,
+      item.currentValue,
+      item.slug,
+      hyperlink(polymarketMarketUrl(item.slug, item.eventSlug)),
+    ])
   ], {
     hasBorder: true,
     contentHasMarkup: true,

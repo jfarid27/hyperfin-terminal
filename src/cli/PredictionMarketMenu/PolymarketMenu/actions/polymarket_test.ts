@@ -1,8 +1,11 @@
 import { expect } from "jsr:@std/expect";
 
 import {
-    processOutcomeData
+    processOutcomeData,
+    marketLinkRows,
+    topMarketLinkRows,
 } from './polymarket.ts'
+import { stripOsc } from '../../../utils/links.ts'
 
 // A mock response from the Polymarket API for a single market.
 const mockResponse = {
@@ -44,4 +47,50 @@ Deno.test("Polymarket Action: ProcessOutcomeData", () => {
     expect(resultOutcomes[1][0]).toEqual(mockOutcomeData[1][0]);
     expect(resultOutcomes[1][1]).toEqual(mockOutcomeData[1][1]);
 })
+
+// A market as the `/markets` endpoint returns one, `events` array included.
+const mockMarketRow = {
+    slug: "will-the-cardinals-win-the-2027-nfl-league-championship",
+    question: "Will the Arizona Cardinals win the 2027 NFL league championship?",
+    outcomes: '["Yes", "No"]',
+    outcomePrices: '["0.03", "0.97"]',
+    volume: 1200,
+    liquidity: 340,
+    events: [{ slug: "pro-football-2027-champion-20260729185915366" }],
+};
+
+const CARDINALS_URL =
+    "https://polymarket.com/event/pro-football-2027-champion-20260729185915366/will-the-cardinals-win-the-2027-nfl-league-championship";
+
+Deno.test("Polymarket Action: `markets` rows end in the market's link", () => {
+    const [row] = marketLinkRows([mockMarketRow]);
+
+    expect(row.length).toBe(4);
+    expect(row[0]).toBe(mockMarketRow.slug);
+    expect(stripOsc(row[3])).toBe(CARDINALS_URL);
+});
+
+Deno.test("Polymarket Action: `top` rows carry question, slug, information and link", () => {
+    const [row] = topMarketLinkRows([mockMarketRow], "cardinals");
+
+    expect(row[0]).toBe(mockMarketRow.question);
+    expect(row[1]).toBe(mockMarketRow.slug);
+    expect(row[2]).toContain("Volume: 1200");
+    expect(stripOsc(row[3])).toBe(CARDINALS_URL);
+});
+
+Deno.test("Polymarket Action: `top` still filters on the question", () => {
+    expect(topMarketLinkRows([mockMarketRow], "nothing matches").length).toBe(0);
+    expect(topMarketLinkRows([mockMarketRow]).length).toBe(1);
+    expect(topMarketLinkRows([mockMarketRow], "CARDINALS").length).toBe(1);
+});
+
+Deno.test("Polymarket Action: a market with no events array still gets a link", () => {
+    const { events: _events, ...withoutEvents } = mockMarketRow;
+    const [row] = marketLinkRows([withoutEvents]);
+
+    expect(stripOsc(row[3])).toBe(
+        `https://polymarket.com/market/${mockMarketRow.slug}`,
+    );
+});
 

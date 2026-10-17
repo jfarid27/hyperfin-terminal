@@ -10,6 +10,7 @@ import { zip, pipe, props, map, prop } from "ramda";
 import { PolymarketServiceLive } from "../../../../../services/PolymarketService/service.ts";
 import { table } from "../../../../utils/table.ts";
 import { clampText, DESCRIPTION_LIMIT, outputWidth, wrapText } from "../../../../utils/text.ts";
+import { linkLines, marketUrlOf } from "../../links.ts";
 
 export const xPolymarketMarketData = props([
     "active",
@@ -165,6 +166,9 @@ export const predictionMarketViewHandler = (slug?: string, type?: string, startT
     console.log(chalk.blue.bold("Market Data"))
     console.log(chalk.blue("Question: " + response.question))
     console.log(chalk.blue("Slug: " + response.slug))
+    for (const line of linkLines(marketUrlOf(response))) {
+        console.log(chalk.cyan(line));
+    }
     // The description is the market's resolution rules — often a couple of
     // thousand characters — and printed whole it buries the tables below it.
     // Raise DESCRIPTION_LIMIT in utils/text.ts to read more of it.
