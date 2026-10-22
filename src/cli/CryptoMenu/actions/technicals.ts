@@ -145,6 +145,7 @@ const logBollingerSummary = (
   period: number,
   stddev: number,
   bands: readonly BollingerPoint[],
+  formatValue: (value: number) => string = formatLevelValue,
 ): void => {
   const rows = bands.slice(-SUMMARY_ROWS);
 
@@ -161,10 +162,10 @@ const logBollingerSummary = (
       ["Date", "Lower", "Basis", "Upper", "StDev"],
       ...rows.map((b) => [
         boldCell(toDateLabel(b.timestamp)),
-        formatLevelValue(b.lower),
-        formatLevelValue(b.mid),
-        formatLevelValue(b.upper),
-        formatLevelValue(b.sd),
+        formatValue(b.lower),
+        formatValue(b.mid),
+        formatValue(b.upper),
+        formatValue(b.sd),
       ]),
     ],
     {
@@ -186,10 +187,11 @@ const logBollingerSummary = (
 const logFibonacciSummary = (
   symbol: string,
   retracement: FibonacciRetracement,
+  formatValue: (value: number) => string = formatLevelValue,
 ): void => {
   const label = retracement.direction === "up"
-    ? `retracing down from the ${formatLevelValue(retracement.swingHigh)} high`
-    : `retracing up from the ${formatLevelValue(retracement.swingLow)} low`;
+    ? `retracing down from the ${formatValue(retracement.swingHigh)} high`
+    : `retracing up from the ${formatValue(retracement.swingLow)} low`;
 
   console.log("");
   console.log(
@@ -204,7 +206,7 @@ const logFibonacciSummary = (
       ["Level", "Price"],
       ...retracement.levels.map((l) => [
         boldCell(l.label),
-        formatLevelValue(l.value),
+        formatValue(l.value),
       ]),
     ],
     {
@@ -233,6 +235,7 @@ export const runBollinger = (
   resolved: ResolvedSeries,
   period: number = DEFAULT_BOLLINGER_PERIOD,
   stddev: number = DEFAULT_BOLLINGER_STDDEV,
+  formatValue: (value: number) => string = formatLevelValue,
 ): Effect.Effect<CommandResult, ProgramError, ChartRenderer> =>
   Effect.gen(function* () {
     const bands = bollingerBands(resolved.points, period, stddev);
@@ -256,7 +259,7 @@ export const runBollinger = (
     );
 
     yield* Effect.logDebug(`Computed ${bands.length} Bollinger bands`);
-    logBollingerSummary(resolved.symbol, period, stddev, bands);
+    logBollingerSummary(resolved.symbol, period, stddev, bands, formatValue);
 
     return { type: CommandResultType.Success };
   });
@@ -292,6 +295,7 @@ export const bollingerHandler = (
 export const runFibonacci = (
   resolved: ResolvedSeries,
   lookback?: number,
+  formatValue: (value: number) => string = formatLevelValue,
 ): Effect.Effect<CommandResult, ProgramError, ChartRenderer> =>
   Effect.gen(function* () {
     const retracement = fibonacciRetracement(resolved.points, lookback);
@@ -310,12 +314,12 @@ export const runFibonacci = (
       resolved.points,
       "timestamp",
       "value",
-      fibonacciFor(resolved.points, lookback),
+      fibonacciFor(resolved.points, lookback, formatValue),
       `${resolved.symbol.toUpperCase()} Fibonacci Retracement (${retracement.windowSize} bars)`,
     );
 
     yield* Effect.logDebug(`Computed ${retracement.levels.length} retracement levels`);
-    logFibonacciSummary(resolved.symbol, retracement);
+    logFibonacciSummary(resolved.symbol, retracement, formatValue);
 
     return { type: CommandResultType.Success };
   });

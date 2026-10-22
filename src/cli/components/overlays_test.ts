@@ -138,6 +138,15 @@ describe("technical overlays render to SVG", () => {
     expect(svg.includes("#ffb74d"), "the level colour is present").toBe(true);
   });
 
+  it("routes the level price labels through a caller-supplied formatter", () => {
+    // The default (formatLevelValue) prints two decimals above 1, which collapses
+    // an FX swing whose levels are a few thousandths apart. A sentinel proves the
+    // formatter is the one used for the seven price labels (the ratios stay).
+    const svg = renderSvg(price, fibonacciFor(price, undefined, () => "LVL"));
+
+    expect((svg.match(/>LVL</g) ?? []).length).toBe(7);
+  });
+
   it("still renders a valid chart when no overlays are supplied", () => {
     const svg = renderSvg(price, []);
 

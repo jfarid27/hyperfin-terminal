@@ -64,6 +64,26 @@ error is reduced to a bare `CommandResultType.Error` and both front ends show on
 - **source** `source [datatypeSource]`
   - Switch the data source: `alphavantage` or `alpaca`.
 
+- **technicals** `technicals`
+  - Opens the indicator submenu (`Forex Technicals Menu`). Every command takes the
+    currency pair first, then the indicator's own parameters; all arguments are
+    optional so a bare command prints its usage instead of aborting:
+    ```
+    bbands EUR USD                  # Bollinger envelope, 20-bar / 2σ
+    bbands EUR USD 10 3             # custom period and envelope width
+    fibonacci EUR USD               # retracement levels over the latest swing
+    fibonacci EUR USD 120           # narrow the swing to the last 120 bars
+    returns EUR USD                 # daily percent returns, ±2σ guide bands
+    ```
+  - The series measured is the active source's **daily rate over the trailing year**
+    (≈252 bars): AlphaVantage `FX_DAILY` (which carries ~20 years, narrowed here) or
+    Alpaca `/v1beta1/forex/rates` (trailing year, mid rate — no OHLC). The shared
+    window keeps the two sources comparable and the chart legible; `fibonacci`'s
+    optional `lookback` narrows it further.
+  - Failures are reported per source: a missing key names its variable, Alpaca's
+    `403 forbidden: insufficient grants` explains the entitlement, and a pair the
+    source does not carry says so instead of charting an empty series.
+
 Rates are printed at the precision their magnitude calls for — four decimals for a
 major (`EUR/USD` → `1.0854`), seven for a JPY cross (`JPY/USD` → `0.0063200`), which
 `toFixed(4)` would have shown as a bare `0.0065`.
@@ -75,12 +95,23 @@ ForexMenu/
 ├── actions/
 │   ├── alphavantage.ts        # forexSpotHandler, forexChartHandler, parsePair
 │   ├── alpaca.ts              # forexSpotHandler, forexChartHandler (Alpaca)
+│   ├── technicals.ts          # pair → daily series, then the shared indicator steps
 │   └── *_test.ts              # Action-level tests (mocked services)
+├── TechnicalsMenu/
+│   ├── menu.ts                # bbands / fibonacci / returns options (pure)
+│   └── index.ts               # Menu object + registration
 ├── services/
 │   └── index.ts               # ForexServiceMenuLive layer (ForexService + Alpaca + ChartRenderer)
 ├── index.ts                   # Menu registration + per-source dispatch
 └── README.md
 ```
+
+The indicators themselves are **not** reimplemented here. `actions/technicals.ts`
+resolves the pair to a `{ symbol, points }` series and hands it to the exported
+`runBollinger` / `runFibonacci` / `runReturns` steps in
+`CryptoMenu/actions/technicals.ts` — the same code the crypto, DEX and stocks menus
+use — so the math and overlays cannot drift between menus. Bollinger/Fibonacci math
+lives in `src/technicals/`, the Plot marks in `src/technicals/overlays.ts`.
 
 `ForexService` itself (schema validation, raw→clean transforms, date-range
 resolution) lives in `src/services/ForexService/` alongside the other data

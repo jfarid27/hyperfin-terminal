@@ -249,6 +249,20 @@ To use:
 
 The chart title labels the pair and the resolved range, e.g. `EUR/USD FX - 2025-10-07 to 2026-10-07`.
 
+5. Run technical indicators over the pair's daily rate — `technicals` opens the
+   indicator submenu, and each command takes the pair first:
+   ```
+   technicals
+   bbands EUR USD                  # Bollinger envelope (20-bar, 2σ)
+   bbands EUR USD 10 3             # custom period / envelope width
+   fibonacci EUR USD               # retracement levels over the latest swing
+   fibonacci EUR USD 120           # narrow the swing to 120 bars
+   returns EUR USD                 # daily percent returns with ±2σ bands
+   ```
+   The indicators measure the active source's daily rate, so `source alpaca`
+   switches them to Alpaca's trailing-year mid rate.
+
+
 ### Options Chains
 
 The Options menu provides access to stock options chain data from Yahoo Finance (no API key required).
