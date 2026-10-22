@@ -84,13 +84,34 @@ export function bollingerBandsOverlay(
   ];
 }
 
-/** Plot marks drawing a Fibonacci retracement: a labelled horizontal rule per level. */
+/**
+ * Plot marks drawing a Fibonacci retracement: a labelled horizontal rule per level.
+ *
+ * `formatValue` renders the price on the left edge. It defaults to
+ * `formatLevelValue`, whose fixed two decimals suit an equity price; a caller
+ * measuring something tighter (an FX rate whose whole swing is a few cents) passes
+ * its own, or the labels collapse onto the same string.
+ */
 export function fibonacciOverlay(
   retracement: FibonacciRetracement | null,
+  formatValue: (value: number) => string = formatLevelValue,
 ): Plot.Markish[] {
   if (!retracement) return [];
 
   const levels = retracement.levels.map((l) => ({ ...l }));
+
+  // The 0% and 100% levels are the swing's own high and low, so their labels land
+  // on the frame's top and bottom edges — on top of the y-axis tick label and the
+  // x-axis dates. Inset just those two by 2% of the swing: enough to clear the axis
+  // text, and proportional so a wide or narrow swing keeps the same gap. The
+  // interior levels keep their exact position.
+  const values = levels.map((l) => l.value);
+  const top = Math.max(...values);
+  const bottom = Math.min(...values);
+  const inset = (top - bottom) * 0.02;
+  /** A level's label sits at its value, except the swing's two ends, which inset. */
+  const labelY = (row: { value: number }): number =>
+    row.value === top ? top - inset : row.value === bottom ? bottom + inset : row.value;
 
   // The black stroke plus `paintOrder: "stroke"` haloes each glyph so the price
   // line passing behind a label stays legible.
@@ -113,15 +134,15 @@ export function fibonacciOverlay(
     // edge the two would collide whenever the swing is small relative to the
     // y-range — which is the common case — so each gets its own side.
     Plot.text(levels, {
-      y: (d) => d.value,
+      y: labelY,
       text: (d) => d.label,
       frameAnchor: "right",
       dx: -6,
       ...halo,
     }),
     Plot.text(levels, {
-      y: (d) => d.value,
-      text: (d) => formatLevelValue(d.value),
+      y: labelY,
+      text: (d) => formatValue(d.value),
       frameAnchor: "left",
       dx: 6,
       textAnchor: "start",
@@ -143,8 +164,9 @@ export function bollingerBandsFor(
 export function fibonacciFor(
   points: readonly SeriesPoint[],
   lookback?: number,
+  formatValue: (value: number) => string = formatLevelValue,
 ): Plot.Markish[] {
-  return fibonacciOverlay(fibonacciRetracement(points, lookback));
+  return fibonacciOverlay(fibonacciRetracement(points, lookback), formatValue);
 }
 
 /**

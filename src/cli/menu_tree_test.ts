@@ -27,6 +27,7 @@ import { technicalsMenu as stocksTechnicalsMenu } from "./StocksMenu/TechnicalsM
 import { governmentMenu } from "./GovernmentMenu/index.ts";
 import { optionsMenu } from "./OptionsMenu/index.ts";
 import { forexMenu } from "./ForexMenu/index.ts";
+import { forexTechnicalsMenu } from "./ForexMenu/TechnicalsMenu/index.ts";
 import { bondsMenu } from "./BondsMenu/index.ts";
 import { newsMenu } from "./NewsMenu/index.ts";
 import { redditMenu } from "./NewsMenu/RedditMenu/index.ts";
@@ -71,6 +72,7 @@ const allMenus: Menu[] = [
   governmentMenu,
   optionsMenu,
   forexMenu,
+  forexTechnicalsMenu,
   bondsMenu,
   newsMenu,
   redditMenu,

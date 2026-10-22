@@ -17,6 +17,10 @@ import { lensPath, set } from "ramda";
 import { DataSourceType } from "src/cli/types.ts";
 import { ForexDataSourceTypeSchema, type ForexDataSourceType } from "../../services/ForexService/types.ts";
 import { ForexServiceMenuLive } from "./services/index.ts";
+import {
+  forexTechnicalsMenu,
+  forexTechnicalsTerminal,
+} from "./TechnicalsMenu/index.ts";
 import { catchAlpaca } from "../utils/alpaca_errors.ts";
 import { catchProgramError } from "../utils/command_errors.ts";
 import chalk from "chalk";
@@ -59,6 +63,16 @@ const chartHandler = (
     return yield* catchProgramError(forexChartHandler(fromStr, toStr, dateFrom, dateTo), "AlphaVantage forex chart request failed.");
   }).pipe(Effect.provide(ForexServiceMenuLive));
 
+/**
+ * Enter the technicals submenu, which lists one option per indicator
+ * (bbands, fibonacci, returns) and measures the active source's daily rate.
+ */
+const technicalsHandler = () => Effect.gen(function* () {
+  const st = yield* TerminalUserStateConfigContext;
+  const newState = yield* forexTechnicalsTerminal(st);
+  return { result: { type: CommandResultType.Success }, state: newState };
+});
+
 /** Switch the source of forex data. */
 const datasourceSwapHandler = (datatypeStr: string) => Effect.gen(function* () {
   const st = yield* TerminalUserStateConfigContext;
@@ -94,6 +108,13 @@ const forexMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => [
     command: "chart [from] [to] [fromDate] [toDate]",
     description: "Chart daily FX prices for a currency pair (dates YYYY-MM-DD; default last 1 year)",
     action: chartHandler,
+  },
+  {
+    name: "technicals",
+    command: "technicals",
+    description: "Technical analysis indicators over a pair: bbands, fibonacci, returns",
+    action: technicalsHandler,
+    submenu: () => forexTechnicalsMenu,
   },
   {
     name: "source",
