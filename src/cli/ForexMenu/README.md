@@ -22,6 +22,28 @@ Alpaca notes:
   403 (`forbidden: insufficient grants`), surfaced verbatim to the user.
 - Alpaca's historical-rates endpoint carries bid/mid/ask only (no OHLC), so the
   chart plots the mid price.
+- Alpaca's history request covers the trailing year; a chart range older than that
+  comes back empty and says so (AlphaVantage's `FX_DAILY` keeps full history).
+
+## Failures are reported, not swallowed
+
+Each source's requests run through `catchProgramError` / `catchAlpaca`
+(`src/cli/utils/`), which print *why* a command failed. Without that, any handler
+error is reduced to a bare `CommandResultType.Error` and both front ends show only
+`Invalid command` — a missing key, a 403 and a typo all look the same.
+
+- **No key.** `ALPHAVANTAGE_API_KEY` / `ALPACA_API_KEY` + `ALPACA_API_SECRET` are
+  read per request, not when the layer is built, so a missing key fails the
+  command that needs it with the variable to set. It no longer takes the whole menu
+  down: both services are merged into `ForexServiceMenuLive`, so a layer-level read
+  used to break *both* sources at once.
+- **`keys` applies to the running session.** `keys alphavantage <key>` mirrors the
+  value into `ALPHAVANTAGE_API_KEY`, which is what the services actually read
+  (`ConfigService` is `process.env`). The value is masked in the session log.
+- **Pair not carried.** A pair the source does not quote fails with a message
+  naming the pair and suggesting the inverse (e.g. `chart JPY USD` → try
+  `chart USD JPY`). Alpaca answers an unknown pair with an empty `rates` map
+  rather than an error, so this is the only way to tell the difference.
 
 ## Commands
 
@@ -41,6 +63,10 @@ Alpaca notes:
 
 - **source** `source [datatypeSource]`
   - Switch the data source: `alphavantage` or `alpaca`.
+
+Rates are printed at the precision their magnitude calls for — four decimals for a
+major (`EUR/USD` → `1.0854`), seven for a JPY cross (`JPY/USD` → `0.0063200`), which
+`toFixed(4)` would have shown as a bare `0.0065`.
 
 ## Architecture
 

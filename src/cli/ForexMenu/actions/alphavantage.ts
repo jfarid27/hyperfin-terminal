@@ -48,6 +48,28 @@ export const parsePair = (
 export const forexChartTitle = (pair: string, startDate: string, endDate: string): string =>
   `${pair} FX - ${startDate} to ${endDate}`;
 
+/** Widest rate precision shown — enough for a sub-0.001 rate like KRW/USD. */
+const MAX_RATE_DECIMALS = 8;
+
+/**
+ * Decimals needed to show roughly four significant digits of an FX rate.
+ *
+ * A fixed four decimals is wrong for a JPY cross: `JPY/USD` trades near 0.0065,
+ * where `toFixed(4)` renders 0.0065 and throws away most of the price. Majors
+ * (`EUR/USD` ≈ 1.0854, `USD/JPY` ≈ 152.34) keep the familiar four decimals.
+ */
+export const rateDecimals = (value: number): number => {
+  if (!Number.isFinite(value) || value === 0) return 4;
+  return Math.min(
+    MAX_RATE_DECIMALS,
+    Math.max(4, 4 - Math.floor(Math.log10(Math.abs(value)))),
+  );
+};
+
+/** Format an FX rate, defaulting to the precision its magnitude calls for. */
+export const formatRate = (value: number, decimals: number = rateDecimals(value)): string =>
+  Number.isFinite(value) ? value.toFixed(decimals) : "n/a";
+
 /**
  * Latest realtime exchange rate for a currency pair.
  *
@@ -81,9 +103,9 @@ export const forexSpotHandler = (fromStr?: string, toStr?: string) =>
         ["Pair", "Rate", "Bid", "Ask", "Refreshed"],
         [
           boldCell(`${quote.from}/${quote.to}`),
-          boldCell(quote.rate.toFixed(4)),
-          quote.bid.toFixed(4),
-          quote.ask.toFixed(4),
+          boldCell(formatRate(quote.rate)),
+          formatRate(quote.bid),
+          formatRate(quote.ask),
           `${quote.lastRefreshed} ${quote.timeZone}`,
         ],
       ],
@@ -163,8 +185,12 @@ export const forexChartHandler = (
     const changeColor = change >= 0 ? chalk.green : chalk.red;
 
     console.log(chalk.bold(`\n${pairLabel} — ${startDate} to ${endDate}`));
+    // Quote the delta at the price's own precision so the two read together.
+    const decimals = rateDecimals(latest.close);
     console.log(
-      `Latest: ${chalk.bold.white(latest.close.toFixed(4))}  ${direction} ${changeColor(`${change.toFixed(4)}`)}`,
+      `Latest: ${chalk.bold.white(formatRate(latest.close, decimals))}  ${direction} ${
+        changeColor(formatRate(change, decimals))
+      }`,
     );
     console.log(chalk.dim(`${points.length} data points · ${first.date} → ${latest.date}\n`));
 

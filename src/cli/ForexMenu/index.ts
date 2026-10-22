@@ -18,6 +18,7 @@ import { DataSourceType } from "src/cli/types.ts";
 import { ForexDataSourceTypeSchema, type ForexDataSourceType } from "../../services/ForexService/types.ts";
 import { ForexServiceMenuLive } from "./services/index.ts";
 import { catchAlpaca } from "../utils/alpaca_errors.ts";
+import { catchProgramError } from "../utils/command_errors.ts";
 import chalk from "chalk";
 
 const datasourceTypeLens = lensPath(["loadedContext", "forex", "datasource"]);
@@ -36,7 +37,7 @@ const spotHandler = (fromStr?: string, toStr?: string) =>
       return yield* catchAlpaca(alpacaForexSpotHandler(fromStr, toStr), "Alpaca forex spot request failed.");
     }
 
-    return yield* forexSpotHandler(fromStr, toStr);
+    return yield* catchProgramError(forexSpotHandler(fromStr, toStr), "AlphaVantage forex spot request failed.");
   }).pipe(Effect.provide(ForexServiceMenuLive));
 
 /** Daily FX chart for a currency pair over an optional date range. */
@@ -55,7 +56,7 @@ const chartHandler = (
       return yield* catchAlpaca(alpacaForexChartHandler(fromStr, toStr, dateFrom, dateTo), "Alpaca forex chart request failed.");
     }
 
-    return yield* forexChartHandler(fromStr, toStr, dateFrom, dateTo);
+    return yield* catchProgramError(forexChartHandler(fromStr, toStr, dateFrom, dateTo), "AlphaVantage forex chart request failed.");
   }).pipe(Effect.provide(ForexServiceMenuLive));
 
 /** Switch the source of forex data. */
