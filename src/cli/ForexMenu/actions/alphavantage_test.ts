@@ -1,7 +1,14 @@
 import { describe, it } from "jsr:@std/testing/bdd";
 import { expect } from "jsr:@std/expect";
 import { Effect, Layer } from "effect";
-import { forexChartHandler, forexChartTitle, forexSpotHandler, parsePair } from "./alphavantage.ts";
+import {
+  forexChartHandler,
+  forexChartTitle,
+  forexSpotHandler,
+  formatRate,
+  parsePair,
+  rateDecimals,
+} from "./alphavantage.ts";
 import {
   ForexService,
   type ForexServicePort,
@@ -314,5 +321,43 @@ describe("forexChartTitle", () => {
   it("labels the pair and the inclusive date range", () => {
     expect(forexChartTitle("EUR/USD", "2025-10-07", "2026-10-07"))
       .toBe("EUR/USD FX - 2025-10-07 to 2026-10-07");
+  });
+});
+
+describe("formatRate", () => {
+  it("keeps four decimals for majors", () => {
+    expect(formatRate(1.0854)).toBe("1.0854");
+    expect(formatRate(152.3412)).toBe("152.3412");
+  });
+
+  it("adds decimals for a JPY cross so the price keeps its digits", () => {
+    // JPY/USD trades near 0.0065 — four decimals would show 0.0065 and drop the
+    // rest of the quote.
+    expect(formatRate(0.0065123)).toBe("0.0065123");
+    // Sub-0.001 rates (KRW, IDR) get two more digits still.
+    expect(formatRate(-0.0003123)).toBe("-0.00031230");
+  });
+
+  it("falls back to four decimals for zero", () => {
+    expect(formatRate(0)).toBe("0.0000");
+  });
+
+  it("quotes a delta at the price's own precision", () => {
+    // The chart prints the change beside the latest close, so both must share a
+    // precision — otherwise 0.0063200 sits next to -0.00026000.
+    const decimals = rateDecimals(0.00632);
+    expect(decimals).toBe(7);
+    expect(formatRate(-0.00026, decimals)).toBe("-0.0002600");
+  });
+});
+
+describe("parsePair", () => {
+  it("accepts a JPY cross in either direction", () => {
+    expect(parsePair("JPY", "USD")).toEqual({ from: "JPY", to: "USD" });
+    expect(parsePair("usd", "jpy")).toEqual({ from: "USD", to: "JPY" });
+  });
+
+  it("rejects a concatenated pair", () => {
+    expect(parsePair("JPYUSD", undefined)).toBe(null);
   });
 });

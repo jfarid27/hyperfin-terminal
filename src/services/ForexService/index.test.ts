@@ -1,14 +1,18 @@
 import { describe, it } from "jsr:@std/testing/bdd";
 import { expect } from "jsr:@std/expect";
-import { Either, Schema } from "effect";
+import { Cause, Effect, Either, Exit, Schema } from "effect";
 import {
   filterPointsByRange,
   ForexQuoteRaw,
+  ForexService,
+  ForexServiceLive,
   FxDailyRaw,
   resolveDateRange,
   toForexChartPoints,
   toForexQuote,
 } from "./index.ts";
+import { ConfigError } from "src/cli/errors/index.ts";
+import { DataSourceType } from "src/cli/types.ts";
 
 // ── Real API response fixtures (from curl against EUR/USD, 2026-10-07) ──
 
@@ -201,5 +205,55 @@ describe("filterPointsByRange", () => {
     const range = resolveDateRange("2026-10-06", "2026-10-06", NOW)!;
     const kept = filterPointsByRange(parsed, range);
     expect(kept.map((p) => p.date)).toEqual(["2026-10-06"]);
+  });
+});
+
+// ── Live layer: credentials are demanded per request, not at build ──
+
+/**
+ * Run `fn` with the given environment variables removed, restoring them after.
+ * `.env` is loaded at import time on a developer machine, so the test has to
+ * clear the key itself rather than rely on it being absent.
+ */
+const withoutEnv = async <A>(names: string[], fn: () => Promise<A>): Promise<A> => {
+  const saved = names.map((name) => [name, Deno.env.get(name)] as const);
+  for (const name of names) Deno.env.delete(name);
+  try {
+    return await fn();
+  } finally {
+    for (const [name, value] of saved) {
+      if (value !== undefined) Deno.env.set(name, value);
+    }
+  }
+};
+
+const failureMessages = (exit: Exit.Exit<unknown, unknown>): string =>
+  Exit.isFailure(exit)
+    ? Array.from(Cause.failures(exit.cause))
+      .map((e) => (e instanceof Error ? e.message : String(e)))
+      .join("; ")
+    : "";
+
+describe("ForexServiceLive credentials", () => {
+  it("builds without an AlphaVantage key", async () => {
+    // The regression: the key was read when the layer was built, and the menu
+    // merges this layer with the Alpaca one — so a missing AlphaVantage key made
+    // every forex command fail, including the Alpaca ones.
+    const built = await withoutEnv(["ALPHAVANTAGE_API_KEY"], () =>
+      Effect.runPromise(ForexService.pipe(Effect.provide(ForexServiceLive), Effect.as("built"))),
+    );
+    expect(built).toBe("built");
+  });
+
+  it("fails the request that needs the key, naming the variable", async () => {
+    const exit = await withoutEnv(["ALPHAVANTAGE_API_KEY"], async () => {
+      const service = await Effect.runPromise(ForexService.pipe(Effect.provide(ForexServiceLive)));
+      return Effect.runPromiseExit(
+        service.getDaily({ from: "JPY", to: "USD", _type: DataSourceType.AlphaVantage }),
+      );
+    });
+
+    expect(Exit.isFailure(exit)).toBe(true);
+    expect(failureMessages(exit)).toContain("Missing Alphavantage API Key");
   });
 });

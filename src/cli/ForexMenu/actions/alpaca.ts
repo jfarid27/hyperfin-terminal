@@ -6,7 +6,7 @@ import { filterPointsByRange, resolveDateRange } from "src/services/ForexService
 import { CommandResultType, DataSourceType, TerminalUserStateConfigContext } from "../../types.ts";
 import type { TerminalUserStateConfig } from "../../types.ts";
 import { ChartRenderer } from "../../StocksMenu/services/ChartRenderer.ts";
-import { forexChartTitle, parsePair } from "./alphavantage.ts";
+import { forexChartTitle, formatRate, parsePair, rateDecimals } from "./alphavantage.ts";
 import { boldCell } from "../../utils/table_markup.ts";
 import { table } from "../../utils/table.ts";
 
@@ -49,9 +49,9 @@ export const forexSpotHandler = (fromStr?: string, toStr?: string) =>
         ["Pair", "Rate", "Bid", "Ask", "Refreshed"],
         [
           boldCell(`${quote.from}/${quote.to}`),
-          boldCell(quote.rate.toFixed(4)),
-          quote.bid.toFixed(4),
-          quote.ask.toFixed(4),
+          boldCell(formatRate(quote.rate)),
+          formatRate(quote.bid),
+          formatRate(quote.ask),
           `${quote.lastRefreshed} ${quote.timeZone}`,
         ],
       ],
@@ -129,8 +129,12 @@ export const forexChartHandler = (
     const changeColor = change >= 0 ? chalk.green : chalk.red;
 
     console.log(chalk.bold(`\n${pairLabel} — ${startDate} to ${endDate} (Alpaca)`));
+    // Quote the delta at the price's own precision so the two read together.
+    const decimals = rateDecimals(latest.close);
     console.log(
-      `Latest: ${chalk.bold.white(latest.close.toFixed(4))}  ${direction} ${changeColor(`${change.toFixed(4)}`)}`,
+      `Latest: ${chalk.bold.white(formatRate(latest.close, decimals))}  ${direction} ${
+        changeColor(formatRate(change, decimals))
+      }`,
     );
     console.log(chalk.dim(`${points.length} data points · ${first.date} → ${latest.date}\n`));
 

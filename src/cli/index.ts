@@ -17,8 +17,10 @@ import { executeScript } from "./utils/scripts.ts";
 import {
   type Menu, type MenuOption, type ScriptContext, type TerminalUserStateConfig,
   CommandResultType, EnvironmentType, TerminalUserStateConfigContext, DataSourceType,
+  APIKeyType,
   logLevelFromEnv,
 } from "./types.ts";
+import { API_KEY_ENV_VAR } from "./services/ConfigService.ts";
 import { registerTerminalApplication } from "./utils/program_loader.ts";
 import { preparePackages, reportPackages } from "./packages/index.ts";
 import { packageMenuOptions } from "./packages/menu.ts";
@@ -125,7 +127,16 @@ const builtinMenuOptions = (state: TerminalUserStateConfig): MenuOption[] => ([
                 };
             }
             const newState = set(keyLens, value, st);
+            // Data services read credentials from `ConfigService` (i.e.
+            // `process.env`), not from `st.apiKeys`, so mirror the value into
+            // the environment or this command sets state nothing reads.
+            const envNames = API_KEY_ENV_VAR[keyType as APIKeyType] ?? [];
+            for (const envName of envNames) process.env[envName] = value;
+            const applied = envNames.length > 0
+              ? chalk.dim(`  (applied to ${envNames.join(", ")} in this session)`)
+              : chalk.dim(`  (no environment variable backs "${keyType}")`);
             console.log(chalk.green(`API Key for ${keyType} set to ${value}`));
+            console.log(applied);
             return {
                 result: { type: CommandResultType.Success },
                 state: newState,

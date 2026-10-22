@@ -177,14 +177,21 @@ export class ForexService extends Context.Tag("hyperfin.forex.services.ForexServ
 
 // ── API key helper ──
 
-const getAVAPIKey = Effect.gen(function* () {
-  const config = yield* ConfigService;
-  const apiKeyO = config.ALPHAVANTAGE_API_KEY;
-  if (Option.isNone(apiKeyO)) {
-    return yield* new ConfigError({ message: "Missing Alphavantage API Key." });
-  }
-  return apiKeyO.value;
-});
+/**
+ * The AlphaVantage key as an effect, failing only when it is actually needed.
+ *
+ * Reading the key at layer-construction time made a missing `ALPHAVANTAGE_API_KEY`
+ * fail the whole `ForexServiceMenuLive` layer — which the menu merges with the
+ * Alpaca layer, so *no* forex command ran on *either* source. Configuration is
+ * read here (it always succeeds); the key is demanded per request instead.
+ */
+const requireAVAPIKey = (
+  config: Context.Tag.Service<ConfigService>,
+): Effect.Effect<string, ConfigError> =>
+  Option.match(config.ALPHAVANTAGE_API_KEY, {
+    onNone: () => Effect.fail(new ConfigError({ message: "Missing Alphavantage API Key." })),
+    onSome: (value) => Effect.succeed(value),
+  });
 
 /** A throttled/notice response carries a message but no payload. */
 const noticeError = (
@@ -204,11 +211,16 @@ export const ForexServiceLive = Layer.effect(
   ForexService,
   Effect.gen(function* () {
     const fs = yield* FetchService;
-    const apiKey = yield* getAVAPIKey;
+    const config = yield* ConfigService;
 
     return {
       getSpot: (pair: ForexPairType) =>
         Effect.gen(function* () {
+          // Credentials are demanded per request, not when the layer is built:
+          // a missing ALPHAVANTAGE_API_KEY must fail this one command with an
+          // actionable message rather than prevent the layer from building
+          // (which broke every source in the menu, Alpaca included).
+          const apiKey = yield* requireAVAPIKey(config);
           const params = new URLSearchParams({
             function: "CURRENCY_EXCHANGE_RATE",
             from_currency: pair.from,
@@ -229,7 +241,9 @@ export const ForexServiceLive = Layer.effect(
             const notice = noticeError(validated, "forex quote");
             return yield* notice ??
               new HTTPError({
-                message: `AlphaVantage returned no exchange rate for ${pair.from}/${pair.to}`,
+                message:
+                  `AlphaVantage returned no exchange rate for ${pair.from}/${pair.to}. ` +
+                  `Not every pair is carried in both directions — try the inverse (${pair.to} ${pair.from}).`,
               });
           }
 
@@ -238,6 +252,7 @@ export const ForexServiceLive = Layer.effect(
 
       getDaily: (pair: ForexPairType) =>
         Effect.gen(function* () {
+          const apiKey = yield* requireAVAPIKey(config);
           const params = new URLSearchParams({
             function: "FX_DAILY",
             from_symbol: pair.from,
@@ -260,7 +275,9 @@ export const ForexServiceLive = Layer.effect(
             const notice = noticeError(validated, "forex chart");
             return yield* notice ??
               new HTTPError({
-                message: `AlphaVantage returned no daily FX data for ${pair.from}/${pair.to}`,
+                message:
+                  `AlphaVantage returned no daily FX data for ${pair.from}/${pair.to}. ` +
+                  `Not every pair is carried in both directions — try the inverse (${pair.to} ${pair.from}).`,
               });
           }
 

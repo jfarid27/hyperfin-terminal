@@ -316,17 +316,27 @@ interface AlpacaCredentials {
   readonly secret: string;
 }
 
-const getAlpacaCredentials = Effect.gen(function* () {
-  const config = yield* ConfigService;
-  const key = config.ALPACA_API_KEY;
-  const secret = config.ALPACA_API_SECRET;
-  if (Option.isNone(key) || Option.isNone(secret)) {
-    return yield* new ConfigError({
-      message: "Missing Alpaca credentials (set ALPACA_API_KEY and ALPACA_API_SECRET).",
-    });
-  }
-  return { key: key.value, secret: secret.value } satisfies AlpacaCredentials;
-});
+/**
+ * Resolve the key/secret pair from an already-built config.
+ *
+ * Called per request rather than when the layer is built: `AlpacaServiceLive`
+ * and `ForexServiceLive` are merged into one menu layer, so a build-time read
+ * meant a missing Alpaca key pair (or a missing AlphaVantage key) took down every
+ * command in that menu, including the ones on the *other* source.
+ */
+const requireAlpacaCredentials = (
+  config: Context.Tag.Service<ConfigService>,
+): Effect.Effect<AlpacaCredentials, ConfigError> =>
+  Effect.gen(function* () {
+    const key = config.ALPACA_API_KEY;
+    const secret = config.ALPACA_API_SECRET;
+    if (Option.isNone(key) || Option.isNone(secret)) {
+      return yield* new ConfigError({
+        message: "Missing Alpaca credentials (set ALPACA_API_KEY and ALPACA_API_SECRET).",
+      });
+    }
+    return { key: key.value, secret: secret.value } satisfies AlpacaCredentials;
+  });
 
 const authHeaders = (creds: AlpacaCredentials): HeadersInit => ({
   "APCA-API-KEY-ID": creds.key,
@@ -432,17 +442,35 @@ const trailingYearStartIso = (now: Date = new Date()): string => {
 
 const todayIso = (now: Date = new Date()): string => now.toISOString().slice(0, 10);
 
+/**
+ * Message for a currency pair the API did not return.
+ *
+ * Alpaca answers a pair it does not carry with an empty `rates` map rather than
+ * an error, so the failure has to name the pair and point at the inverse — for
+ * FX the opposite direction is frequently the one that is quoted.
+ */
+const noPairMessage = (what: string, symbol: string): string => {
+  const [from, to] = symbol.split("/");
+  return `Alpaca returned no ${what} for ${symbol} — it may not carry that direction. Try the inverse pair (${to} ${from}).`;
+};
+
 // ── Live implementation ──
 
 export const AlpacaServiceLive = Layer.effect(
   AlpacaService,
   Effect.gen(function* () {
     const fs = yield* FetchService;
-    const creds = yield* getAlpacaCredentials;
+    const config = yield* ConfigService;
 
+    // Credentials are resolved per request, not when the layer is built. A
+    // missing key pair must fail the command that needs Alpaca, not prevent the
+    // layer from building — the Forex menu merges this layer with the
+    // AlphaVantage one, so a build-time read made each source's missing key take
+    // down both sources.
     return {
       getStockSpot: (symbol: StockSymbolType) =>
         Effect.gen(function* () {
+          const creds = yield* requireAlpacaCredentials(config);
           const ticker = symbol.id.toUpperCase();
           const params = new URLSearchParams({ feed: "iex" });
           const raw = yield* alpacaGet(fs, creds, `/v2/stocks/${ticker}/snapshot`, params);
@@ -452,6 +480,7 @@ export const AlpacaServiceLive = Layer.effect(
 
       getStockChart: (symbol: StockSymbolType) =>
         Effect.gen(function* () {
+          const creds = yield* requireAlpacaCredentials(config);
           const ticker = symbol.id.toUpperCase();
           const bars: Schema.Schema.Type<typeof BarRaw>[] = [];
           yield* forEachPage((pageToken) =>
@@ -477,6 +506,7 @@ export const AlpacaServiceLive = Layer.effect(
 
       getOptionExpirations: (underlying: string) =>
         Effect.gen(function* () {
+          const creds = yield* requireAlpacaCredentials(config);
           const ticker = underlying.toUpperCase();
           const expirations = new Set<number>();
           yield* forEachPage((pageToken) =>
@@ -497,6 +527,7 @@ export const AlpacaServiceLive = Layer.effect(
 
       getOptionChain: (symbol: OptionSymbolType, expiration: number) =>
         Effect.gen(function* () {
+          const creds = yield* requireAlpacaCredentials(config);
           const ticker = symbol.id.toUpperCase();
           const expirationDate = new Date(expiration * 1000).toISOString().slice(0, 10);
 
@@ -531,21 +562,26 @@ export const AlpacaServiceLive = Layer.effect(
 
       getForexSpot: (pair: ForexPairType) =>
         Effect.gen(function* () {
+          const creds = yield* requireAlpacaCredentials(config);
           const symbol = `${pair.from}/${pair.to}`;
           const params = new URLSearchParams({ currency_pairs: symbol });
           const raw = yield* alpacaGet(fs, creds, "/v1beta1/forex/latest/rates", params);
           const validated = yield* decode(ForexLatestRatesRaw, raw, "forex rates");
-          const rate = validated.rates[symbol] ?? Object.values(validated.rates)[0];
+          // Exact key only: falling back to "whatever pair came back" would
+          // quote a different instrument than the one that was asked for.
+          const rate = validated.rates[symbol];
           if (!rate) {
-            return yield* new HTTPError({ message: `No Alpaca forex rate returned for ${symbol}.` });
+            return yield* new HTTPError({ message: noPairMessage("rate", symbol) });
           }
           return toForexQuote(pair, rate);
         }),
 
       getForexDaily: (pair: ForexPairType) =>
         Effect.gen(function* () {
+          const creds = yield* requireAlpacaCredentials(config);
           const symbol = `${pair.from}/${pair.to}`;
           const points: Schema.Schema.Type<typeof ForexRateRaw>[] = [];
+          let seenPair = false;
           yield* forEachPage((pageToken) =>
             Effect.gen(function* () {
               const params = new URLSearchParams({
@@ -557,16 +593,23 @@ export const AlpacaServiceLive = Layer.effect(
               if (pageToken) params.set("page_token", pageToken);
               const raw = yield* alpacaGet(fs, creds, "/v1beta1/forex/rates", params);
               const validated = yield* decode(ForexHistoricalRatesRaw, raw, "forex history");
-              const series = validated.rates[symbol] ?? Object.values(validated.rates)[0] ?? [];
-              points.push(...series);
+              const series = validated.rates[symbol];
+              if (series) {
+                seenPair = true;
+                points.push(...series);
+              }
               return validated.next_page_token;
             }),
           );
+          if (!seenPair) {
+            return yield* new HTTPError({ message: noPairMessage("daily rate", symbol) });
+          }
           return toForexChartPoints(points);
         }),
 
       getFixedIncomeLatestPrices: (isins: readonly string[]) =>
         Effect.gen(function* () {
+          const creds = yield* requireAlpacaCredentials(config);
           if (isins.length === 0) return [];
           const params = new URLSearchParams({ isins: isins.join(",") });
           const raw = yield* alpacaGet(fs, creds, "/v1beta1/fixed_income/latest/prices", params);

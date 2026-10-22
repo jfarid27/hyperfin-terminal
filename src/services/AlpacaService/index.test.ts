@@ -1,7 +1,9 @@
 import { describe, it } from "jsr:@std/testing/bdd";
 import { expect } from "jsr:@std/expect";
-import { Either, Schema } from "effect";
+import { Cause, Effect, Either, Exit, Schema } from "effect";
 import {
+  AlpacaService,
+  AlpacaServiceLive,
   FixedIncomePricesRaw,
   ForexHistoricalRatesRaw,
   ForexLatestRatesRaw,
@@ -228,5 +230,51 @@ describe("toFixedIncomeQuotes", () => {
     expect(quotes[0].isin).toBe("US912797KJ59");
     expect(quotes[0].price).toBe(99.6459);
     expect(quotes[0].yieldToMaturity).toBe(4.249);
+  });
+});
+
+// ── Live layer: credentials are demanded per request, not at build ──
+
+/** Run `fn` with the given environment variables removed, restoring them after. */
+const withoutEnv = async <A>(names: string[], fn: () => Promise<A>): Promise<A> => {
+  const saved = names.map((name) => [name, Deno.env.get(name)] as const);
+  for (const name of names) Deno.env.delete(name);
+  try {
+    return await fn();
+  } finally {
+    for (const [name, value] of saved) {
+      if (value !== undefined) Deno.env.set(name, value);
+    }
+  }
+};
+
+const failureMessages = (exit: Exit.Exit<unknown, unknown>): string =>
+  Exit.isFailure(exit)
+    ? Array.from(Cause.failures(exit.cause))
+      .map((e) => (e instanceof Error ? e.message : String(e)))
+      .join("; ")
+    : "";
+
+describe("AlpacaServiceLive credentials", () => {
+  it("builds without a key pair", async () => {
+    // The Forex menu merges this layer with the AlphaVantage one, and the
+    // credentials used to be read when the layer was built — so a missing Alpaca
+    // key pair took down the AlphaVantage source too.
+    const built = await withoutEnv(["ALPACA_API_KEY", "ALPACA_API_SECRET"], () =>
+      Effect.runPromise(AlpacaService.pipe(Effect.provide(AlpacaServiceLive), Effect.as("built"))),
+    );
+    expect(built).toBe("built");
+  });
+
+  it("fails the request that needs the keys, naming them", async () => {
+    const exit = await withoutEnv(["ALPACA_API_KEY", "ALPACA_API_SECRET"], async () => {
+      const service = await Effect.runPromise(AlpacaService.pipe(Effect.provide(AlpacaServiceLive)));
+      return Effect.runPromiseExit(
+        service.getForexDaily({ from: "JPY", to: "USD", _type: 0 as never }),
+      );
+    });
+
+    expect(Exit.isFailure(exit)).toBe(true);
+    expect(failureMessages(exit)).toContain("Missing Alpaca credentials");
   });
 });
